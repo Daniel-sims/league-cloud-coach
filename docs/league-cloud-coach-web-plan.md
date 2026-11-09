@@ -1,6 +1,6 @@
 # League Cloud Coach: web MVP plan
 
-Updated 9 November 2026. Decision: use unlisted YouTube videos for the first release, replacing the proposed Cloudflare Stream integration. Planning only; application code and cloud resources have not been changed.
+Updated 9 November 2026. Decision: use unlisted YouTube videos for the first release, replacing the proposed Cloudflare Stream integration. The web app is implemented under `web/` and published as source in [Daniel-sims/league-cloud-coach](https://github.com/Daniel-sims/league-cloud-coach). The schema is applied to Supabase project `qxzjulhpgcnwkihnfdqu` (PostgreSQL 17); the frontend build and auth redirects are connected. Google provider credentials and the owner's first sign-in remain required to finish live account setup. The sections below retain the implementation scope and design decisions.
 
 ## Outcome and scope
 
