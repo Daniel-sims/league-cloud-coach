@@ -83,7 +83,7 @@ The repository includes [the workflow](../.github/workflows/cloud-coach-web.yml)
    | `VITE_BASE_PATH`                | Optional; defaults to `/REPOSITORY_NAME/`. Set `/` for an account Pages repository or custom domain. |
 
 4. Ensure the production base URL is present in Supabase's redirect allowlist (step 2).
-5. Push to `main` or `master`, or run the Cloud Coach web workflow manually. A pull request runs checks without deployment. The deploy job rejects missing configuration and secret keys rather than publishing a disconnected app.
+5. Push to `main` or `master`, or run the Cloud Coach web workflow manually. A pull request runs checks without deployment. Deployment stays skipped until both Supabase variables are present. The deploy job rejects invalid configuration and secret keys rather than publishing a disconnected app.
 
 For a separate web-only repository, copy the directory structure unchanged, include the root `.gitignore`, and retain the workflow paths. Do not include `.env.local`, local app data, or recordings.
 
