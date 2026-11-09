@@ -33,7 +33,7 @@ import { UploadDialog } from './components/UploadDialog'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
-import type { LibraryRepository, Recording, WatchVideo } from './lib/types'
+import type { LibraryRepository, Recording, WatchVideo, UploadSync } from './lib/types'
 
 const isDev = import.meta.env.DEV
 function useRoute() {
@@ -521,27 +521,54 @@ function Library({
     action: 'share' | 'rename' | 'remove'
   } | null>(null)
   const [notice, setNotice] = useState('')
+  const [uploads, setUploads] = useState<UploadSync['pending']>([])
+  const [uploadError, setUploadError] = useState('')
   async function refresh() {
+    if (repository.syncUploads) {
+      try {
+        const result = await repository.syncUploads()
+        setUploads(result?.pending || [])
+        setUploadError('')
+      } catch {
+        setUploadError('Could not refresh uploads. Your saved library is still available.')
+      }
+    }
     const next = await repository.list()
     setRecords(next)
   }
   useEffect(() => {
     let active = true
-    repository
-      .list()
-      .then((next) => {
+    async function open() {
+      try {
+        if (repository.syncUploads) {
+          try {
+            const result = await repository.syncUploads()
+            if (active) setUploads(result?.pending || [])
+          } catch {
+            if (active)
+              setUploadError('Could not refresh uploads. Your saved library is still available.')
+          }
+        }
+        const next = await repository.list()
         if (active) setRecords(next)
-      })
-      .catch((e: Error) => {
-        if (active) setError(e.message)
-      })
-      .finally(() => {
+      } catch (e) {
+        if (active) setError((e as Error).message)
+      } finally {
         if (active) setLoading(false)
-      })
+      }
+    }
+    void open()
     return () => {
       active = false
     }
   }, [repository])
+  useEffect(() => {
+    if (!uploads.some((upload) => upload.state !== 'error')) return
+    const timer = window.setInterval(() => {
+      void refresh().catch((e: Error) => setError(e.message))
+    }, 15000)
+    return () => window.clearInterval(timer)
+  }, [repository, uploads.length, uploads.some((upload) => upload.state !== 'error')])
   async function changed(message: string) {
     setModal(null)
     setSelected(null)
@@ -598,6 +625,31 @@ function Library({
           YouTube Studio <ExternalLink size={13} />
         </a>
       </div>
+      {(uploadError || uploads.length > 0) && (
+        <div className="notice" role="status">
+          <div>
+            {uploadError ||
+              uploads.map((upload) => (
+                <p key={upload.videoId}>
+                  <strong>{upload.title}</strong>:{' '}
+                  {upload.state === 'processing'
+                    ? 'Processing your video. It will appear here automatically.'
+                    : upload.state === 'uploading'
+                      ? 'Upload awaiting completion. Open Upload video to resume.'
+                      : upload.message || 'Upload needs attention.'}
+                </p>
+              ))}
+          </div>
+          <button
+            className="text-link"
+            onClick={() => {
+              void refresh().catch((e: Error) => setError(e.message))
+            }}
+          >
+            Refresh uploads
+          </button>
+        </div>
+      )}
       {error && (
         <div className="notice error" role="alert">
           {error}
@@ -752,8 +804,20 @@ function Library({
       {modal === 'upload' && ownerId && (
         <UploadDialog
           ownerId={ownerId}
-          onClose={() => setModal(null)}
-          onSaved={() => changed('Video uploaded and added to your library.')}
+          onClose={() => {
+            setModal(null)
+            void refresh().catch((e: Error) => setError(e.message))
+          }}
+          onSaved={async () => {
+            setTab('all')
+            setQuery('')
+            setNotice('Video uploaded and added to your library.')
+            try {
+              await refresh()
+            } catch (e) {
+              setError((e as Error).message)
+            }
+          }}
         />
       )}
       {modal === 'add' && (

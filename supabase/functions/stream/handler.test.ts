@@ -268,3 +268,37 @@ it('rejects another owner’s upload and auto-imports only verified ready media'
     p_recorded_on: null,
   })
 })
+
+it('confirms the saved recording when background recovery wins a concurrent import', async () => {
+  provider.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        success: true,
+        result: {
+          uid: id,
+          creator: 'owner-id',
+          meta: { appupload: 'true', name: 'Game' },
+          requireSignedURLs: true,
+          readyToStream: true,
+        },
+      }),
+    ),
+  )
+  rpc.mockImplementation(async (name) =>
+    name === 'list_stream_imports'
+      ? { data: [], error: null }
+      : { data: null, error: { code: '23505' } },
+  )
+  ownerRpc.mockImplementation(async (name) => ({
+    data: name === 'is_library_owner' ? true : [{ id: 'saved-id', stream_video_id: id }],
+    error: null,
+  }))
+  const response = await request({ action: 'upload-status', videoId: id }, 'valid-jwt')
+  expect(await response.json()).toEqual({ state: 'ready', recordingId: 'saved-id' })
+})
+it('requires a verified enabled owner before listing uploads for reconciliation', async () => {
+  expect((await request({ action: 'upload-sync' })).status).toBe(401)
+  ownerRpc.mockResolvedValue({ data: false, error: null })
+  expect((await request({ action: 'upload-sync' }, 'valid-jwt')).status).toBe(403)
+  expect(provider).not.toHaveBeenCalled()
+})

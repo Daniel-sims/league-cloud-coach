@@ -61,6 +61,7 @@ jobs:
           for migration in ../supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$migration"; done
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/security.sql
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/stream-security.sql
+          psql -v ON_ERROR_STOP=1 -f ../supabase/tests/import-recovery.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.VITE_SUPABASE_URL != '' && vars.VITE_SUPABASE_PUBLISHABLE_KEY != ''

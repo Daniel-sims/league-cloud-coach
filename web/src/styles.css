@@ -2108,3 +2108,6 @@ strong {
 .upload-progress { margin: 20px 0; }
 .upload-progress progress { width: 100%; accent-color: var(--gold, #88703e); }
 .upload-recovery { margin-top: 20px; }
+.upload-success { padding: 24px 0 8px; }
+.upload-success > div[role='status'] { text-align: center; }
+.upload-success svg { color: var(--gold, #88703e); }

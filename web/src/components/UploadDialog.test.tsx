@@ -63,12 +63,18 @@ it('uploads directly to the issued destination and waits for processing before a
       },
     })
   })
-  await screen.findByText(/Cloudflare is processing/)
+  await screen.findByText(/Preparing your recording/)
   expect(saved).not.toHaveBeenCalled()
-  vi.mocked(streamRequest).mockResolvedValue({ state: 'ready' })
+  vi.mocked(streamRequest).mockResolvedValue({ state: 'ready', recordingId: 'saved-recording' })
   await user.click(screen.getByRole('button', { name: 'Check processing' }))
   await waitFor(() => expect(saved).toHaveBeenCalledOnce())
   expect(loadPendingUpload(owner)).toBeNull()
+  expect(screen.getByRole('heading', { name: 'Video added to your library' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Watch video' })).toHaveAttribute(
+    'href',
+    '#/video/saved-recording',
+  )
+  expect(screen.getByRole('button', { name: 'Back to library' })).toBeInTheDocument()
 })
 it('pauses on close and resumes the same destination after reopening without reserving another video', async () => {
   const user = userEvent.setup()

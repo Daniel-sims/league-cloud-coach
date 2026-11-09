@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Upload, DetailedError } from 'tus-js-client'
 import { Dialog } from './Dialog'
+import { CheckCircle2 } from 'lucide-react'
 import {
   checkUpload,
   loadPendingUpload,
@@ -18,9 +19,10 @@ export function UploadDialog({
 }: {
   ownerId: string
   onClose(): void
-  onSaved(): void
+  onSaved(): void | Promise<void>
 }) {
   const [pending, setPending] = useState<PendingUpload | null>(() => loadPendingUpload(ownerId))
+  const [success, setSuccess] = useState<{ recordingId?: string } | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
@@ -52,7 +54,13 @@ export function UploadDialog({
         if (disposed) return
         if (result.state === 'ready') {
           savePendingUpload(ownerId, null)
-          onSavedRef.current()
+          await onSavedRef.current()
+          if (!disposed) {
+            setSuccess({ recordingId: result.recordingId })
+            setPending(null)
+            setError('')
+            setRunning(false)
+          }
           return
         }
         if (result.state === 'error') {
@@ -152,18 +160,42 @@ export function UploadDialog({
     if (!preparing) onClose()
   }
   return (
-    <Dialog title="Upload video to Cloudflare" onClose={close} wide>
-      <p className="dialog-intro">
-        Choose a recording from your computer. It uploads privately to Cloudflare and appears in
-        your library when processing finishes.
-      </p>
-      {pending?.stage === 'processing' ? (
+    <Dialog
+      title={success ? 'Upload successful' : 'Upload video to Cloudflare'}
+      onClose={close}
+      wide
+    >
+      {!success && (
+        <p className="dialog-intro">
+          Choose a recording from your computer. It uploads privately to Cloudflare and appears in
+          your library when processing finishes.
+        </p>
+      )}
+      {success ? (
+        <div className="upload-success">
+          <div role="status">
+            <CheckCircle2 size={36} aria-hidden="true" />
+            <h3>Video added to your library</h3>
+            <p>Your recording is saved to your account and ready to watch or share.</p>
+          </div>
+          <div className="form-footer">
+            {success.recordingId && (
+              <a className="button" href={`#/video/${success.recordingId}`} onClick={onClose}>
+                Watch video
+              </a>
+            )}
+            <button type="button" className="button secondary" onClick={close}>
+              Back to library
+            </button>
+          </div>
+        </div>
+      ) : pending?.stage === 'processing' ? (
         <>
           <h3>{pending.title}</h3>
-          <p role="status">Upload complete. Cloudflare is processing your video…</p>
+          <p role="status">File uploaded. Preparing your recording…</p>
           <p className="field-hint">
-            You can close this window and check again with Upload video. Your recording will be
-            added when it is ready.
+            You can close this window. Your library will keep checking and add the video when it is
+            ready.
           </p>
           <button
             className="button secondary"
@@ -272,7 +304,7 @@ export function UploadDialog({
           </div>
         </form>
       )}
-      {pending && !running && !preparing && (
+      {!success && pending && !running && !preparing && (
         <div className="upload-recovery">
           <p className="field-hint">
             Cloudflare video ID: <code>{pending.videoId}</code>
@@ -301,14 +333,18 @@ export function UploadDialog({
           {error}
         </div>
       )}
-      <p className="share-fineprint">
-        Keep this tab open while uploading. Closing pauses the transfer; select the same file to
-        resume in this browser. Cloudflare storage and delivery charges apply. Closing this window
-        does not delete uploaded media.
-      </p>
-      <button type="button" className="text-link" disabled={preparing} onClick={close}>
-        {running ? 'Pause and close' : 'Close'}
-      </button>
+      {!success && (
+        <p className="share-fineprint">
+          Keep this tab open while uploading. Closing pauses the transfer; select the same file to
+          resume in this browser. Cloudflare storage and delivery charges apply. Closing this window
+          does not delete uploaded media.
+        </p>
+      )}
+      {!success && (
+        <button type="button" className="text-link" disabled={preparing} onClick={close}>
+          {running ? 'Pause and close' : 'Close'}
+        </button>
+      )}
     </Dialog>
   )
 }

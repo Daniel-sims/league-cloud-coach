@@ -35,6 +35,7 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
     const name = new URL(route.request().url()).pathname.split('/').at(-1)
     const args = route.request().postDataJSON() || {}
     let result: unknown = null
+    if (name === 'stream' && args.action === 'upload-sync') result = { imported: 0, pending: [] }
     if (name === 'stream' && args.action === 'upload-create') {
       state.uploadState = 'uploading'
       result = {
@@ -54,7 +55,10 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
           created_at: new Date().toISOString(),
           has_share: false,
         })
-      result = { state: state.uploadState || 'uploading' }
+      result = {
+        state: state.uploadState || 'uploading',
+        ...(state.uploadState === 'ready' ? { recordingId } : {}),
+      }
     }
     if (name === 'stream' && args.action === 'add') {
       state.rows.unshift({
@@ -269,9 +273,7 @@ test('owner uploads directly to Cloudflare and the library waits for processing'
   })
   await page.getByLabel('Title', { exact: true }).fill('Uploaded review')
   await page.getByRole('button', { name: 'Upload to Cloudflare', exact: true }).click()
-  await expect(
-    page.getByText('Upload complete. Cloudflare is processing your video…'),
-  ).toBeVisible()
+  await expect(page.getByText('File uploaded. Preparing your recording…')).toBeVisible()
   expect(patches).toBe(1)
   expect(state.rows).toHaveLength(0)
   state.uploadState = 'ready'
@@ -280,5 +282,54 @@ test('owner uploads directly to Cloudflare and the library waits for processing'
   await expect(page.getByRole('link', { name: 'Uploaded review', exact: true })).toBeVisible({
     timeout: 10000,
   })
+  await expect(page.getByRole('dialog', { name: 'Upload successful' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Watch video', exact: true })).toHaveAttribute(
+    'href',
+    `#/video/${recordingId}`,
+  )
+  await page.getByRole('button', { name: 'Back to library' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('library recovers completed uploads after the upload dialog was closed', async ({ page }) => {
+  const state: Fixture = { rows: [], member: true, shared: false }
+  await mockBackend(page.context(), state)
+  await setOwnerSession(page.context())
+  let ready = false
+  await page.route('https://cloud-coach-test.supabase.co/functions/v1/stream', async (route) => {
+    const body = route.request().postDataJSON()
+    if (body.action !== 'upload-sync') {
+      await route.fallback()
+      return
+    }
+    if (ready && !state.rows.length)
+      state.rows.push({
+        id: recordingId,
+        title: 'Recovered upload',
+        youtube_video_id: null,
+        provider: 'stream',
+        stream_video_id: 'd'.repeat(32),
+        recorded_on: null,
+        created_at: new Date().toISOString(),
+        has_share: false,
+      })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        imported: ready ? 1 : 0,
+        pending: ready
+          ? []
+          : [{ videoId: 'd'.repeat(32), title: 'Recovered upload', state: 'processing' }],
+      }),
+    })
+  })
+  await page.goto('/#/library')
+  await expect(
+    page.getByText('Processing your video. It will appear here automatically.', { exact: false }),
+  ).toBeVisible()
+  ready = true
+  await page.getByRole('button', { name: 'Refresh uploads' }).click()
+  await expect(page.getByRole('link', { name: 'Recovered upload', exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })

@@ -1,6 +1,7 @@
 // Kept runtime-independent so authorization and provider failures can be tested.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { provisionUpload, validUpload } from './uploads.ts'
+import { reconcileUploads, rememberedImports, recordingDate } from './reconcile.ts'
 
 type Dependencies = {
   env(key: string): string | undefined
@@ -51,7 +52,7 @@ export function createStreamHandler(deps: Dependencies) {
       })
       async function cloudflare(path: string, init?: RequestInit) {
         const response = await deps.fetch(
-          `https://api.cloudflare.com/client/v4/accounts/${account}/stream/${path}`,
+          `https://api.cloudflare.com/client/v4/accounts/${account}/stream${path.startsWith('?') ? path : `/${path}`}`,
           {
             ...init,
             headers: {
@@ -92,7 +93,9 @@ export function createStreamHandler(deps: Dependencies) {
           )
         id = data[0].stream_video_id
         sessionExpires = data[0].session_expires_at
-      } else if (['owner', 'add', 'upload-create', 'upload-status'].includes(body.action)) {
+      } else if (
+        ['owner', 'add', 'upload-create', 'upload-status', 'upload-sync'].includes(body.action)
+      ) {
         const jwt = request.headers.get('Authorization')?.replace(/^Bearer /, '')
         if (!jwt) throw new Failure(401, 'Sign in to manage your library.')
         const { data: auth, error: authError } = await admin.auth.getUser(jwt)
@@ -103,6 +106,12 @@ export function createStreamHandler(deps: Dependencies) {
         })
         const { data: member, error: memberError } = await owner.rpc('is_library_owner')
         if (memberError || !member) throw new Failure(403, 'Library owner access required.')
+        if (body.action === 'upload-sync') {
+          const videos = await cloudflare(`?creator=${encodeURIComponent(auth.user.id)}&limit=1000`)
+          if (!Array.isArray(videos))
+            throw new Failure(502, 'Could not refresh uploads. Try again.')
+          return reply(await reconcileUploads({ admin, ownerId: auth.user.id, videos }))
+        }
         if (body.action === 'upload-create') {
           if (!validUpload(body))
             throw new Failure(
@@ -152,22 +161,45 @@ export function createStreamHandler(deps: Dependencies) {
           const title = typeof video.meta?.name === 'string' ? video.meta.name.trim() : ''
           if (!title || title.length > 160)
             throw new Failure(400, 'Set a title for this recording in Cloudflare first.')
-          const { error } = await admin.rpc('add_stream_recording', {
+          const imports = await rememberedImports(admin, auth.user.id)
+          if (imports.has(body.videoId)) {
+            const { data: rows, error: listError } = await owner.rpc('list_recordings')
+            if (listError) throw new Failure(503, 'Could not check your library. Try again.')
+            const saved = rows?.find(
+              (row: { stream_video_id: string }) => row.stream_video_id === body.videoId,
+            )
+            return reply(
+              saved
+                ? { state: 'ready', recordingId: saved.id }
+                : {
+                    state: 'error',
+                    message:
+                      'This video was removed from your library. Use Add existing video to restore it.',
+                  },
+            )
+          }
+          const { data: recordingId, error } = await admin.rpc('add_stream_recording', {
             p_owner: auth.user.id,
             p_title: title,
             p_video_id: body.videoId,
-            p_recorded_on:
-              typeof video.meta.recordedon === 'string' &&
-              /^\d{4}-\d{2}-\d{2}$/.test(video.meta.recordedon)
-                ? video.meta.recordedon
-                : null,
+            p_recorded_on: recordingDate(video.meta.recordedon),
           })
           if (error && error.code !== '23505')
             throw new Failure(
               503,
               'The video is ready, but could not be added. Try checking again.',
             )
-          return reply({ state: 'ready' })
+          let savedId = recordingId
+          if (typeof savedId !== 'string') {
+            // A library reconciliation request may have won the insertion race.
+            const { data: rows, error: listError } = await owner.rpc('list_recordings')
+            savedId = rows?.find(
+              (row: { stream_video_id: string }) => row.stream_video_id === body.videoId,
+            )?.id
+            if (listError || !savedId)
+              throw new Failure(503, 'Could not confirm the library save. Try checking again.')
+          }
+          return reply({ state: 'ready', recordingId: savedId })
         }
         if (body.action === 'add') {
           if (

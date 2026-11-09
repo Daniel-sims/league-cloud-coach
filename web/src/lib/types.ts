@@ -18,7 +18,18 @@ export type VideoInput = Pick<
   'title' | 'youtube_video_id' | 'recorded_on' | 'provider' | 'stream_video_id'
 >
 
+export type UploadSync = {
+  imported: number
+  pending: {
+    videoId: string
+    title: string
+    state: 'uploading' | 'processing' | 'error'
+    message?: string
+  }[]
+}
+
 export interface LibraryRepository {
+  syncUploads?(): Promise<UploadSync>
   list(): Promise<Recording[]>
   add(input: VideoInput): Promise<void>
   rename(id: string, title: string): Promise<void>

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { oauthErrorMessage } from './auth-errors'
-import type { LibraryRepository, Recording, WatchVideo } from './types'
+import type { LibraryRepository, Recording, WatchVideo, UploadSync } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim()
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
@@ -31,6 +31,7 @@ export async function rpc<T>(name: string, args?: Record<string, unknown>): Prom
 }
 
 export const cloudRepository: LibraryRepository = {
+  syncUploads: () => streamRequest<UploadSync>('upload-sync', {}),
   list: () => rpc<Recording[]>('list_recordings'),
   add: (input) =>
     input.provider === 'stream'

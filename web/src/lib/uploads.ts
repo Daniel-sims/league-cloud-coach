@@ -92,8 +92,9 @@ export async function reserveUpload(
   }
 }
 export async function checkUpload(videoId: string) {
-  return streamRequest<{ state: 'uploading' | 'processing' | 'ready' | 'error'; message?: string }>(
-    'upload-status',
-    { videoId },
-  )
+  return streamRequest<{
+    state: 'uploading' | 'processing' | 'ready' | 'error'
+    message?: string
+    recordingId?: string
+  }>('upload-status', { videoId })
 }

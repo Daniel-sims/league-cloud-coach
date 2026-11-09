@@ -31,7 +31,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/lib/youtube.ts` | Validates URLs/IDs; never accepts arbitrary iframe HTML |
 | `web/src/lib/local.ts` | Development-only localStorage preview, never a cloud/auth substitute |
 | `web/src/components/Player.tsx` | Standard YouTube player, loading/failure handling, cleanup |
-| `web/src/components/UploadDialog.tsx`, `web/src/lib/uploads.ts` | Direct private TUS upload, progress/pause/resume, per-owner browser recovery, readiness polling |
+| `web/src/components/UploadDialog.tsx`, `web/src/lib/uploads.ts` | Direct private TUS upload, progress/pause/resume, per-owner browser recovery, library reconciliation and confirmed success state |
 | `web/src/components/StreamPlayer.tsx` | Private HLS playback, explicit session start, fixed deadline, playlist renewal |
 | `supabase/functions/stream/` | Verified Stream import, owner playback, anonymous session authorization and short playback leases |
 | `web/src/components/Dialog.tsx` | Native modal dialog, focus restoration, Escape handling |
@@ -53,6 +53,7 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 - Anonymous resolution returns only display metadata, provider IDs, and the session deadline. Do not expose account identities, token hashes, or directory endpoints.
 - YouTube revocation/removal invalidates only the app link. For Stream, stop issuing five-minute playback leases; existing tokens and buffered media can outlive revocation briefly. A Stream session starts only on explicit claim, binds to a hashed viewer capability, and has a fixed two-hour deadline. Unused Stream shares expire after seven days. Only service-role RPCs may authorize leases or insert verified Stream metadata. Removing library metadata never deletes the YouTube video.
 - Upload actions must verify the JWT and enabled membership before reserving capacity. Provision signed-URL-required media and tag the Cloudflare creator with the verified owner. Finalization must recheck creator, upload marker, privacy and ready state before insertion. No file bytes or Cloudflare API credentials pass through the frontend/backend API.
+- `stream_imports` is private service-only import history, maintained atomically by a recordings insert trigger. It survives library removal so reconciliation does not intentionally restore removed entries. Never let anonymous/authenticated clients enumerate or erase this history.
 - A pasted URL cannot prove channel ownership or Unlisted visibility. Do not imply either is verified by the basic embed preview.
 - Migrations are append-only once applied. Do not reset the live project or run `supabase/tests/bootstrap-local.sql` there.
 
