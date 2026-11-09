@@ -29,6 +29,7 @@ import {
 import { Dialog } from './components/Dialog'
 import { Player } from './components/Player'
 import { StreamPlayer } from './components/StreamPlayer'
+import { UploadDialog } from './components/UploadDialog'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
@@ -290,6 +291,7 @@ export function App({ authError = null }: { authError?: string | null }) {
             ) : (
               <Library
                 key={local ? 'local' : session!.user.id}
+                ownerId={session?.user.id}
                 repository={local ? localRepository : cloudRepository}
                 local={local}
               />
@@ -329,9 +331,10 @@ export function App({ authError = null }: { authError?: string | null }) {
               <div>
                 <h3>Upload your recording</h3>
                 <p>
-                  For private timed access, upload to Cloudflare Stream and enable Require signed
-                  URLs. Or use YouTube Studio with visibility set to <strong>Unlisted</strong> and
-                  allow embedding. For games over 15 minutes, verify your channel first.
+                  For private timed access, choose Upload video in your library. Cloudflare uploads
+                  are private by default. Or use YouTube Studio with visibility set to{' '}
+                  <strong>Unlisted</strong> and allow embedding. For games over 15 minutes, verify
+                  your channel first.
                 </p>
                 <a
                   className="text-link"
@@ -447,7 +450,7 @@ function Welcome({
             number="01"
             icon={<Film size={20} />}
             title="Keep your games together"
-            text="Upload to Cloudflare Stream or YouTube, then add the recording to your library."
+            text="Upload a recording directly to Cloudflare, or add an existing video link."
           />
           <Feature
             number="02"
@@ -497,14 +500,22 @@ function Feature({
   )
 }
 
-function Library({ repository, local }: { repository: LibraryRepository; local: boolean }) {
+function Library({
+  repository,
+  local,
+  ownerId,
+}: {
+  repository: LibraryRepository
+  local: boolean
+  ownerId?: string
+}) {
   const [records, setRecords] = useState<Recording[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<'all' | 'shared'>('all')
   const [oldest, setOldest] = useState(false)
-  const [modal, setModal] = useState<'add' | null>(null)
+  const [modal, setModal] = useState<'add' | 'upload' | null>(null)
   const [selected, setSelected] = useState<{
     record: Recording
     action: 'share' | 'rename' | 'remove'
@@ -559,10 +570,18 @@ function Library({ repository, local }: { repository: LibraryRepository; local: 
           </h1>
           <p>Your games, collected. Ready for another perspective.</p>
         </div>
-        <button className="button" onClick={() => setModal('add')}>
-          <Plus size={17} />
-          Add video
-        </button>
+        <div className="library-heading-actions">
+          <button className="button secondary" onClick={() => setModal('add')}>
+            <Plus size={17} />
+            Add existing video
+          </button>
+          {!local && (
+            <button className="button" onClick={() => setModal('upload')}>
+              <Plus size={17} />
+              Upload video
+            </button>
+          )}
+        </div>
       </section>
       <div className="library-tip">
         <span className="tip-icon">
@@ -576,7 +595,7 @@ function Library({ repository, local }: { repository: LibraryRepository; local: 
           </span>
         </p>
         <a href="https://studio.youtube.com" target="_blank" rel="noopener noreferrer">
-          Upload on YouTube <ExternalLink size={13} />
+          YouTube Studio <ExternalLink size={13} />
         </a>
       </div>
       {error && (
@@ -730,6 +749,13 @@ function Library({ repository, local }: { repository: LibraryRepository; local: 
           Cloudflare Stream and YouTube
         </span>
       </div>
+      {modal === 'upload' && ownerId && (
+        <UploadDialog
+          ownerId={ownerId}
+          onClose={() => setModal(null)}
+          onSaved={() => changed('Video uploaded and added to your library.')}
+        />
+      )}
       {modal === 'add' && (
         <AddDialog
           local={local}
@@ -923,7 +949,8 @@ function AddDialog({
       wide
     >
       <p className="dialog-intro">
-        Add a recording you have already uploaded to Cloudflare Stream or YouTube.
+        Add an existing video from Cloudflare Stream or YouTube. To choose a file from your
+        computer, use Upload video in your library.
       </p>
       {!local && (
         <label className="form-label">

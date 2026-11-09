@@ -151,3 +151,120 @@ it('returns safe provider failures without leaking API responses', async () => {
   expect(response.status).toBe(502)
   expect(await response.text()).not.toContain('private-cf-key')
 })
+
+it('never provisions uploads for guests or signed-in non-owners', async () => {
+  const input = {
+    action: 'upload-create',
+    filename: 'game.mov',
+    size: 1024,
+    title: 'Game',
+    maxDuration: 3600,
+  }
+  expect((await request(input)).status).toBe(401)
+  ownerRpc.mockResolvedValue({ data: false, error: null })
+  expect((await request(input, 'valid-jwt')).status).toBe(403)
+  expect(provider).not.toHaveBeenCalled()
+})
+it('provisions a private, owner-tagged TUS destination without exposing API credentials', async () => {
+  provider.mockResolvedValue(
+    new Response(null, {
+      status: 201,
+      headers: {
+        Location: 'https://upload.cloudflarestream.com/tus/one-time',
+        'stream-media-id': id,
+      },
+    }),
+  )
+  const response = await request(
+    {
+      action: 'upload-create',
+      filename: 'game.mov',
+      size: 250_000_000,
+      title: 'Café review',
+      maxDuration: 3600,
+    },
+    'valid-jwt',
+  )
+  expect(response.status).toBe(200)
+  const [url, init] = provider.mock.calls[0]
+  expect(url).toContain('/stream?direct_user=true')
+  expect(init.headers['Upload-Length']).toBe('250000000')
+  expect(init.headers['Upload-Creator']).toBe('owner-id')
+  expect(init.headers['Upload-Metadata']).toContain('requiresignedurls')
+  expect(init.headers['Upload-Metadata']).toContain(`maxdurationseconds ${btoa('3600')}`)
+  expect(init.headers['Upload-Metadata']).not.toContain('recordedon')
+  const body = await response.text()
+  expect(body).toContain('one-time')
+  expect(body).not.toContain('private-cf-key')
+})
+it('rejects oversized and invalid uploads before reserving Cloudflare capacity', async () => {
+  for (const bad of [
+    { size: 0 },
+    { size: 30_000_000_001 },
+    { filename: 'file.html' },
+    { maxDuration: 999999 },
+  ]) {
+    expect(
+      (
+        await request(
+          {
+            action: 'upload-create',
+            filename: 'game.mov',
+            size: 100,
+            title: 'Game',
+            maxDuration: 3600,
+            ...bad,
+          },
+          'valid-jwt',
+        )
+      ).status,
+    ).toBe(400)
+  }
+  expect(provider).not.toHaveBeenCalled()
+})
+it('does not import processing or failed uploads', async () => {
+  for (const state of ['inprogress', 'error']) {
+    provider.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          result: {
+            uid: id,
+            creator: 'owner-id',
+            meta: { appupload: 'true', name: 'Game' },
+            requireSignedURLs: true,
+            readyToStream: false,
+            status: { state },
+          },
+        }),
+      ),
+    )
+    const response = await request({ action: 'upload-status', videoId: id }, 'valid-jwt')
+    expect((await response.json()).state).toBe(state === 'error' ? 'error' : 'processing')
+  }
+  expect(rpc).not.toHaveBeenCalled()
+})
+it('rejects another owner’s upload and auto-imports only verified ready media', async () => {
+  const result = {
+    uid: id,
+    creator: 'someone-else',
+    meta: { appupload: 'true', name: 'Game', recordedon: 'TRUE' },
+    requireSignedURLs: true,
+    readyToStream: true,
+  }
+  provider.mockResolvedValue(new Response(JSON.stringify({ success: true, result })))
+  expect((await request({ action: 'upload-status', videoId: id }, 'valid-jwt')).status).toBe(404)
+  expect(rpc).not.toHaveBeenCalled()
+  provider.mockResolvedValue(
+    new Response(JSON.stringify({ success: true, result: { ...result, creator: 'owner-id' } })),
+  )
+  rpc.mockResolvedValue({ data: 'recording-id', error: null })
+  const response = await request({ action: 'upload-status', videoId: id }, 'valid-jwt')
+  expect((await response.json()).state).toBe('ready')
+  expect(rpc).toHaveBeenCalledWith('add_stream_recording', {
+    p_owner: 'owner-id',
+    p_title: 'Game',
+    p_video_id: id,
+    p_recorded_on: null,
+  })
+})

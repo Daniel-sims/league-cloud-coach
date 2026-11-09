@@ -27,6 +27,7 @@ type Fixture = {
   }[]
   member: boolean
   shared: boolean
+  uploadState?: 'uploading' | 'processing' | 'ready'
 }
 
 async function mockBackend(context: BrowserContext, state: Fixture) {
@@ -34,6 +35,27 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
     const name = new URL(route.request().url()).pathname.split('/').at(-1)
     const args = route.request().postDataJSON() || {}
     let result: unknown = null
+    if (name === 'stream' && args.action === 'upload-create') {
+      state.uploadState = 'uploading'
+      result = {
+        videoId: 'd'.repeat(32),
+        uploadURL: 'https://upload.cloudflarestream.com/tus/test-video',
+      }
+    }
+    if (name === 'stream' && args.action === 'upload-status') {
+      if (state.uploadState === 'ready' && !state.rows.length)
+        state.rows.push({
+          id: recordingId,
+          title: 'Uploaded review',
+          youtube_video_id: null,
+          provider: 'stream',
+          stream_video_id: 'd'.repeat(32),
+          recorded_on: null,
+          created_at: new Date().toISOString(),
+          has_share: false,
+        })
+      result = { state: state.uploadState || 'uploading' }
+    }
     if (name === 'stream' && args.action === 'add') {
       state.rows.unshift({
         id: recordingId,
@@ -208,4 +230,54 @@ test('Stream owner adds a video ID and guest must explicitly start private playb
   await expect(guest.getByRole('button', { name: 'Start session', exact: true })).toBeVisible()
   expect(claims).toBe(1)
   await context.close()
+})
+
+test('owner uploads directly to Cloudflare and the library waits for processing', async ({
+  page,
+}) => {
+  const state: Fixture = { rows: [], member: true, shared: false }
+  await mockBackend(page.context(), state)
+  await setOwnerSession(page.context())
+  let patches = 0
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'HEAD, PATCH, OPTIONS',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Expose-Headers': 'Upload-Offset, Upload-Length, Tus-Resumable',
+    'Tus-Resumable': '1.0.0',
+    'Upload-Length': '10',
+  }
+  await page.route('https://upload.cloudflarestream.com/tus/test-video', async (route) => {
+    const request = route.request()
+    expect(request.headers().authorization).toBeUndefined()
+    expect(request.headers().apikey).toBeUndefined()
+    if (request.method() === 'PATCH') {
+      patches++
+      state.uploadState = 'processing'
+    }
+    await route.fulfill({
+      status: 204,
+      headers: { ...headers, 'Upload-Offset': patches ? '10' : '0' },
+    })
+  })
+  await page.goto('/#/library')
+  await page.getByRole('button', { name: 'Upload video', exact: true }).click()
+  await page
+    .getByLabel('Video file', { exact: true })
+    .setInputFiles({
+      name: 'game.mov',
+      mimeType: 'video/quicktime',
+      buffer: Buffer.from('video-data'),
+    })
+  await page.getByLabel('Title', { exact: true }).fill('Uploaded review')
+  await page.getByRole('button', { name: 'Upload to Cloudflare', exact: true }).click()
+  await expect(
+    page.getByText('Upload complete. Cloudflare is processing your video…'),
+  ).toBeVisible()
+  expect(patches).toBe(1)
+  expect(state.rows).toHaveLength(0)
+  state.uploadState = 'ready'
+  await page.getByRole('button', { name: 'Check processing' }).click()
+  await expect(page.getByRole('link', { name: 'Uploaded review', exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })

@@ -1,6 +1,6 @@
 # League Cloud Coach
 
-A static web app for a personal League recording library and account-free watch links. Add already-uploaded Cloudflare Stream recordings for private two-hour sessions, or use unlisted YouTube links. There is no in-app file uploader.
+A static web app for a personal League recording library and account-free watch links. Upload recordings directly to Cloudflare Stream for private two-hour sessions, add an existing Stream video ID, or use unlisted YouTube links.
 
 **Deployment status:** The Stream migration and backend function are deployed, with Cloudflare credentials stored in backend secrets. See [current project state](docs/PROJECT_STATE.md) for frontend publication and live acceptance status before configuring or publishing.
 
@@ -15,7 +15,7 @@ The long-term product has three parts: the existing League Helper app, this web 
 ### Current release
 
 - Google authentication through Supabase, with library management restricted to explicitly enabled owner memberships.
-- Add a YouTube URL or an already-uploaded private Cloudflare Stream video ID with a title and optional game date. Stream IDs are verified against the configured account on the backend.
+- Upload a video file directly to Cloudflare with progress, pause/resume, retry, and processing checks. Add a YouTube URL or an already-uploaded private Cloudflare Stream video ID with a title and optional game date. Stream IDs are verified against the configured account on the backend.
 - Search, filter, sort, rename, open, and remove recordings from the owner's library.
 - Create, replace, copy, and revoke share links.
 - Account-free watch pages with standard video controls. Stream links must start within seven days, bind to the first browser session, and expire two hours after starting. YouTube sharing retains its existing behavior.
@@ -25,7 +25,7 @@ Other Google users may authenticate, but signing in does not automatically grant
 
 ### Outside the current release
 
-There is no direct file upload form, automatic YouTube/channel integration, Mac companion, timeline, annotations, coach comments, Riot sync, or AI analysis in this web release. Do not mistake features of the separate native app or items in the roadmap for implemented web functionality.
+There is no automatic YouTube/channel integration, Mac companion, timeline, annotations, coach comments, Riot sync, or AI analysis in this web release. Do not mistake features of the separate native app or items in the roadmap for implemented web functionality.
 
 The current manual flow is **YouTube Studio upload as Unlisted → Add video in Cloud Coach → Share an app watch link**. YouTube visibility is selected by the uploader; the site cannot verify it or claim that an unlisted video is private.
 
@@ -66,6 +66,16 @@ For agents, read `web/AGENTS.md` (also the standalone root `AGENTS.md`), then [c
 
 In the original native workspace, `scripts/export-cloud-coach.py` copies web-only source to the standalone repo. The exported root README is generated from this complete document with relative links rebased, and root `AGENTS.md` comes from `web/AGENTS.md`. Native source, history, database files, and recordings must not be published in the public web repository.
 
+## Upload from your computer
+
+Choose **Upload video** in the library, select an MP4, MOV, M4V, MKV, WebM or AVI recording (up to 30 GB), give it a title, and choose a maximum duration longer than the recording (30, 60, 90 or 120 minutes). Then choose **Upload to Cloudflare**. Video bytes go directly from the browser to a one-time Cloudflare TUS destination; the backend never proxies the file or exposes the Cloudflare API token. Privacy is set at provisioning with `requiresignedurls`, rather than enabled after a public upload.
+
+Progress is shown during transfer. **Pause upload**, closing the dialog, leaving the library, or closing the page stops the local transfer. Open **Upload video** again and select the same file (name, size and modification time) to resume completed chunks in the same browser. The pending upload destination is stored in browser local storage under the signed-in owner's ID, rather than a shared fingerprint pool. One pending transfer is tracked per owner/browser. Upload URLs are limited upload capabilities; never paste them into logs or public documents. There is no recovery across browsers/devices; an expired upload URL requires a new upload. Clearing browser data also clears this recovery state. **Start another upload** forgets local tracking and retains previous media in Cloudflare; its video ID is shown for manual recovery through Add video.
+
+After transfer, the dialog polls processing. The backend verifies the Cloudflare creator matches the authenticated owner and the upload marker/private flag are present, then imports the recording only when Cloudflare reports it ready. Processing failures do not create playable library entries. Repeated readiness checks are idempotent. Keep the dialog open or reopen Upload video to finish/check processing after a refresh; there is no webhook/background completion worker. Existing recordings still use **Add existing video** with the provider selector.
+
+Cloudflare temporarily reserves the selected maximum duration from your available storage until the upload is processed or expires. A recording longer than the selected limit fails processing. Upload creation is restricted to enabled owners, but these controls are not a hard spending quota. Closing/forgetting an upload does not delete provider media or stop charges for completed stored videos. Preserve local originals.
+
 ## Cloudflare Stream setup and acceptance
 
 1. Activate Stream in the intended Cloudflare account. Upload a recording in the dashboard, wait for processing, and enable **Require signed URLs**.
@@ -80,7 +90,7 @@ The database stores only hashes of share and viewer-session capabilities. The vi
 
 Playback tokens last at most five minutes and never extend beyond the session deadline. The player renews about one minute before expiry and reloads the playlist to obtain fresh Cloudflare segment signatures, preserving position and pause state. Renewal may briefly buffer and needs device acceptance. A final lease that reaches the session deadline is not renewed again. Transient failures retry until the current token expires, then unload media. Revocation/replacement stops new tokens; previously issued tokens can remain valid for up to five minutes and already buffered/captured media cannot be recalled. There is no cumulative watch-minute budget or billing cap.
 
-Owners can load their own recordings without spending a shared session; their playback still incurs delivery charges. Removing a recording only removes app metadata and access. Delete media separately in Cloudflare to stop its storage usage. There is no automatic retention/deletion policy or direct file uploader in this change.
+Owners can load their own recordings without spending a shared session; their playback still incurs delivery charges. Removing a recording only removes app metadata and access. Delete media separately in Cloudflare to stop its storage usage. There is no automatic retention/deletion policy.
 
 Run `deno check --config supabase/functions/stream/deno.json supabase/functions/stream/index.ts` from the repository root to check the Edge Function. `npm test` in `web/` includes mocked provider/handler tests; SQL tests use a disposable database and browser tests simulate backend responses. None prove real Cloudflare playback.
 
@@ -208,7 +218,7 @@ The YouTube path needs no paid video subscription. Cloudflare Stream usage is bi
 
 ## Future work
 
-The first release deliberately has no file upload endpoint, automatic channel uploads, timeline, or Mac companion. The player wrapper can support YouTube time/seek events when timeline exports arrive. A future companion can reuse native capture and save returned YouTube IDs into the same Supabase user library after receiving explicit YouTube upload authorization.
+Direct Cloudflare uploads are implemented; automatic channel uploads, timeline, and the Mac companion remain future work. The player wrapper can support YouTube time/seek events when timeline exports arrive. A future companion can reuse native capture and save returned YouTube IDs into the same Supabase user library after receiving explicit YouTube upload authorization.
 
 The later timeline should preserve match identity and game/video clock anchors, with a versioned structured export from League Helper's existing review logic. Coach annotations and editable shared reviews will need their own ownership/conflict model. Broader user onboarding is a deliberate product decision; do not enable library management for every Google sign-in by default.
 

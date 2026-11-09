@@ -1,5 +1,6 @@
 // Kept runtime-independent so authorization and provider failures can be tested.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { provisionUpload, validUpload } from './uploads.ts'
 
 type Dependencies = {
   env(key: string): string | undefined
@@ -91,7 +92,7 @@ export function createStreamHandler(deps: Dependencies) {
           )
         id = data[0].stream_video_id
         sessionExpires = data[0].session_expires_at
-      } else if (body.action === 'owner' || body.action === 'add') {
+      } else if (['owner', 'add', 'upload-create', 'upload-status'].includes(body.action)) {
         const jwt = request.headers.get('Authorization')?.replace(/^Bearer /, '')
         if (!jwt) throw new Failure(401, 'Sign in to manage your library.')
         const { data: auth, error: authError } = await admin.auth.getUser(jwt)
@@ -102,6 +103,72 @@ export function createStreamHandler(deps: Dependencies) {
         })
         const { data: member, error: memberError } = await owner.rpc('is_library_owner')
         if (memberError || !member) throw new Failure(403, 'Library owner access required.')
+        if (body.action === 'upload-create') {
+          if (!validUpload(body))
+            throw new Failure(
+              400,
+              'Choose a supported video up to 30 GB, a title, and a maximum length of 30–120 minutes.',
+            )
+          try {
+            return reply(
+              await provisionUpload({
+                account,
+                apiToken,
+                ownerId: auth.user.id,
+                input: body,
+                fetch: deps.fetch,
+              }),
+            )
+          } catch {
+            throw new Failure(
+              502,
+              'Could not reserve this upload. Check Cloudflare storage capacity and try again.',
+            )
+          }
+        }
+        if (body.action === 'upload-status') {
+          if (typeof body.videoId !== 'string' || !videoID.test(body.videoId))
+            throw new Failure(400, 'Choose an upload.')
+          const video = await cloudflare(body.videoId)
+          if (video.creator !== auth.user.id || video.meta?.appupload !== 'true')
+            throw new Failure(404, 'Upload unavailable.')
+          if (!video.requireSignedURLs)
+            throw new Failure(
+              409,
+              'This upload is not private. Enable Require signed URLs in Cloudflare before continuing.',
+            )
+          if (video.status?.state === 'error')
+            return reply({
+              state: 'error',
+              message:
+                'Cloudflare could not process this video. Check its format and maximum length in Cloudflare.',
+            })
+          if (!video.readyToStream)
+            return reply({
+              state: ['pendingupload', 'uploading'].includes(video.status?.state)
+                ? 'uploading'
+                : 'processing',
+            })
+          const title = typeof video.meta?.name === 'string' ? video.meta.name.trim() : ''
+          if (!title || title.length > 160)
+            throw new Failure(400, 'Set a title for this recording in Cloudflare first.')
+          const { error } = await admin.rpc('add_stream_recording', {
+            p_owner: auth.user.id,
+            p_title: title,
+            p_video_id: body.videoId,
+            p_recorded_on:
+              typeof video.meta.recordedon === 'string' &&
+              /^\d{4}-\d{2}-\d{2}$/.test(video.meta.recordedon)
+                ? video.meta.recordedon
+                : null,
+          })
+          if (error && error.code !== '23505')
+            throw new Failure(
+              503,
+              'The video is ready, but could not be added. Try checking again.',
+            )
+          return reply({ state: 'ready' })
+        }
         if (body.action === 'add') {
           if (
             typeof body.videoId !== 'string' ||

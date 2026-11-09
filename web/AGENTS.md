@@ -15,7 +15,7 @@ Help a League player share full game recordings with a coach and eventually revi
 
 - Google sign-in uses Supabase Auth and PKCE.
 - Only explicitly enabled owner memberships can manage a library. Additional Google accounts may authenticate but gain no management permission automatically.
-- The owner uploads manually to Cloudflare Stream with **Require signed URLs** enabled and adds its video ID, or uses a YouTube Studio **Unlisted** upload and adds the URL/title. There is no file upload endpoint or automatic channel access.
+- The owner can upload a local file directly to Cloudflare through the app, add an existing private Stream video ID, or add a YouTube Studio **Unlisted** URL. There is no automatic YouTube channel access.
 - Anonymous viewers resolve a share capability and watch with ordinary video controls. Stream requires explicit session start; YouTube retains unlisted playback. They cannot enumerate a library or mutate recordings.
 - Timeline, annotations, AI review, Riot sync, automatic uploads, and the separate Mac companion are planned, not implemented in this web release.
 - Cloudflare Stream is now an authorized optional paid provider, with its backend deployed. Keep existing YouTube recordings working. See the Stream setup/limitations in the README and current handoff before publishing.
@@ -31,6 +31,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/lib/youtube.ts` | Validates URLs/IDs; never accepts arbitrary iframe HTML |
 | `web/src/lib/local.ts` | Development-only localStorage preview, never a cloud/auth substitute |
 | `web/src/components/Player.tsx` | Standard YouTube player, loading/failure handling, cleanup |
+| `web/src/components/UploadDialog.tsx`, `web/src/lib/uploads.ts` | Direct private TUS upload, progress/pause/resume, per-owner browser recovery, readiness polling |
 | `web/src/components/StreamPlayer.tsx` | Private HLS playback, explicit session start, fixed deadline, playlist renewal |
 | `supabase/functions/stream/` | Verified Stream import, owner playback, anonymous session authorization and short playback leases |
 | `web/src/components/Dialog.tsx` | Native modal dialog, focus restoration, Escape handling |
@@ -41,7 +42,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `supabase/tests/` | Disposable-database ownership/security checks |
 | `.github/workflows/cloud-coach-web.yml` | Tests first, then builds/deploys GitHub Pages |
 
-This is a static React/TypeScript/Vite client, not a Next.js application. GitHub Pages runs no server handlers. Supabase RPCs implement library/share operations; `supabase/functions/stream/` handles verified owner actions and private playback leases. Video bytes come directly from YouTube or Cloudflare. There is no object-storage bucket or in-app uploader. Stream backend secrets and deployment are configured; inspect current handoff for frontend publication and actual playback verification.
+This is a static React/TypeScript/Vite client, not a Next.js application. GitHub Pages runs no server handlers. Supabase RPCs implement library/share operations; `supabase/functions/stream/` handles verified owner actions and private playback leases. Video bytes come directly from YouTube or Cloudflare. The upload backend provisions one-time TUS destinations; video bytes upload directly to Cloudflare. There is no object-storage bucket. Stream backend secrets and deployment are configured; inspect current handoff for frontend publication and actual playback verification.
 
 ## Data and access rules
 
@@ -51,6 +52,7 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 - Share tokens are random 256-bit capabilities. Store hashes only; show the raw token at creation. Replacing a share deliberately revokes its predecessor.
 - Anonymous resolution returns only display metadata, provider IDs, and the session deadline. Do not expose account identities, token hashes, or directory endpoints.
 - YouTube revocation/removal invalidates only the app link. For Stream, stop issuing five-minute playback leases; existing tokens and buffered media can outlive revocation briefly. A Stream session starts only on explicit claim, binds to a hashed viewer capability, and has a fixed two-hour deadline. Unused Stream shares expire after seven days. Only service-role RPCs may authorize leases or insert verified Stream metadata. Removing library metadata never deletes the YouTube video.
+- Upload actions must verify the JWT and enabled membership before reserving capacity. Provision signed-URL-required media and tag the Cloudflare creator with the verified owner. Finalization must recheck creator, upload marker, privacy and ready state before insertion. No file bytes or Cloudflare API credentials pass through the frontend/backend API.
 - A pasted URL cannot prove channel ownership or Unlisted visibility. Do not imply either is verified by the basic embed preview.
 - Migrations are append-only once applied. Do not reset the live project or run `supabase/tests/bootstrap-local.sql` there.
 
