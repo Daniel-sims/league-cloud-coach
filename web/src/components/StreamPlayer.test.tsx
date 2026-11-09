@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
-import { StreamPlayer, refreshStreamURL } from './StreamPlayer'
+import { StreamPlayer } from './StreamPlayer'
 import { streamRequest, StreamAccessError } from '../lib/supabase'
 vi.mock('../lib/supabase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/supabase')>()
@@ -12,18 +12,21 @@ const lease = () => ({
   sessionExpiresAt: new Date(Date.now() + 7200000).toISOString(),
 })
 const destroy = vi.fn()
-const xhrSetups: ((xhr: XMLHttpRequest, url: string) => void)[] = []
+const loadSource = vi.fn()
+const configs: { startPosition?: number }[] = []
 vi.mock('hls.js', () => ({
   default: class {
     static isSupported() {
       return true
     }
     static Events = { ERROR: 'error' }
-    constructor(config: { xhrSetup: (typeof xhrSetups)[number] }) {
-      xhrSetups.push(config.xhrSetup)
+    config: { startPosition?: number }
+    constructor(config: { startPosition?: number }) {
+      this.config = config
+      configs.push(config)
     }
     on() {}
-    loadSource() {}
+    loadSource = loadSource
     attachMedia() {}
     destroy = destroy
   },
@@ -33,7 +36,8 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
   vi.mocked(streamRequest).mockResolvedValue(lease())
-  xhrSetups.length = 0
+  configs.length = 0
+  loadSource.mockClear()
   destroy.mockClear()
 })
 afterEach(() => {
@@ -52,8 +56,10 @@ it('does not claim or fetch media until the viewer explicitly starts', async () 
   expect(streamRequest).not.toHaveBeenCalled()
   expect(screen.queryByLabelText('Private game')).not.toBeInTheDocument()
 })
-it('renews the lease without rebuilding the player and signs subsequent segment requests', async () => {
+it('reloads fresh segment signatures while preserving playback position on renewal', async () => {
   await start()
+  const media = screen.getByLabelText('Private game') as HTMLVideoElement
+  media.currentTime = 95
   vi.mocked(streamRequest).mockResolvedValue({
     ...lease(),
     url: 'https://customer-test.cloudflarestream.com/second/manifest/video.m3u8',
@@ -65,16 +71,13 @@ it('renews the lease without rebuilding the player and signs subsequent segment 
     token: 'a'.repeat(64),
     session: 'b'.repeat(64),
   })
-  const xhr = { open: vi.fn() }
-  xhrSetups[0](
-    xhr as unknown as XMLHttpRequest,
-    'https://customer-test.cloudflarestream.com/first/video/720/seg.ts',
+  expect(loadSource).toHaveBeenLastCalledWith(
+    'https://customer-test.cloudflarestream.com/second/manifest/video.m3u8',
   )
-  expect(xhr.open).toHaveBeenCalledWith(
-    'GET',
-    'https://customer-test.cloudflarestream.com/second/video/720/seg.ts',
-    true,
-  )
+  expect(configs[0].startPosition).toBe(95)
+  media.currentTime = 0
+  fireEvent.loadedMetadata(media)
+  expect(media.currentTime).toBe(95)
   expect(destroy).not.toHaveBeenCalled()
 })
 it('unloads media when a revoked share cannot renew', async () => {
@@ -100,12 +103,17 @@ it('unloads media at the absolute session deadline', async () => {
   expect(screen.getByRole('alert')).toHaveTextContent('two-hour session has ended')
   expect(destroy).toHaveBeenCalled()
 })
-it('never forwards a renewed token to another host', () => {
-  expect(
-    refreshStreamURL(
-      'https://other.test/first/segment',
-      lease().url,
-      'https://customer-test.cloudflarestream.com/secret/manifest/video.m3u8',
-    ),
-  ).toBe('https://other.test/first/segment')
+it('does not repeatedly renew a lease that already reaches the session deadline', async () => {
+  const end = new Date(Date.now() + 200000).toISOString()
+  vi.mocked(streamRequest).mockClear()
+  vi.mocked(streamRequest).mockResolvedValue({ ...lease(), expiresAt: end, sessionExpiresAt: end })
+  await start()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(190000)
+  })
+  expect(streamRequest).toHaveBeenCalledTimes(1)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(10000)
+  })
+  expect(screen.getByRole('alert')).toHaveTextContent('two-hour session has ended')
 })

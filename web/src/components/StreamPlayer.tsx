@@ -7,26 +7,6 @@ import {
   type PlaybackLease,
 } from '../lib/supabase'
 
-/** Replace only our video's token; never forward a capability to another host. */
-export function refreshStreamURL(
-  requestURL: string,
-  originalURL: string,
-  currentURL: string,
-): string {
-  const request = new URL(requestURL)
-  const original = new URL(originalURL)
-  const current = new URL(currentURL)
-  const token = original.pathname.split('/')[1]
-  if (
-    request.origin === original.origin &&
-    current.origin === original.origin &&
-    request.pathname.startsWith(`/${token}/`)
-  ) {
-    request.pathname = `/${current.pathname.split('/')[1]}/${request.pathname.split('/').slice(2).join('/')}`
-  }
-  return request.href
-}
-
 export function StreamPlayer({
   title,
   recordingId,
@@ -52,6 +32,7 @@ export function StreamPlayer({
     let renewing = false
     let terminated = false
     let timer: number | undefined
+    let restorePosition: (() => void) | undefined
     const media = video.current!
     let session: string | null = null
     try {
@@ -83,19 +64,18 @@ export function StreamPlayer({
         if (disposed || terminated) return
         const firstLease = !lease
         lease = next
-        renewAt = Date.parse(next.expiresAt) - 60000
+        const leaseEnd = Date.parse(next.expiresAt)
+        const sessionEnd = next.sessionExpiresAt ? Date.parse(next.sessionExpiresAt) : null
+        // The final lease already reaches the deadline; further renewal cannot extend it.
+        renewAt = sessionEnd !== null && leaseEnd >= sessionEnd - 1000 ? Infinity : leaseEnd - 60000
         setError('')
         if (firstLease) {
           const { default: Hls } = await import('hls.js')
           if (disposed || terminated) return
           if (Hls.isSupported()) {
-            const originalURL = next.url
             hls = new Hls({
               maxBufferLength: 30,
               maxMaxBufferLength: 60,
-              xhrSetup(xhr, url) {
-                xhr.open('GET', refreshStreamURL(url, originalURL, lease!.url), true)
-              },
             })
             hls.on(Hls.Events.ERROR, (_event, data) => {
               if (data.fatal && !disposed)
@@ -109,20 +89,22 @@ export function StreamPlayer({
             stop(
               'This browser does not support video playback. Try a current version of Chrome or Safari.',
             )
-        } else if (!hls) {
-          // Native HLS has no request hook. Preserve position when changing its URL.
+        } else {
+          // Cloudflare signs segment URLs separately. Reload the playlist to obtain
+          // fresh segment signatures, preserving playback position and pause state.
           const position = media.currentTime
           const paused = media.paused
-          media.src = next.url
-          media.addEventListener(
-            'loadedmetadata',
-            () => {
-              if (disposed) return
-              media.currentTime = position
-              if (!paused) void media.play().catch(() => {})
-            },
-            { once: true },
-          )
+          if (restorePosition) media.removeEventListener('loadedmetadata', restorePosition)
+          restorePosition = () => {
+            if (disposed || terminated) return
+            media.currentTime = position
+            if (!paused) void media.play().catch(() => {})
+          }
+          media.addEventListener('loadedmetadata', restorePosition, { once: true })
+          if (hls) {
+            hls.config.startPosition = position
+            hls.loadSource(next.url)
+          } else media.src = next.url
         }
       } catch (reason) {
         if (disposed) return
@@ -161,6 +143,7 @@ export function StreamPlayer({
     return () => {
       disposed = true
       clearInterval(timer)
+      if (restorePosition) media.removeEventListener('loadedmetadata', restorePosition)
       hls?.destroy()
       media.pause()
       media.removeAttribute('src')
