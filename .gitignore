@@ -1,0 +1,12 @@
+node_modules/
+web/dist/
+web/.env*
+!web/.env.example
+web/test-results/
+web/playwright-report/
+web/coverage/
+*.tsbuildinfo
+*.log
+.DS_Store
+supabase/.temp/
+supabase/.branches/
