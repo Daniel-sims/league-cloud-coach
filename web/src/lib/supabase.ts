@@ -52,7 +52,12 @@ export async function resolveShare(token: string): Promise<WatchVideo | null> {
 export async function initializeAuth(): Promise<string | null> {
   if (!supabase) return null
   const current = new URL(window.location.href)
-  const error = current.searchParams.get('error_description')
+  const fragment = new URLSearchParams(current.hash.slice(1))
+  const error =
+    current.searchParams.get('error_description') ||
+    current.searchParams.get('error') ||
+    fragment.get('error_description') ||
+    fragment.get('error')
   const code = current.searchParams.get('code')
   if (!error && !code) return null
   // Remove sensitive OAuth response parameters from history even on failure.
