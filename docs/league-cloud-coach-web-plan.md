@@ -14,7 +14,7 @@ Videos are unlisted, with no public library or anonymous listing endpoint. Anyon
 
 ## Findings from the existing repository
 
-The README and some research-document status sections describe an empty repository; implemented source is the reliable reference.
+At the initial survey, the README and some research-document status sections still described an empty repository. The README and native guide have since been corrected; older research status notes may remain historical. Implemented source is the reliable reference.
 
 | Existing code | Implication |
 |---|---|
@@ -31,7 +31,7 @@ The README and some research-document status sections describe an empty reposito
 | `LeagueHelperKit/Sources/Domain/Review/TimelineExport.swift` | Current sharing export is text for YouTube descriptions, not a structured cloud interchange format. |
 | `LeagueHelperKit/Sources/DesignSystem/Tokens.swift` | Reuse the visual direction: neutral surfaces, muted gold accent, restrained semantic color, 4-point spacing, system typography. SwiftUI components themselves are not reusable on the web. |
 
-Also inspected `project.yml`, `LeagueHelperKit/Package.swift`, recording research, and the former `../lol-journal/prisma/schema.prisma`. The old VOD/annotation model is useful domain context, but its single-user assumptions should not be copied. No existing web frontend or account layer was found here.
+The initial survey also inspected `project.yml`, `LeagueHelperKit/Package.swift`, recording research, and the former `../lol-journal/prisma/schema.prisma`. The old VOD/annotation model is useful domain context, but its single-user assumptions should not be copied. There was no web frontend or account layer before this implementation; the current web source is now under `web/`.
 
 ## Architecture
 

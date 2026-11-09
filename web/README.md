@@ -2,6 +2,67 @@
 
 A static web app for a personal League recording library and account-free watch links. Upload videos to YouTube as **Unlisted**, then add their links here. The app never receives video files or uploads to your channel.
 
+Live app: [League Cloud Coach](https://daniel-sims.github.io/league-cloud-coach/). Source: [Daniel-sims/league-cloud-coach](https://github.com/Daniel-sims/league-cloud-coach).
+
+## Intent and product scope
+
+League Helper already provides a local Mac workflow for recording games and reviewing them with a timeline. League Cloud Coach extends that experience so a coach can see a player's games through a web link, without installing the native app or creating an account.
+
+The long-term product has three parts: the existing League Helper app, this web review/sharing application, and a new Mac companion that will capture games and upload them to the same account. The companion and full web review timeline are future work. This release supplies the account, library, and shared playback foundation.
+
+### Current release
+
+- Google authentication through Supabase, with library management restricted to explicitly enabled owner memberships.
+- Add a YouTube URL with a title and optional game date; preview the video before saving.
+- Search, filter, sort, rename, open, and remove recordings from the owner's library.
+- Create, replace, copy, and revoke share links.
+- Account-free watch pages with standard YouTube playback controls, responsive layouts, and useful unavailable/error states.
+- A clearly labelled development-only local preview, plus automated frontend, browser, and database permission checks.
+
+Other Google users may authenticate, but signing in does not automatically grant management access. Data ownership is part of the schema rather than hardcoded to one person's email, allowing deliberate expansion later.
+
+### Outside the current release
+
+There is no direct file upload form, automatic YouTube/channel integration, Mac companion, timeline, annotations, coach comments, Riot sync, or AI analysis in this web release. Do not mistake features of the separate native app or items in the roadmap for implemented web functionality.
+
+The current manual flow is **YouTube Studio upload as Unlisted → Add video in Cloud Coach → Share an app watch link**. YouTube visibility is selected by the uploader; the site cannot verify it or claim that an unlisted video is private.
+
+### Service and cost decisions
+
+Use GitHub Pages for the static frontend, Supabase Free for identity/private metadata, and YouTube for storage/processing/playback. Paid Cloudflare Stream was deliberately deferred; this app has no R2 or Supabase video-storage dependency. No paid subscription is required for the current design, subject to provider limits and availability.
+
+## Architecture and privacy
+
+| Component | Responsibility |
+|---|---|
+| React + TypeScript + Vite | Browser UI and hash routing compatible with GitHub Pages |
+| Supabase Auth | Google login with PKCE; no YouTube upload grant |
+| Supabase PostgreSQL 17 | Private owner memberships, recording metadata, and hashed share capabilities |
+| Narrow database RPCs | Owner mutations and minimal anonymous share resolution |
+| YouTube iframe player | Provider-hosted video playback and standard controls |
+| GitHub Actions + Pages | Verification, configured production build, and static deployment |
+
+Video files never pass through our website/backend. There are no server handlers on GitHub Pages, Edge Functions, or file-storage buckets in this release. Owner libraries are protected by database permissions and row-level security; anonymous viewers can resolve a valid capability but cannot list libraries or edit records.
+
+The app is unlisted sharing, not access-controlled video hosting. Anyone with a YouTube URL can watch or forward it. Replacing/revoking an app link does not stop an already loaded player or invalidate that YouTube URL. The owner must change visibility or delete the video in YouTube Studio to stop access to the actual media.
+
+## Source and documentation map
+
+| Path | Contents |
+|---|---|
+| `web/src/App.tsx` | Account UI, library, forms, and watch routes |
+| `web/src/lib/` | Supabase/RPC repository, safe auth errors, YouTube validation, and local preview |
+| `web/src/components/` | YouTube player and accessible native modal wrapper |
+| `web/src/styles.css` | Responsive visual styles |
+| `web/src/**/*.test.*`, `web/e2e/` | Frontend/component tests and browser workflows |
+| `supabase/migrations/` | Versioned schema and permission changes |
+| `supabase/tests/` | Disposable-database permission/security checks |
+| `.github/workflows/cloud-coach-web.yml` | Verification and deployment pipeline |
+
+For agents, read `web/AGENTS.md` (also the standalone root `AGENTS.md`), then [current project state](../docs/PROJECT_STATE.md) and the [implementation decisions](../docs/league-cloud-coach-web-plan.md). The state file records completed setup and remaining acceptance work so a fresh session does not recreate resources. These are durable project documents; previous chat history, a temporary checkout, or an existing login should not be assumed.
+
+In the original native workspace, `scripts/export-cloud-coach.py` copies web-only source to the standalone repo. The exported root README is generated from this complete document with relative links rebased, and root `AGENTS.md` comes from `web/AGENTS.md`. Native source, history, database files, and recordings must not be published in the public web repository.
+
 ## Run locally
 
 Requires Node.js 24 and npm.
@@ -126,3 +187,7 @@ No paid subscriptions are required for this architecture. Supabase Free has quot
 ## Future work
 
 The first release deliberately has no file upload endpoint, automatic channel uploads, timeline, or Mac companion. The player wrapper can support YouTube time/seek events when timeline exports arrive. A future companion can reuse native capture and save returned YouTube IDs into the same Supabase user library after receiving explicit YouTube upload authorization.
+
+The later timeline should preserve match identity and game/video clock anchors, with a versioned structured export from League Helper's existing review logic. Coach annotations and editable shared reviews will need their own ownership/conflict model. Broader user onboarding is a deliberate product decision; do not enable library management for every Google sign-in by default.
+
+Keep the interface modern and uncluttered: neutral surfaces, system typography, restrained accents, a recording-focused library, and a large video player. Add review controls when the corresponding functionality exists, rather than filling the current watch page with future-feature placeholders.
