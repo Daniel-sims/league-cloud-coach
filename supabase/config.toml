@@ -21,3 +21,8 @@ enable_signup = true
 enabled = false
 client_id = ""
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+
+# Public share capabilities are checked in the handler; owner actions also
+# verify the user JWT with Supabase Auth before calling owner RPCs.
+[functions.stream]
+verify_jwt = false

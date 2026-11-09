@@ -18,7 +18,7 @@ Help a League player share full game recordings with a coach and eventually revi
 - The owner uploads a video manually through YouTube Studio as **Unlisted**, then adds its URL/title to the app. There is no file upload endpoint or automatic channel access.
 - Anonymous viewers resolve a share capability and watch with ordinary YouTube controls. They cannot enumerate a library or mutate recordings.
 - Timeline, annotations, AI review, Riot sync, automatic uploads, and the separate Mac companion are planned, not implemented in this web release.
-- Keep the initial service setup free. YouTube was deliberately chosen instead of paid Cloudflare Stream/video storage.
+- Cloudflare Stream is now an authorized optional paid provider, with its backend deployed. Keep existing YouTube recordings working. See the Stream setup/limitations in the README and current handoff before publishing.
 
 ## Architecture and source map
 
@@ -39,7 +39,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `supabase/tests/` | Disposable-database ownership/security checks |
 | `.github/workflows/cloud-coach-web.yml` | Tests first, then builds/deploys GitHub Pages |
 
-This is a static React/TypeScript/Vite client, not a Next.js application. GitHub Pages runs no server handlers. Supabase RPCs implement backend library/share operations; YouTube handles video bytes and playback. The initial release has no Edge Functions or object-storage bucket.
+This is a static React/TypeScript/Vite client, not a Next.js application. GitHub Pages runs no server handlers. Supabase RPCs implement library/share operations; `supabase/functions/stream/` handles verified owner actions and private playback leases. Video bytes come directly from YouTube or Cloudflare. There is no object-storage bucket or in-app uploader. Stream backend secrets and deployment are configured; inspect current handoff for frontend publication and actual playback verification.
 
 ## Data and access rules
 
@@ -47,8 +47,8 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 - Owner mutations run through narrow RPCs. Derive identity from `auth.uid()` and enforce membership/ownership server-side.
 - Keep privileged SQL functions' `search_path` fixed, references schema-qualified, and execution grants explicit. The private helper schema is not a public API.
 - Share tokens are random 256-bit capabilities. Store hashes only; show the raw token at creation. Replacing a share deliberately revokes its predecessor.
-- Anonymous resolution returns only display metadata and the YouTube ID. Do not expose account identities, token hashes, or directory endpoints.
-- Revocation/removal invalidates the app link, not an already loaded player or the underlying YouTube URL. Removing library metadata never deletes the YouTube video.
+- Anonymous resolution returns only display metadata, provider IDs, and the session deadline. Do not expose account identities, token hashes, or directory endpoints.
+- YouTube revocation/removal invalidates only the app link. For Stream, stop issuing five-minute playback leases; existing tokens and buffered media can outlive revocation briefly. A Stream session starts only on explicit claim, binds to a hashed viewer capability, and has a fixed two-hour deadline. Unused Stream shares expire after seven days. Only service-role RPCs may authorize leases or insert verified Stream metadata. Removing library metadata never deletes the YouTube video.
 - A pasted URL cannot prove channel ownership or Unlisted visibility. Do not imply either is verified by the basic embed preview.
 - Migrations are append-only once applied. Do not reset the live project or run `supabase/tests/bootstrap-local.sql` there.
 
@@ -60,7 +60,7 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 - PKCE must start and finish in the same browser. Remove response codes/errors from history, and never echo provider descriptions that can contain one-time codes.
 - Keep the YouTube iframe origin/referrer behaviour; suppressing the referrer can cause error 153.
 - Build configuration may contain a publishable Supabase key or legacy anon key. Never bundle `service_role`, `sb_secret_…`, Google secrets, management tokens, or refresh tokens.
-- `web/.env.local` and Supabase `.temp` state are ignored. Use existing CLI logins/connections; do not copy credentials into Git or handoff documents.
+- `web/.env.local`, backend function `.env` files, and Supabase `.temp` state are ignored. Cloudflare API credentials belong only in backend secrets; never bundle them. Use existing CLI logins/connections; do not copy credentials into Git or handoff documents.
 - The GitHub workflow uses repository **variables** for public build configuration. It skips deployment until configured and rejects private keys. A successful push is not proof of successful deployment; check the run result when publishing changes.
 - `supabase/config.toml` describes local development. Do not blindly push local auth defaults into the live service. Preview any hosted config changes and preserve unrelated settings.
 

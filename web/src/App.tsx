@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { Dialog } from './components/Dialog'
 import { Player } from './components/Player'
+import { StreamPlayer } from './components/StreamPlayer'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
@@ -192,7 +193,7 @@ export function App({ authError = null }: { authError?: string | null }) {
     window.location.hash = '/library'
   }
   const watchToken = route.startsWith('/watch/') ? route.slice('/watch/'.length) : null
-  if (watchToken !== null) return <Watch token={watchToken} />
+  if (watchToken !== null) return <Watch key={watchToken} token={watchToken} />
 
   const userName =
     session?.user.user_metadata?.full_name || session?.user.email?.split('@')[0] || 'Your account'
@@ -281,6 +282,7 @@ export function App({ authError = null }: { authError?: string | null }) {
           ) : local || (session && member) ? (
             ownVideoId ? (
               <OwnVideo
+                key={ownVideoId}
                 id={ownVideoId}
                 repository={local ? localRepository : cloudRepository}
                 local={local}
@@ -325,11 +327,11 @@ export function App({ authError = null }: { authError?: string | null }) {
             <li>
               <span>01</span>
               <div>
-                <h3>Upload to YouTube</h3>
+                <h3>Upload your recording</h3>
                 <p>
-                  Choose your recording in YouTube Studio. Set visibility to{' '}
-                  <strong>Unlisted</strong> and allow embedding. For games over 15 minutes, verify
-                  your channel first.
+                  For private timed access, upload to Cloudflare Stream and enable Require signed
+                  URLs. Or use YouTube Studio with visibility set to <strong>Unlisted</strong> and
+                  allow embedding. For games over 15 minutes, verify your channel first.
                 </p>
                 <a
                   className="text-link"
@@ -346,8 +348,8 @@ export function App({ authError = null }: { authError?: string | null }) {
               <div>
                 <h3>Add it to your library</h3>
                 <p>
-                  Paste the YouTube link and give your game a title. Keep everything together in
-                  your workspace.
+                  Paste the Stream video ID or YouTube link and give your game a title. Keep
+                  everything together in your workspace.
                 </p>
               </div>
             </li>
@@ -362,8 +364,9 @@ export function App({ authError = null }: { authError?: string | null }) {
             </li>
           </ol>
           <div className="notice">
-            Anyone with an unlisted YouTube link can watch. To stop access to the actual video, make
-            it Private or delete it in YouTube Studio.
+            Stream links allow one two-hour browser session. YouTube links remain unlisted sharing:
+            anyone with the YouTube link can watch. To stop YouTube access, make it Private or
+            delete it in YouTube Studio.
           </div>
         </Dialog>
       )}
@@ -444,7 +447,7 @@ function Welcome({
             number="01"
             icon={<Film size={20} />}
             title="Keep your games together"
-            text="Upload an unlisted video to YouTube, then add the link to your library."
+            text="Upload to Cloudflare Stream or YouTube, then add the recording to your library."
           />
           <Feature
             number="02"
@@ -567,7 +570,10 @@ function Library({ repository, local }: { repository: LibraryRepository; local: 
         </span>
         <p>
           A good review starts with a shared perspective.
-          <span> Add an unlisted YouTube video, then send your coach a link.</span>
+          <span>
+            {' '}
+            Add a Cloudflare Stream recording or an unlisted YouTube video, then share a link.
+          </span>
         </p>
         <a href="https://studio.youtube.com" target="_blank" rel="noopener noreferrer">
           Upload on YouTube <ExternalLink size={13} />
@@ -691,7 +697,7 @@ function Library({ repository, local }: { repository: LibraryRepository; local: 
               ? 'Try another title, or clear your search to see all your games.'
               : tab === 'shared'
                 ? 'Create a share link for a recording and it will appear here.'
-                : 'Add your first unlisted YouTube video. Keep it here for yourself, or share a link with your coach.'}
+                : 'Add your first recording. Keep it here for yourself, or share a link with your coach.'}
           </p>
           {query || tab === 'shared' ? (
             <button
@@ -721,11 +727,12 @@ function Library({ repository, local }: { repository: LibraryRepository; local: 
         </span>
         <span>
           <span className="status-dot" />
-          Videos hosted on YouTube
+          Cloudflare Stream and YouTube
         </span>
       </div>
       {modal === 'add' && (
         <AddDialog
+          local={local}
           repository={repository}
           onClose={() => setModal(null)}
           onSaved={() => changed('Video added to your library.')}
@@ -756,7 +763,7 @@ function Library({ repository, local }: { repository: LibraryRepository; local: 
           repository={repository}
           onClose={() => setSelected(null)}
           onRemoved={() =>
-            changed('Video removed from your library. The original is still on YouTube.')
+            changed('Video removed from your library. The hosted original has been kept.')
           }
         />
       )}
@@ -780,14 +787,16 @@ function RecordingRow({
         href={`#/${local ? 'preview/' : ''}video/${record.id}`}
         aria-label={`Watch ${record.title}`}
       >
-        <img
-          loading="lazy"
-          src={`https://i.ytimg.com/vi/${record.youtube_video_id}/mqdefault.jpg`}
-          alt=""
-          onError={(e) => {
-            e.currentTarget.style.visibility = 'hidden'
-          }}
-        />
+        {record.provider !== 'stream' && (
+          <img
+            loading="lazy"
+            src={`https://i.ytimg.com/vi/${record.youtube_video_id}/mqdefault.jpg`}
+            alt=""
+            onError={(e) => {
+              e.currentTarget.style.visibility = 'hidden'
+            }}
+          />
+        )}
         <span className="thumbnail-play">
           <Play size={17} fill="currentColor" />
         </span>
@@ -800,7 +809,7 @@ function RecordingRow({
         <div className="recording-meta">
           <span>{formatDate(record.recorded_on)}</span>
           <span className="meta-dot">·</span>
-          <span>YouTube</span>
+          <span>{record.provider === 'stream' ? 'Cloudflare Stream' : 'YouTube'}</span>
         </div>
       </div>
       <span className={`share-status ${record.has_share ? 'is-shared' : ''}`}>
@@ -827,9 +836,15 @@ function RecordingRow({
           >
             Rename
           </button>
-          <a href={youtubeURL(record.youtube_video_id)} target="_blank" rel="noopener noreferrer">
-            Open on YouTube <ExternalLink size={12} />
-          </a>
+          {record.provider !== 'stream' && (
+            <a
+              href={youtubeURL(record.youtube_video_id ?? '')}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open on YouTube <ExternalLink size={12} />
+            </a>
+          )}
           <button
             className="danger-text"
             onClick={(e) => {
@@ -846,6 +861,7 @@ function RecordingRow({
 }
 
 function AddDialog({
+  local,
   repository,
   onClose,
   onSaved,
@@ -853,19 +869,30 @@ function AddDialog({
   repository: LibraryRepository
   onClose(): void
   onSaved(): void
+  local: boolean
 }) {
+  const [provider, setProvider] = useState<'youtube' | 'stream'>('youtube')
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [preview, setPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const id = parseYouTubeId(url)
+  const id =
+    provider === 'stream'
+      ? /^[a-f0-9]{32}$/.test(url.trim())
+        ? url.trim()
+        : null
+      : parseYouTubeId(url)
   async function submit(e: FormEvent) {
     e.preventDefault()
     setError('')
     if (!id) {
-      setError('Paste a valid YouTube video link, such as youtube.com/watch?v=… or youtu.be/…')
+      setError(
+        provider === 'stream'
+          ? 'Enter the 32-character Stream video ID from Cloudflare.'
+          : 'Paste a valid YouTube video link, such as youtube.com/watch?v=… or youtu.be/…',
+      )
       return
     }
     if (!title.trim()) {
@@ -874,7 +901,12 @@ function AddDialog({
     }
     setSaving(true)
     try {
-      await repository.add({ title: title.trim(), youtube_video_id: id, recorded_on: date || null })
+      await repository.add({
+        title: title.trim(),
+        youtube_video_id: provider === 'youtube' ? id : null,
+        ...(provider === 'stream' ? { provider, stream_video_id: id } : {}),
+        recorded_on: date || null,
+      })
       onSaved()
     } catch (e) {
       setError((e as Error).message)
@@ -890,21 +922,48 @@ function AddDialog({
       }}
       wide
     >
-      <p className="dialog-intro">A recording worth coming back to. Start with its YouTube link.</p>
-      <div className="add-instructions">
-        <span className="feature-icon">
-          <Film size={19} />
-        </span>
-        <p>
-          Upload your recording as <strong>Unlisted</strong> and allow embedding.
-          <a href="https://studio.youtube.com" target="_blank" rel="noopener noreferrer">
-            Open YouTube Studio <ExternalLink size={12} />
-          </a>
-        </p>
-      </div>
+      <p className="dialog-intro">
+        Add a recording you have already uploaded to Cloudflare Stream or YouTube.
+      </p>
+      {!local && (
+        <label className="form-label">
+          Video hosting
+          <select
+            aria-label="Video hosting"
+            value={provider}
+            onChange={(e) => {
+              setProvider(e.target.value as 'youtube' | 'stream')
+              setUrl('')
+              setPreview(false)
+              setError('')
+            }}
+          >
+            <option value="youtube">YouTube</option>
+            <option value="stream">Cloudflare Stream</option>
+          </select>
+        </label>
+      )}
+      {provider === 'stream' ? (
+        <div className="notice">
+          Upload in Cloudflare Stream, wait for processing, and enable Require signed URLs. Paste
+          its video ID below.
+        </div>
+      ) : (
+        <div className="add-instructions">
+          <span className="feature-icon">
+            <Film size={19} />
+          </span>
+          <p>
+            Upload your recording as <strong>Unlisted</strong> and allow embedding.
+            <a href="https://studio.youtube.com" target="_blank" rel="noopener noreferrer">
+              Open YouTube Studio <ExternalLink size={12} />
+            </a>
+          </p>
+        </div>
+      )}
       <form onSubmit={submit}>
         <label className="form-label" htmlFor="video-url">
-          YouTube link
+          {provider === 'stream' ? 'Stream video ID' : 'YouTube link'}
         </label>
         <div className="url-input">
           <Link2 size={17} />
@@ -916,22 +975,28 @@ function AddDialog({
               setUrl(e.target.value)
               setPreview(false)
             }}
-            placeholder="https://www.youtube.com/watch?v=…"
+            placeholder={
+              provider === 'stream' ? '32-character video ID' : 'https://www.youtube.com/watch?v=…'
+            }
             autoComplete="off"
           />
         </div>
         {url && !id && (
           <p className="field-hint danger-text">
-            Enter a YouTube video link, rather than a channel or playlist.
+            {provider === 'stream'
+              ? 'Enter the 32-character video ID.'
+              : 'Enter a YouTube video link, rather than a channel or playlist.'}
           </p>
         )}
         {id && (
           <div className="validated-link">
             <CheckCircle2 size={13} />
-            YouTube link recognised
-            <button className="text-link" type="button" onClick={() => setPreview(!preview)}>
-              {preview ? 'Hide preview' : 'Preview video'}
-            </button>
+            {provider === 'stream' ? 'Stream video ID recognised' : 'YouTube link recognised'}
+            {provider === 'youtube' && (
+              <button className="text-link" type="button" onClick={() => setPreview(!preview)}>
+                {preview ? 'Hide preview' : 'Preview video'}
+              </button>
+            )}
           </div>
         )}
         {preview && id && (
@@ -1005,6 +1070,7 @@ function ShareDialog({
     setError('')
     try {
       const token = await repository.share(record.id)
+      setCopied(false)
       setLink(appURL(`/watch/${token}`))
       setActive(true)
     } catch (e) {
@@ -1028,7 +1094,7 @@ function ShareDialog({
   }
   async function copy() {
     try {
-      await navigator.clipboard.writeText(local ? youtubeURL(record.youtube_video_id) : link)
+      await navigator.clipboard.writeText(local ? youtubeURL(record.youtube_video_id ?? '') : link)
       setCopied(true)
     } catch {
       setError('Clipboard access was blocked. Select the link and copy it manually.')
@@ -1067,7 +1133,7 @@ function ShareDialog({
           <input
             id="share-link"
             readOnly
-            value={youtubeURL(record.youtube_video_id)}
+            value={youtubeURL(record.youtube_video_id ?? '')}
             onFocus={(e) => e.target.select()}
           />
           <button className="button share-primary" onClick={copy}>
@@ -1115,8 +1181,9 @@ function ShareDialog({
         </button>
       )}
       <p className="share-fineprint">
-        Anyone with the underlying YouTube link can still watch. To stop access to the video itself,
-        make it Private or delete it in YouTube Studio.
+        {record.provider === 'stream'
+          ? 'One browser session per link. Start within seven days; access ends two hours after starting. Replacing or revoking stops renewal; issued playback tokens may work for up to five minutes, plus buffered video.'
+          : 'Anyone with the underlying YouTube link can still watch. To stop access to the video itself, make it Private or delete it in YouTube Studio.'}
       </p>
     </Dialog>
   )
@@ -1216,7 +1283,11 @@ function RemoveDialog({
     >
       <p className="dialog-intro">
         “{record.title}” will be removed and its app share links will stop working. The original
-        video stays on YouTube.
+        video stays on{' '}
+        {record.provider === 'stream'
+          ? 'Cloudflare Stream and continues to use paid storage'
+          : 'YouTube'}
+        .
       </p>
       {error && <ErrorNotice message={error} />}
       <div className="form-footer">
@@ -1288,7 +1359,11 @@ function OwnVideo({
               Share video
             </button>
           </div>
-          <Player videoId={record.youtube_video_id} title={record.title} />
+          {record.provider === 'stream' ? (
+            <StreamPlayer key={record.id} recordingId={record.id} title={record.title} />
+          ) : (
+            <Player videoId={record.youtube_video_id!} title={record.title} />
+          )}
           {share && (
             <ShareDialog
               record={record}
@@ -1387,7 +1462,11 @@ function Watch({ token }: { token: string }) {
                 No account needed
               </span>
             </div>
-            <Player videoId={video.youtube_video_id} title={video.title} />
+            {video.provider === 'stream' ? (
+              <StreamPlayer key={token} shareToken={token} title={video.title} />
+            ) : (
+              <Player videoId={video.youtube_video_id!} title={video.title} />
+            )}
             <div className="watch-details">
               <div>
                 <h1>{video.title}</h1>

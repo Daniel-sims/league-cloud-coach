@@ -18,7 +18,9 @@ type Fixture = {
   rows: {
     id: string
     title: string
-    youtube_video_id: string
+    youtube_video_id: string | null
+    provider?: 'youtube' | 'stream'
+    stream_video_id?: string
     recorded_on: string | null
     created_at: string
     has_share: boolean
@@ -32,6 +34,29 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
     const name = new URL(route.request().url()).pathname.split('/').at(-1)
     const args = route.request().postDataJSON() || {}
     let result: unknown = null
+    if (name === 'stream' && args.action === 'add') {
+      state.rows.unshift({
+        id: recordingId,
+        title: args.title,
+        youtube_video_id: null,
+        provider: 'stream',
+        stream_video_id: args.videoId,
+        recorded_on: args.recordedOn,
+        created_at: new Date().toISOString(),
+        has_share: false,
+      })
+      result = { ok: true }
+    }
+    if (name === 'stream' && (args.action === 'start' || args.action === 'renew')) {
+      await route.fulfill({
+        status: 410,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: 'This session is unavailable. Ask the owner for a new link.',
+        }),
+      })
+      return
+    }
     if (name === 'user') result = user
     if (name === 'is_library_owner') result = state.member
     if (name === 'list_recordings')
@@ -60,6 +85,8 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
                 title: state.rows[0].title,
                 youtube_video_id: state.rows[0].youtube_video_id,
                 recorded_on: state.rows[0].recorded_on,
+                provider: state.rows[0].provider,
+                stream_video_id: state.rows[0].stream_video_id,
               },
             ]
           : []
@@ -143,4 +170,42 @@ test('signed-in Google account without owner membership gets no library manageme
   await page.goto('/#/library')
   await expect(page.getByRole('heading', { name: 'You’re signed in.' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add video', exact: true })).toHaveCount(0)
+})
+
+test('Stream owner adds a video ID and guest must explicitly start private playback', async ({
+  page,
+  browser,
+}) => {
+  const state: Fixture = { rows: [], member: true, shared: false }
+  await mockBackend(page.context(), state)
+  await setOwnerSession(page.context())
+  await page.goto('/#/library')
+  await page.getByRole('button', { name: 'Add your first video' }).click()
+  await page.getByLabel('Video hosting').selectOption('stream')
+  await page.getByLabel('Stream video ID', { exact: true }).fill('d'.repeat(32))
+  await page.getByLabel('Title', { exact: true }).fill('Private Stream review')
+  await page.getByRole('dialog').getByRole('button', { name: 'Add video', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Private Stream review', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Share', exact: true }).click()
+  await expect(page.getByText(/One browser session per link/)).toBeVisible()
+  await page.getByRole('button', { name: 'Create share link', exact: true }).click()
+  const link = await page.getByLabel('Your watch link', { exact: true }).inputValue()
+  const context = await browser.newContext()
+  await mockBackend(context, state)
+  const guest = await context.newPage()
+  let claims = 0
+  guest.on('request', (request) => {
+    if (request.url().endsWith('/functions/v1/stream')) claims++
+  })
+  await guest.goto(link)
+  await expect(guest.getByRole('button', { name: 'Start session', exact: true })).toBeVisible()
+  expect(claims).toBe(0)
+  await expect(guest.getByRole('link', { name: 'Open on YouTube' })).toHaveCount(0)
+  await guest.getByRole('button', { name: 'Start session', exact: true }).click()
+  await expect(guest.getByRole('alert')).toContainText('Ask the owner for a new link.')
+  expect(claims).toBe(1)
+  await guest.reload()
+  await expect(guest.getByRole('button', { name: 'Start session', exact: true })).toBeVisible()
+  expect(claims).toBe(1)
+  await context.close()
 })

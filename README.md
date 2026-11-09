@@ -1,6 +1,8 @@
 # League Cloud Coach
 
-A static web app for a personal League recording library and account-free watch links. Upload videos to YouTube as **Unlisted**, then add their links here. The app never receives video files or uploads to your channel.
+A static web app for a personal League recording library and account-free watch links. Add already-uploaded Cloudflare Stream recordings for private two-hour sessions, or use unlisted YouTube links. There is no in-app file uploader.
+
+**Deployment status:** The Stream migration and backend function are deployed, with Cloudflare credentials stored in backend secrets. See [current project state](docs/PROJECT_STATE.md) for frontend publication and live acceptance status before configuring or publishing.
 
 Live app: [League Cloud Coach](https://daniel-sims.github.io/league-cloud-coach/). Source: [Daniel-sims/league-cloud-coach](https://github.com/Daniel-sims/league-cloud-coach).
 
@@ -13,10 +15,10 @@ The long-term product has three parts: the existing League Helper app, this web 
 ### Current release
 
 - Google authentication through Supabase, with library management restricted to explicitly enabled owner memberships.
-- Add a YouTube URL with a title and optional game date; preview the video before saving.
+- Add a YouTube URL or an already-uploaded private Cloudflare Stream video ID with a title and optional game date. Stream IDs are verified against the configured account on the backend.
 - Search, filter, sort, rename, open, and remove recordings from the owner's library.
 - Create, replace, copy, and revoke share links.
-- Account-free watch pages with standard YouTube playback controls, responsive layouts, and useful unavailable/error states.
+- Account-free watch pages with standard video controls. Stream links must start within seven days, bind to the first browser session, and expire two hours after starting. YouTube sharing retains its existing behavior.
 - A clearly labelled development-only local preview, plus automated frontend, browser, and database permission checks.
 
 Other Google users may authenticate, but signing in does not automatically grant management access. Data ownership is part of the schema rather than hardcoded to one person's email, allowing deliberate expansion later.
@@ -29,7 +31,7 @@ The current manual flow is **YouTube Studio upload as Unlisted → Add video in 
 
 ### Service and cost decisions
 
-Use GitHub Pages for the static frontend, Supabase Free for identity/private metadata, and YouTube for storage/processing/playback. Paid Cloudflare Stream was deliberately deferred; this app has no R2 or Supabase video-storage dependency. No paid subscription is required for the current design, subject to provider limits and availability.
+Use GitHub Pages for the static frontend and Supabase for identity/private metadata plus a Stream Edge Function. Cloudflare Stream is an optional paid video provider; existing YouTube recordings remain supported. Stream currently charges $5/month per 1,000 stored minutes of capacity, bought in blocks, plus $1 per 1,000 delivered minutes. Recheck [provider pricing](https://developers.cloudflare.com/stream/pricing/) before purchase. Expiring/removing a share does not delete hosted media or stop storage charges.
 
 ## Architecture and privacy
 
@@ -39,12 +41,13 @@ Use GitHub Pages for the static frontend, Supabase Free for identity/private met
 | Supabase Auth | Google login with PKCE; no YouTube upload grant |
 | Supabase PostgreSQL 17 | Private owner memberships, recording metadata, and hashed share capabilities |
 | Narrow database RPCs | Owner mutations and minimal anonymous share resolution |
-| YouTube iframe player | Provider-hosted video playback and standard controls |
+| YouTube iframe / HLS video player | Provider-hosted playback with standard controls |
+| Supabase `stream` Edge Function | Verify owner actions/share sessions, check Cloudflare privacy, mint five-minute playback tokens |
 | GitHub Actions + Pages | Verification, configured production build, and static deployment |
 
-Video files never pass through our website/backend. There are no server handlers on GitHub Pages, Edge Functions, or file-storage buckets in this release. Owner libraries are protected by database permissions and row-level security; anonymous viewers can resolve a valid capability but cannot list libraries or edit records.
+Video files never pass through our website/backend. GitHub Pages has no server handlers. The `stream` Supabase Edge Function returns short-lived playback authorization; Cloudflare delivers the media. There are no video-storage buckets. Owner libraries are protected by database permissions and row-level security; anonymous viewers can resolve a valid capability but cannot list libraries or edit records.
 
-The app is unlisted sharing, not access-controlled video hosting. Anyone with a YouTube URL can watch or forward it. Replacing/revoking an app link does not stop an already loaded player or invalidate that YouTube URL. The owner must change visibility or delete the video in YouTube Studio to stop access to the actual media.
+YouTube recordings use unlisted sharing. Anyone with a YouTube URL can watch or forward it. Replacing/revoking an app link does not stop an already loaded player or invalidate that YouTube URL. The owner must change visibility or delete the video in YouTube Studio to stop access to the actual media.
 
 ## Source and documentation map
 
@@ -63,6 +66,24 @@ For agents, read `web/AGENTS.md` (also the standalone root `AGENTS.md`), then [c
 
 In the original native workspace, `scripts/export-cloud-coach.py` copies web-only source to the standalone repo. The exported root README is generated from this complete document with relative links rebased, and root `AGENTS.md` comes from `web/AGENTS.md`. Native source, history, database files, and recordings must not be published in the public web repository.
 
+## Cloudflare Stream setup and acceptance
+
+1. Activate Stream in the intended Cloudflare account. Upload a recording in the dashboard, wait for processing, and enable **Require signed URLs**.
+2. Create a Cloudflare API token scoped to that account with **Stream Read** and **Stream Write** permissions. Keep it out of chat, Git, and `VITE_…` variables.
+3. In the existing Supabase project → Edge Functions → Secrets, store `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. See [backend environment example](supabase/functions/.env.example). The hosted runtime supplies Supabase URL, anon key and service-role key.
+4. Preview and apply the pending append-only migration, then deploy from the repository root: `supabase functions deploy stream --project-ref YOUR_PROJECT_REF`. The checked-in function configuration sets `verify_jwt = false` because guests authenticate with capabilities. The handler verifies owner JWTs with Supabase Auth and checks membership before owner actions. Do not push the entire local auth configuration.
+5. Export/synchronize the web-only repository, verify its changes, then publish the frontend through its existing Pages workflow. Backend deployment must precede the frontend. Never push native history into the web repository.
+6. Sign in, choose **Add video → Cloudflare Stream**, paste the 32-character video ID, enter a title, and save. The backend rejects videos outside the configured account, videos still processing, and videos without signed-URL protection.
+7. Create a share and open it in a signed-out browser. Metadata lookup does not claim the session; **Start session** claims it atomically. Check audio, HUD readability, duration, seeking, pause/resume, refresh, and renewal beyond five minutes with the actual recording. Verify a different browser cannot claim it, and that revocation/replacement ends renewal. Verify expiry with an actual session before describing live acceptance as complete.
+
+The database stores only hashes of share and viewer-session capabilities. The viewer secret is kept in per-tab session storage. Reloads reuse it and cannot extend the two-hour deadline; closing/losing that tab may require the owner to issue a replacement. Duplicating a tab may copy browser session storage; this is a session claim, not a guarantee of one physical viewer or a hard spending cap. Anyone obtaining both capabilities or a still-valid playback URL can reuse them during their validity.
+
+Playback tokens last at most five minutes and never extend beyond the session deadline. The HLS player renews about one minute before expiry and updates tokens on subsequent playlist/segment requests. Browsers using native HLS reload the media URL on renewal, preserving position; this may briefly interrupt playback and needs device acceptance. Transient failures retry until the current token expires, then unload media. Revocation/replacement stops new tokens; previously issued tokens can remain valid for up to five minutes and already buffered/captured media cannot be recalled. There is no cumulative watch-minute budget or billing cap.
+
+Owners can load their own recordings without spending a shared session; their playback still incurs delivery charges. Removing a recording only removes app metadata and access. Delete media separately in Cloudflare to stop its storage usage. There is no automatic retention/deletion policy or direct file uploader in this change.
+
+Run `deno check --config supabase/functions/stream/deno.json supabase/functions/stream/index.ts` from the repository root to check the Edge Function. `npm test` in `web/` includes mocked provider/handler tests; SQL tests use a disposable database and browser tests simulate backend responses. None prove real Cloudflare playback.
+
 ## Run locally
 
 Requires Node.js 24 and npm.
@@ -79,7 +100,7 @@ To enable accounts and persistent sharing, complete the following setup.
 
 ## 1. Create the database
 
-Create a **Free** Supabase project. In its SQL Editor, run the complete contents of [the migration](supabase/migrations/202611090001_cloud_coach.sql). Alternatively, link the Supabase CLI to the project and use `supabase db push` with that migration directory. No paid services, storage buckets, or Edge Functions are needed.
+For a new installation, create a Supabase project and apply all files in [migrations](supabase/migrations) in filename order. For the existing hosted project, preserve applied migrations and apply only pending files. Link the CLI and preview with `supabase db push --dry-run` before `supabase db push`. Stream additionally needs the backend configuration below.
 
 The migration creates a private recording library, owner memberships, and hashed share capabilities. Authenticated accounts have no owner permission until granted explicitly. Never run `supabase/tests/bootstrap-local.sql` on Supabase; it is only for disposable plain PostgreSQL tests.
 
@@ -172,8 +193,9 @@ Database tests run against an isolated PostgreSQL 17 database. With the connecti
 
 ```sh
 psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap-local.sql
-psql -v ON_ERROR_STOP=1 -f supabase/migrations/202611090001_cloud_coach.sql
+for migration in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$migration"; done
 psql -v ON_ERROR_STOP=1 -f supabase/tests/security.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/stream-security.sql
 ```
 
 Run those paths from the repository root. The tests check validation, private listings, unauthorized accounts, direct mutation denial, cross-owner operations, anonymous capability lookup, share rotation/revocation, disabled owners, and deletion. The fixture transaction rolls back. The CI workflow runs the same tests.
@@ -182,7 +204,7 @@ Before launch, manually verify real Google login, add a completed game, signed-o
 
 ## Service limits
 
-No paid subscriptions are required for this architecture. Supabase Free has quotas and may pause a project after one week of inactivity. YouTube controls upload limits, processing, ads/branding, and availability. Unlisted videos are accessible to anyone holding their YouTube link. Keep the local originals.
+The YouTube path needs no paid video subscription. Cloudflare Stream usage is billed separately. Supabase Free has quotas and may pause a project after one week of inactivity. YouTube controls upload limits, processing, ads/branding, and availability. Unlisted videos are accessible to anyone holding their YouTube link. Keep the local originals.
 
 ## Future work
 

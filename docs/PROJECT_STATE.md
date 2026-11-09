@@ -2,6 +2,18 @@
 
 Last reviewed: 9 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Stream integration: backend deployed, frontend publication in progress
+
+The owner has activated paid Cloudflare Stream and uploaded a test recording. This supersedes the earlier decision to defer paid video hosting. Account/video identifiers were supplied for integration; no Cloudflare API credential has been provided in chat or stored in source.
+
+Local source now adds Stream alongside YouTube: verified private video-ID import through the `stream` Supabase Edge Function, owner playback, and account-free sessions. An unused Stream share must start within seven days. The explicit start atomically binds a viewer-session capability and fixes expiry at two hours; refresh/start/renew cannot extend it. Share and session hashes stay private. A second viewer capability cannot claim a started session. Playback tokens last at most five minutes, capped by session expiry; replacement, revocation, removal, or disabling the owner prevents renewal. Already-issued tokens and buffered media can outlive revocation. Session storage is per tab; it is not a physical-viewer guarantee or a spending cap.
+
+Migration `202611090002_stream_sessions.sql` has been applied remotely, and the `stream` Edge Function is ACTIVE with gateway JWT verification disabled as designed. Owner actions verify JWTs in the handler; public actions use database-checked capabilities. The owner configured `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` directly in Supabase. Secret names were verified without revealing values. The deployed playback endpoint returns 410 for unknown capabilities. Frontend publication is in progress; the existing public site remains on YouTube until its Pages workflow completes.
+
+Verification so far: production frontend build and Deno runtime type check passed; 47 frontend/player/handler tests and six simulated-backend browser tests passed. Both SQL permission suites passed against disposable PostgreSQL 16 locally (CI uses PostgreSQL 17), covering ownership/grants, fixed expiry, competing viewer claims, unused-link expiry, replacement/revocation, and disabled owners. Actual Cloudflare playback, segment-token renewal, quality/audio/seeking, device behavior, and a full two-hour session remain unverified. Native-HLS fallback reloads on renewal and may briefly interrupt playback. No direct uploader, automatic retention/deletion, cumulative watch allowance, or hard billing cap has been implemented.
+
+Next: finish frontend publication through existing Pages CI, then add the supplied video through the owner's authenticated UI and perform real playback/renewal/expiry acceptance. The in-app browser connection is unavailable in this session, so owner UI/login and visual acceptance require a subsequent browser session. Do not administratively assign the video to an arbitrary account. Removal keeps hosted media and its ongoing storage charge.
+
 ## Product and deployment
 
 - Live app: https://daniel-sims.github.io/league-cloud-coach/
@@ -48,11 +60,11 @@ Use the exact error and bounded auth logs to diagnose future failures. A success
 
 ## Accepted decisions and limitations
 
-- Keep this initial release on free services. Paid Cloudflare Stream was considered and rejected for now. R2 and Supabase Storage are not part of this implementation.
+- The initial deployed release uses free YouTube hosting. The owner has now authorized paid Cloudflare Stream; its backend is deployed and frontend rollout is described above. R2 and Supabase Storage remain unused.
 - Unlisted does not mean private: recipients can forward the YouTube URL. Revoking an app link cannot revoke YouTube access or an already loaded embed.
 - No public library directory and no viewer account requirement.
 - Supabase Free may pause inactive projects; YouTube controls processing, limits, branding, and playback availability. Recheck provider terms/limits when making future service decisions.
-- Current schema migration: `supabase/migrations/202611090001_cloud_coach.sql`. It is applied remotely. Add new migrations for changes; do not edit/reset the live schema casually.
+- Current schema migrations: `202611090001_cloud_coach.sql` and `202611090002_stream_sessions.sql` in `supabase/migrations/`. Both are applied remotely. Add new migrations for changes; do not edit/reset the live schema casually.
 
 ## Planned work, not implemented
 

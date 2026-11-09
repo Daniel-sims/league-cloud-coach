@@ -2097,3 +2097,9 @@ strong {
     scroll-behavior: auto !important;
   }
 }
+
+.stream-session-start { padding: 48px 24px; text-align: center; background: var(--surface, #f5f4f0); border-radius: 8px; }
+.stream-session-start p { max-width: 520px; margin: 16px auto 24px; }
+.player-stage video { width: 100%; height: 100%; display: block; }
+.player-stage[hidden] { display: none; }
+.form-label select { display: block; width: 100%; margin-top: 8px; padding: 10px; font: inherit; }

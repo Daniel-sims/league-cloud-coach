@@ -20,7 +20,7 @@ export async function rpc<T>(name: string, args?: Record<string, unknown>): Prom
   if (!supabase) throw new Error('The cloud connection has not been configured yet.')
   const { data, error } = await supabase.rpc(name, args)
   if (error) {
-    if (error.code === '23505') throw new Error('This YouTube video is already in your library.')
+    if (error.code === '23505') throw new Error('This video is already in your library.')
     if (error.code === '42501')
       throw new Error('This account does not have permission to manage this library.')
     if (error.code === 'PGRST202')
@@ -33,11 +33,17 @@ export async function rpc<T>(name: string, args?: Record<string, unknown>): Prom
 export const cloudRepository: LibraryRepository = {
   list: () => rpc<Recording[]>('list_recordings'),
   add: (input) =>
-    rpc('add_recording', {
-      p_title: input.title,
-      p_video_id: input.youtube_video_id,
-      p_recorded_on: input.recorded_on,
-    }),
+    input.provider === 'stream'
+      ? streamRequest('add', {
+          videoId: input.stream_video_id,
+          title: input.title,
+          recordedOn: input.recorded_on,
+        }).then(() => {})
+      : rpc('add_recording', {
+          p_title: input.title,
+          p_video_id: input.youtube_video_id,
+          p_recorded_on: input.recorded_on,
+        }),
   rename: (id, title) => rpc('rename_recording', { p_id: id, p_title: title }),
   remove: (id) => rpc('remove_recording', { p_id: id }),
   share: (id) => rpc<string>('create_recording_share', { p_id: id }),
@@ -79,4 +85,53 @@ export function appURL(path: string) {
   url.search = ''
   url.hash = path
   return url.toString()
+}
+
+export type PlaybackLease = { url: string; expiresAt: string; sessionExpiresAt: string | null }
+export class StreamAccessError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message)
+  }
+}
+export async function streamRequest<T = PlaybackLease>(
+  action: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  if (!supabase) throw new Error('The cloud connection has not been configured yet.')
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const response = await fetch(`${url}/functions/v1/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: key!,
+      ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    },
+    body: JSON.stringify({ action, ...args }),
+    signal: AbortSignal.timeout(20000),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok)
+    throw new StreamAccessError(
+      data.error || 'Could not prepare the video. Please try again.',
+      response.status,
+    )
+  return data as T
+}
+
+// Kept per tab: refresh resumes the same claim, another browser cannot claim it.
+export function viewerSession(token: string): string {
+  const storageKey = `stream-session:${token}`
+  let session = sessionStorage.getItem(storageKey)
+  if (!session || !/^[a-f0-9]{64}$/.test(session)) {
+    session = Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) =>
+      x.toString(16).padStart(2, '0'),
+    ).join('')
+    sessionStorage.setItem(storageKey, session)
+  }
+  return session
 }

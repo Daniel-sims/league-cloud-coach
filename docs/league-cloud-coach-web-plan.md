@@ -1,6 +1,8 @@
 # League Cloud Coach: web MVP plan
 
-Updated 9 November 2026. Decision: use unlisted YouTube videos for the first release, replacing the proposed Cloudflare Stream integration. The web app is implemented under `web/`, published as source in [Daniel-sims/league-cloud-coach](https://github.com/Daniel-sims/league-cloud-coach), and live at [League Cloud Coach](https://daniel-sims.github.io/league-cloud-coach/). The schema is applied to Supabase project `qxzjulhpgcnwkihnfdqu` (PostgreSQL 17). Google sign-in is confirmed and the owner's verified Google account has access; exactly one owner membership is enabled. The sections below retain the implementation scope and design decisions.
+Updated 9 November 2026. **Stream update:** The owner has now authorized paid Cloudflare Stream. Source adds private video-ID import, five-minute playback leases, and fixed two-hour browser sessions. The backend is deployed; see the handoff for frontend rollout and actual playback acceptance. See [current handoff](PROJECT_STATE.md) and the Stream setup in `web/README.md`. The original YouTube architecture below is retained as historical rationale and remains the live deployment until the Stream rollout.
+
+Original release decision: use unlisted YouTube videos for the first release, replacing the proposed Cloudflare Stream integration. The web app is implemented under `web/`, published as source in [Daniel-sims/league-cloud-coach](https://github.com/Daniel-sims/league-cloud-coach), and live at [League Cloud Coach](https://daniel-sims.github.io/league-cloud-coach/). The schema is applied to Supabase project `qxzjulhpgcnwkihnfdqu` (PostgreSQL 17). Google sign-in is confirmed and the owner's verified Google account has access; exactly one owner membership is enabled. The sections below retain the implementation scope and design decisions.
 
 Verification: 34 frontend tests, five browser tests, CI database security checks, live anonymous API access checks, and a rollback-only owner add/rename/share/anonymous-view/revoke/remove smoke test passed. No test recording was retained. Browser playback of the owner's own recording remains a user acceptance step once a real video is added.
 
@@ -130,7 +132,7 @@ Preserve match identity and clock anchors for later timelines. Define a versione
 
 The chosen MVP needs no paid subscriptions: GitHub Pages serves the frontend, Supabase Free holds authentication and small metadata records, and YouTube serves videos. No video bytes consume Supabase storage/egress, and there is no Cloudflare usage bill.
 
-Supabase Free has quotas and pauses inactive projects after a week; review availability expectations at launch. YouTube has account, upload, processing, and playback limits, so this is not a promise of unlimited hosting or guaranteed availability. Long recordings require channel verification. Do not activate paid services or paid automatic upgrades for this MVP.
+Supabase Free has quotas and pauses inactive projects after a week; review availability expectations at launch. YouTube has account, upload, processing, and playback limits, so this is not a promise of unlimited hosting or guaranteed availability. Long recordings require channel verification. The original free-service constraint has been superseded by the authorized Stream integration above; do not enable unrelated paid services or automatic upgrades.
 
 ## Official references
 

@@ -41,6 +41,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check Stream Edge Function
+        run: deno check --config ../supabase/functions/stream/deno.json ../supabase/functions/stream/index.ts
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
@@ -53,8 +58,9 @@ jobs:
           PGDATABASE: postgres
         run: |
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/bootstrap-local.sql
-          psql -v ON_ERROR_STOP=1 -f ../supabase/migrations/202611090001_cloud_coach.sql
+          for migration in ../supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$migration"; done
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/security.sql
+          psql -v ON_ERROR_STOP=1 -f ../supabase/tests/stream-security.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.VITE_SUPABASE_URL != '' && vars.VITE_SUPABASE_PUBLISHABLE_KEY != ''
