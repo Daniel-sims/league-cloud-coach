@@ -528,6 +528,11 @@ function Library({
       try {
         const result = await repository.syncUploads()
         setUploads(result?.pending || [])
+        if (result?.imported > 0) {
+          setTab('all')
+          setQuery('')
+          setNotice('Your completed upload has been added to the library.')
+        }
         setUploadError('')
       } catch {
         setUploadError('Could not refresh uploads. Your saved library is still available.')
@@ -543,7 +548,14 @@ function Library({
         if (repository.syncUploads) {
           try {
             const result = await repository.syncUploads()
-            if (active) setUploads(result?.pending || [])
+            if (active) {
+              setUploads(result?.pending || [])
+              if (result?.imported > 0) {
+                setTab('all')
+                setQuery('')
+                setNotice('Your completed upload has been added to the library.')
+              }
+            }
           } catch {
             if (active)
               setUploadError('Could not refresh uploads. Your saved library is still available.')

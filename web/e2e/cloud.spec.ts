@@ -292,6 +292,7 @@ test('owner uploads directly to Cloudflare and the library waits for processing'
 })
 
 test('library recovers completed uploads after the upload dialog was closed', async ({ page }) => {
+  await page.clock.install()
   const state: Fixture = { rows: [], member: true, shared: false }
   await mockBackend(page.context(), state)
   await setOwnerSession(page.context())
@@ -328,8 +329,10 @@ test('library recovers completed uploads after the upload dialog was closed', as
   await expect(
     page.getByText('Processing your video. It will appear here automatically.', { exact: false }),
   ).toBeVisible()
+  await page.getByRole('tab', { name: /^Shared/ }).click()
+  await page.getByRole('searchbox').fill('unrelated search')
   ready = true
-  await page.getByRole('button', { name: 'Refresh uploads' }).click()
+  await page.clock.fastForward(15000)
   await expect(page.getByRole('link', { name: 'Recovered upload', exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
