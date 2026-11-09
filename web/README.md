@@ -103,7 +103,7 @@ npm run test:browser
 
 Browser tests cover local library interactions, persistence, mobile width, keyboard dialogs, and public unavailable states. They do not substitute for a real Google login or playback of your own YouTube recording.
 
-Database tests run against an isolated PostgreSQL 16 database. With the connection environment pointing at a **disposable test database**:
+Database tests run against an isolated PostgreSQL 17 database. With the connection environment pointing at a **disposable test database**:
 
 ```sh
 psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap-local.sql
