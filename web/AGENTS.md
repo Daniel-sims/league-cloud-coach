@@ -15,8 +15,8 @@ Help a League player share full game recordings with a coach and eventually revi
 
 - Google sign-in uses Supabase Auth and PKCE.
 - Only explicitly enabled owner memberships can manage a library. Additional Google accounts may authenticate but gain no management permission automatically.
-- The owner uploads a video manually through YouTube Studio as **Unlisted**, then adds its URL/title to the app. There is no file upload endpoint or automatic channel access.
-- Anonymous viewers resolve a share capability and watch with ordinary YouTube controls. They cannot enumerate a library or mutate recordings.
+- The owner uploads manually to Cloudflare Stream with **Require signed URLs** enabled and adds its video ID, or uses a YouTube Studio **Unlisted** upload and adds the URL/title. There is no file upload endpoint or automatic channel access.
+- Anonymous viewers resolve a share capability and watch with ordinary video controls. Stream requires explicit session start; YouTube retains unlisted playback. They cannot enumerate a library or mutate recordings.
 - Timeline, annotations, AI review, Riot sync, automatic uploads, and the separate Mac companion are planned, not implemented in this web release.
 - Cloudflare Stream is now an authorized optional paid provider, with its backend deployed. Keep existing YouTube recordings working. See the Stream setup/limitations in the README and current handoff before publishing.
 
@@ -31,6 +31,8 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/lib/youtube.ts` | Validates URLs/IDs; never accepts arbitrary iframe HTML |
 | `web/src/lib/local.ts` | Development-only localStorage preview, never a cloud/auth substitute |
 | `web/src/components/Player.tsx` | Standard YouTube player, loading/failure handling, cleanup |
+| `web/src/components/StreamPlayer.tsx` | Private HLS playback, explicit session start, fixed deadline, playlist renewal |
+| `supabase/functions/stream/` | Verified Stream import, owner playback, anonymous session authorization and short playback leases |
 | `web/src/components/Dialog.tsx` | Native modal dialog, focus restoration, Escape handling |
 | `web/src/styles.css` | Responsive neutral visual system with restrained accents |
 | `web/src/**/*.test.*` | Vitest/component tests |

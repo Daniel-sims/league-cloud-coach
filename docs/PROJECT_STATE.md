@@ -2,17 +2,17 @@
 
 Last reviewed: 9 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
-## Stream integration: backend deployed, frontend publication in progress
+## Stream integration: deployed
 
 The owner has activated paid Cloudflare Stream and uploaded a test recording. This supersedes the earlier decision to defer paid video hosting. Account/video identifiers were supplied for integration; no Cloudflare API credential has been provided in chat or stored in source.
 
-Local source now adds Stream alongside YouTube: verified private video-ID import through the `stream` Supabase Edge Function, owner playback, and account-free sessions. An unused Stream share must start within seven days. The explicit start atomically binds a viewer-session capability and fixes expiry at two hours; refresh/start/renew cannot extend it. Share and session hashes stay private. A second viewer capability cannot claim a started session. Playback tokens last at most five minutes, capped by session expiry; replacement, revocation, removal, or disabling the owner prevents renewal. Already-issued tokens and buffered media can outlive revocation. Session storage is per tab; it is not a physical-viewer guarantee or a spending cap.
+Stream support adds to the existing YouTube integration: verified private video-ID import through the `stream` Supabase Edge Function, owner playback, and account-free sessions. An unused Stream share must start within seven days. The explicit start atomically binds a viewer-session capability and fixes expiry at two hours; refresh/start/renew cannot extend it. Share and session hashes stay private. A second viewer capability cannot claim a started session. Playback tokens last at most five minutes, capped by session expiry; replacement, revocation, removal, or disabling the owner prevents renewal. Already-issued tokens and buffered media can outlive revocation. Session storage is per tab; it is not a physical-viewer guarantee or a spending cap.
 
-Migration `202611090002_stream_sessions.sql` has been applied remotely, and the `stream` Edge Function is ACTIVE with gateway JWT verification disabled as designed. Owner actions verify JWTs in the handler; public actions use database-checked capabilities. The owner configured `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` directly in Supabase. Secret names were verified without revealing values. The deployed playback endpoint returns 410 for unknown capabilities. Frontend publication is in progress; the existing public site remains on YouTube until its Pages workflow completes.
+Migration `202611090002_stream_sessions.sql` has been applied remotely, and the `stream` Edge Function is ACTIVE with gateway JWT verification disabled as designed. Owner actions verify JWTs in the handler; public actions use database-checked capabilities. The owner configured `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` directly in Supabase. Secret names were verified without revealing values. The deployed playback endpoint returns 410 for unknown capabilities. Frontend release `fb8f23015e034547a659296efc86712669086bf9` is deployed. [Pages workflow 42710333680](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42710333680) passed verification and deployment. A public HTTP check returned 200 and confirmed the production bundle includes Stream import, explicit Start session, and the position-preserving renewal fix.
 
-Verification so far: production frontend build and Deno runtime type check passed; 47 frontend/player/handler tests and six simulated-backend browser tests passed. Both SQL permission suites passed against disposable PostgreSQL 16 locally (CI uses PostgreSQL 17), covering ownership/grants, fixed expiry, competing viewer claims, unused-link expiry, replacement/revocation, and disabled owners. Live server-side checks confirmed the uploaded recording is ready/private (about 28 minutes), unsigned manifest requests are denied, and signed master/variant playlists plus a video segment return HTTP 200. Cloudflare signs segment URLs separately; the player reloads the playlist on renewal while preserving position/pause state and avoids repeated renewal of a final deadline-capped lease. Renewal may briefly buffer. Actual browser playback, quality/audio/seeking, device behavior, and a full two-hour session remain unverified. No direct uploader, automatic retention/deletion, cumulative watch allowance, or hard billing cap has been implemented.
+Verification: production frontend build and Deno runtime type check passed; 47 frontend/player/handler tests and six simulated-backend browser tests passed locally and in release CI. Both SQL security suites passed on PostgreSQL 17 in release CI. Both SQL permission suites passed against disposable PostgreSQL 16 locally (CI uses PostgreSQL 17), covering ownership/grants, fixed expiry, competing viewer claims, unused-link expiry, replacement/revocation, and disabled owners. Live server-side checks confirmed the uploaded recording is ready/private (about 28 minutes), unsigned manifest requests are denied, and signed master/variant playlists plus a video segment return HTTP 200. With an eight-second diagnostic token, the manifest and segment both returned HTTP 401 after expiry. The administrator-only diagnostic function was deleted afterward; only `stream` remains deployed. Live grants deny anonymous authorization/hash reads and authenticated bypass of verified Stream import. Cloudflare signs segment URLs separately; the player reloads the playlist on renewal while preserving position/pause state and avoids repeated renewal of a final deadline-capped lease. Renewal may briefly buffer. Actual browser playback, quality/audio/seeking, device behavior, and a full two-hour session remain unverified. No direct uploader, automatic retention/deletion, cumulative watch allowance, or hard billing cap has been implemented.
 
-Next: finish frontend publication through existing Pages CI, then add the supplied video through the owner's authenticated UI and perform real playback/renewal/expiry acceptance. The in-app browser connection is unavailable in this session, so owner UI/login and visual acceptance require a subsequent browser session. Do not administratively assign the video to an arbitrary account. Removal keeps hosted media and its ongoing storage charge.
+Next: sign in as the owner, choose Add video → Cloudflare Stream, add the supplied video ID/title, then create a share link and perform browser playback/renewal acceptance. The in-app browser connection is unavailable in this session, so owner UI/login and visual acceptance require a subsequent browser session. Do not administratively assign the video to an arbitrary account. Removal keeps hosted media and its ongoing storage charge.
 
 ## Product and deployment
 
@@ -30,16 +30,16 @@ The hosted database, auth redirects, Google provider, and owner membership are c
 ## Implemented behaviour
 
 - Google login/logout and owner-only library management.
-- Add a YouTube URL with title/optional date; validate/preview, search/filter/sort, rename, open playback, and remove metadata.
+- Add a YouTube URL or a verified private Cloudflare Stream video ID with title/optional date; search/filter/sort, rename, open playback, and remove metadata. The YouTube form also supports preview before saving.
 - Explicit share creation, copy, replacement, and revocation.
-- Anonymous watch pages with normal YouTube controls and clear unavailable states.
+- Anonymous watch pages with normal video controls and clear unavailable states. Stream adds explicit session start, one viewer-session capability, a fixed two-hour deadline, and short-lived playback leases.
 - RLS and narrow SQL RPCs enforce private libraries and owner isolation. Share capability hashes are stored; raw links are shown at creation.
 - Development-only local preview uses browser storage and can copy YouTube URLs. It cannot create cloud watch links or impersonate an authenticated account.
 - Responsive desktop/mobile UI and native modal keyboard/focus behaviour.
 
-The manual workflow is **upload as Unlisted in YouTube Studio → add its link here → create a share link**. The web app does not upload files, confirm Unlisted status, manage a channel, or delete YouTube videos.
+The private timed workflow is **upload in Cloudflare Stream → enable Require signed URLs → add the video ID here → create a share link**. The original **YouTube Studio Unlisted upload → add link → share** workflow remains supported. The web app does not upload files, confirm YouTube Unlisted status, manage a channel, or delete hosted videos.
 
-## Verification at handoff
+## Original YouTube release verification
 
 - 34 frontend tests passed, including callback errors, URL validation, and library interactions.
 - Five browser tests passed: local library workflow, mobile/focus behaviour, unavailable links, simulated owner-to-guest sharing/revocation, and non-owner UI.
@@ -60,7 +60,7 @@ Use the exact error and bounded auth logs to diagnose future failures. A success
 
 ## Accepted decisions and limitations
 
-- The initial deployed release uses free YouTube hosting. The owner has now authorized paid Cloudflare Stream; its backend is deployed and frontend rollout is described above. R2 and Supabase Storage remain unused.
+- The initial deployed release uses free YouTube hosting. The owner has now authorized paid Cloudflare Stream; its backend and frontend are deployed as described above. R2 and Supabase Storage remain unused.
 - Unlisted does not mean private: recipients can forward the YouTube URL. Revoking an app link cannot revoke YouTube access or an already loaded embed.
 - No public library directory and no viewer account requirement.
 - Supabase Free may pause inactive projects; YouTube controls processing, limits, branding, and playback availability. Recheck provider terms/limits when making future service decisions.
