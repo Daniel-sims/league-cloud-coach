@@ -262,13 +262,11 @@ test('owner uploads directly to Cloudflare and the library waits for processing'
   })
   await page.goto('/#/library')
   await page.getByRole('button', { name: 'Upload video', exact: true }).click()
-  await page
-    .getByLabel('Video file', { exact: true })
-    .setInputFiles({
-      name: 'game.mov',
-      mimeType: 'video/quicktime',
-      buffer: Buffer.from('video-data'),
-    })
+  await page.getByLabel('Video file', { exact: true }).setInputFiles({
+    name: 'game.mov',
+    mimeType: 'video/quicktime',
+    buffer: Buffer.from('video-data'),
+  })
   await page.getByLabel('Title', { exact: true }).fill('Uploaded review')
   await page.getByRole('button', { name: 'Upload to Cloudflare', exact: true }).click()
   await expect(
@@ -277,7 +275,10 @@ test('owner uploads directly to Cloudflare and the library waits for processing'
   expect(patches).toBe(1)
   expect(state.rows).toHaveLength(0)
   state.uploadState = 'ready'
-  await page.getByRole('button', { name: 'Check processing' }).click()
-  await expect(page.getByRole('link', { name: 'Uploaded review', exact: true })).toBeVisible()
+  // Processing can finish on the automatic poll before a manual refresh click.
+  // Wait for the resulting library entry instead of racing a disappearing dialog.
+  await expect(page.getByRole('link', { name: 'Uploaded review', exact: true })).toBeVisible({
+    timeout: 10000,
+  })
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
