@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { oauthErrorMessage } from './auth-errors'
 import type { LibraryRepository, Recording, WatchVideo } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim()
@@ -53,18 +54,18 @@ export async function initializeAuth(): Promise<string | null> {
   if (!supabase) return null
   const current = new URL(window.location.href)
   const fragment = new URLSearchParams(current.hash.slice(1))
-  const error =
-    current.searchParams.get('error_description') ||
-    current.searchParams.get('error') ||
-    fragment.get('error_description') ||
-    fragment.get('error')
+  const description =
+    current.searchParams.get('error_description') || fragment.get('error_description')
+  const error = current.searchParams.get('error') || fragment.get('error')
+  const errorCode = current.searchParams.get('error_code') || fragment.get('error_code')
   const code = current.searchParams.get('code')
-  if (!error && !code) return null
+  const hasProviderError = Boolean(error || description || errorCode)
+  if (!hasProviderError && !code) return null
   // Remove sensitive OAuth response parameters from history even on failure.
   current.search = ''
   current.hash = '/library'
   history.replaceState(null, '', current)
-  if (error) return 'Google sign-in was cancelled or could not be completed. Please try again.'
+  if (hasProviderError) return oauthErrorMessage(error, errorCode, description)
   if (code) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
     if (exchangeError)

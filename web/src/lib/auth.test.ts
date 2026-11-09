@@ -45,3 +45,33 @@ it('makes an expired or cross-browser PKCE code retryable without leaving it in 
   expect(await initializeAuth()).toContain('Please sign in again')
   expect(location.search).toBe('')
 })
+
+it('identifies a provider token exchange failure without showing the one-time code', async () => {
+  history.replaceState(
+    null,
+    '',
+    '/#error=server_error&error_code=unexpected_failure&error_description=Unable+to+exchange+external+code%3A+sensitive-one-time-code',
+  )
+  const { initializeAuth } = await import('./supabase')
+  const message = await initializeAuth()
+  expect(message).toContain('Google client ID and secret')
+  expect(message).not.toContain('cancelled')
+  expect(message).not.toContain('sensitive-one-time-code')
+  expect(exchange).not.toHaveBeenCalled()
+  expect(location.hash).toBe('#/library')
+})
+
+it('does not mistake an unknown server failure for user cancellation or echo provider text', async () => {
+  history.replaceState(
+    null,
+    '',
+    '/?error=server_error&error_description=%3Cscript%3Esecret%3C%2Fscript%3E',
+  )
+  const { initializeAuth } = await import('./supabase')
+  const message = await initializeAuth()
+  expect(message).toContain('sign-in service')
+  expect(message).not.toContain('cancelled')
+  expect(message).not.toContain('script')
+  expect(message).not.toContain('secret')
+  expect(location.search).toBe('')
+})

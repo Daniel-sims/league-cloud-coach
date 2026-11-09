@@ -40,6 +40,10 @@ VITE_BASE_PATH=/
 
 Restart the dev server. Sign in using Google in the same browser that initiated the flow (PKCE). The app should show that your account is signed in but not yet granted access.
 
+If Google reports `redirect_uri_mismatch`, check the exact Supabase callback under the Google client's **Authorised redirect URIs**. The GitHub Pages origin belongs in the separate **Authorised JavaScript origins** field.
+
+If the app returns a Google connection error and Supabase's auth logs show `invalid_client` during code exchange, replace the provider's secret with the full secret from the **same** Google OAuth client as the configured client ID. A masked value such as `****abcd` is not usable. If Google no longer shows the full value, add a new client secret, copy it immediately into Supabase's Google provider settings, and save. Never put it in frontend configuration or share it in chat.
+
 ## 3. Grant your account library access
 
 In the Supabase SQL Editor, replace the address below with the Google email you just used:
