@@ -2,6 +2,10 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Review page polish
+
+Video and watch pages put back, title, date and Share/“Shared with you” on one line. Game attachment and clock sync moved into a timeline settings cog (owner only, gold dot while setup is incomplete); coaches see a one-line note while the clock is unsynced. Seek controls are centred −30/−15/−1/+1/+15/+30 s buttons; arrow-key seeking is unchanged but no longer advertised anywhere in the UI. The timeline width is drag/keyboard resizable (double-click resets; `league-cloud-coach-timeline-width`) and can be hidden to an edge rail (`league-cloud-coach-timeline`). Lane-matchup cards are a gold/CS/XP table with both values and the difference plus KDA and level. The `riot` reducer now stores per-frame `xp` and `level`; timelines attached earlier lack them (the XP row is hidden) until refreshed through the cog → Change game → Refresh timeline. The updated function is deployed.
+
 ## Wider review layout and collapsible sidebar
 
 The top bar has a sidebar toggle (remembered per browser as `league-cloud-coach-sidebar`; not shown on phones, where navigation is a top bar). Owner video pages and watch pages now use the full content width. The video takes the largest 16:9 size that keeps the player and its seek controls on screen below the page heading (measured in `VideoReview`), the timeline takes the remaining width (at least 340px, at most 720px) at the same height, and below a 900px container width the timeline stacks under the video. Verified with 109 unit tests, build and all 16 Chrome checks, including a 1903×958 collapsed-sidebar check of aspect ratio, fit and panel alignment.

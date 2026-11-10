@@ -1499,12 +1499,19 @@ function OwnVideo({
       active = false
     }
   }, [id, repository])
+  const back = (
+    <a
+      className="icon-button video-back"
+      href={local ? '#/preview' : '#/library'}
+      aria-label="Back to library"
+      title="Back to library"
+    >
+      <ArrowLeft size={17} />
+    </a>
+  )
   return (
     <>
-      <a className="text-link back-link" href={local ? '#/preview' : '#/library'}>
-        <ArrowLeft size={15} />
-        Back to library
-      </a>
+      {!record && <div className="video-bar">{back}</div>}
       {loading ? (
         <div className="loading-state" role="status">
           <LoaderCircle className="spin" />
@@ -1514,14 +1521,14 @@ function OwnVideo({
         <ErrorNotice message={error} />
       ) : record ? (
         <>
-          <div className="video-page-heading">
-            <div>
-              <span className="eyebrow">GAME RECORDING</span>
-              <h1>{record.title}</h1>
-              <p>{formatDate(record.recorded_on)}</p>
-            </div>
-            <button className="button" onClick={() => setShare(true)}>
-              <Link2 size={16} />
+          <div className="video-bar">
+            {back}
+            <h1>{record.title}</h1>
+            {record.recorded_on && (
+              <span className="video-date">{formatDate(record.recorded_on)}</span>
+            )}
+            <button className="button button-small video-share" onClick={() => setShare(true)}>
+              <Link2 size={15} />
               Share video
             </button>
           </div>
@@ -1642,8 +1649,15 @@ function Watch({ token }: { token: string }) {
           </div>
         ) : video ? (
           <>
-            <div className="watch-eyebrow">
-              <span className="eyebrow">SHARED GAME RECORDING</span>
+            <div className="video-bar">
+              <h1>{video.title}</h1>
+              {video.recorded_on && (
+                <span className="video-date">{formatDate(video.recorded_on)}</span>
+              )}
+              <span className="watch-badge video-share">
+                <Link2 size={13} />
+                Shared with you
+              </span>
             </div>
             <VideoReview
               repository={review}
@@ -1664,16 +1678,6 @@ function Watch({ token }: { token: string }) {
                 )
               }
             />
-            <div className="watch-details">
-              <div>
-                <h1>{video.title}</h1>
-                {video.recorded_on && <p>{formatDate(video.recorded_on)}</p>}
-              </div>
-              <span className="watch-badge">
-                <Link2 size={13} />
-                Shared with you
-              </span>
-            </div>
           </>
         ) : (
           <Unavailable />

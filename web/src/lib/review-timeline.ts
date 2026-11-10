@@ -8,6 +8,9 @@ export type Snapshot = {
   cs: number
   jungleCs: number
   health: number
+  /** Absent from timelines stored before XP was recorded. */
+  xp?: number
+  level?: number
 }
 export type Kill = {
   t: number
@@ -116,12 +119,16 @@ export type FightCard = {
   absence: FightAbsence | null
   turretCallout: string | null
 }
-export type MatchupCard = {
-  player: { name: string; championId?: number; kda: [number, number, number] }
-  opponent: { name: string; championId?: number; kda: [number, number, number] }
-  goldDifference: number
-  csDifference: number
+export type MatchupSide = {
+  name: string
+  championId?: number
+  kda: [number, number, number]
+  gold: number
+  cs: number
+  xp?: number
+  level?: number
 }
+export type MatchupCard = { player: MatchupSide; opponent: MatchupSide }
 export type TimelineEntry = {
   id: string
   gameTimeMs: number
@@ -720,6 +727,15 @@ function matchupEntries(c: Context): TimelineEntry[] {
       kills.filter((k) => k.assists.includes(id)).length,
     ]
   }
+  const side = (id: number, s: Snapshot, t: number): MatchupSide => ({
+    name: c.name(id),
+    championId: c.championId(id),
+    kda: score(id, t),
+    gold: s.gold,
+    cs: s.cs + s.jungleCs,
+    xp: s.xp,
+    level: s.level,
+  })
   return c.payload.frames.flatMap((frame): TimelineEntry[] => {
     const me = frame.snapshots[c.player],
       them = frame.snapshots[opponent]
@@ -734,18 +750,8 @@ function matchupEntries(c: Context): TimelineEntry[] {
         kind: 'matchup',
         label: 'Lane matchup',
         matchup: {
-          player: {
-            name: c.name(c.player),
-            championId: c.championId(c.player),
-            kda: score(c.player, frame.t),
-          },
-          opponent: {
-            name: c.name(opponent),
-            championId: c.championId(opponent),
-            kda: score(opponent, frame.t),
-          },
-          goldDifference: me.gold - them.gold,
-          csDifference: me.cs + me.jungleCs - (them.cs + them.jungleCs),
+          player: side(c.player, me, frame.t),
+          opponent: side(opponent, them, frame.t),
         },
       },
     ]

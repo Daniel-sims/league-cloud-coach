@@ -1,5 +1,4 @@
 import type { KeyboardEvent } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 type Modifiers = { ctrlKey: boolean; shiftKey: boolean }
 export const jumpSeconds = ({ ctrlKey, shiftKey }: Modifiers) => (ctrlKey ? 30 : shiftKey ? 10 : 1)
@@ -27,6 +26,8 @@ export function seekWithKeyboard(
   event.stopPropagation()
 }
 
+const steps = [-30, -15, -1, 1, 15, 30]
+
 export function SeekControls({
   seek,
   disabled,
@@ -35,30 +36,22 @@ export function SeekControls({
   disabled: boolean
 }) {
   return (
-    <div className="seek-controls" aria-label="Video seek controls">
-      <button
-        className="button secondary button-small"
-        disabled={disabled}
-        onClick={(event) => seek(-jumpSeconds(event))}
-        aria-label="Back 1 second"
-        title="Back 1 second · Shift: 10 seconds · Ctrl: 30 seconds"
-      >
-        <ChevronLeft size={16} />
-        1s
-      </button>
-      <button
-        className="button secondary button-small"
-        disabled={disabled}
-        onClick={(event) => seek(jumpSeconds(event))}
-        aria-label="Forward 1 second"
-        title="Forward 1 second · Shift: 10 seconds · Ctrl: 30 seconds"
-      >
-        1s
-        <ChevronRight size={16} />
-      </button>
-      <span className="seek-hint">
-        ← / → 1s <span>· Shift 10s · Ctrl 30s</span>
-      </span>
+    <div className="seek-controls" role="group" aria-label="Video seek controls">
+      {steps.map((step) => {
+        const seconds = Math.abs(step)
+        return (
+          <button
+            key={step}
+            className="button secondary button-small"
+            disabled={disabled}
+            onClick={() => seek(step)}
+            aria-label={`${step < 0 ? 'Back' : 'Forward'} ${seconds} ${seconds === 1 ? 'second' : 'seconds'}`}
+          >
+            {step < 0 ? '−' : '+'}
+            {seconds}s
+          </button>
+        )
+      })}
     </div>
   )
 }

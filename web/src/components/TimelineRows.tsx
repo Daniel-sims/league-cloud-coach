@@ -213,31 +213,56 @@ function Fight({
 }
 
 function Matchup({ card }: { card: MatchupCard }) {
-  const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`)
+  const { player: me, opponent: them } = card
+  const number = (value: number) => value.toLocaleString('en-GB')
+  const signed = (value: number) =>
+    value > 0 ? `+${number(value)}` : value < 0 ? `−${number(-value)}` : '0'
   const tone = (value: number) => (value > 0 ? 'ahead' : value < 0 ? 'behind' : '')
+  const rows: [string, number, number][] = [
+    ['Gold', me.gold, them.gold],
+    ['CS', me.cs, them.cs],
+    ...(me.xp !== undefined && them.xp !== undefined
+      ? [['XP', me.xp, them.xp] as [string, number, number]]
+      : []),
+  ]
+  const heading = (side: typeof me) => (
+    <th scope="col">
+      <span className="matchup-champion">
+        {side.championId && <img src={championIcon(side.championId)} alt="" loading="lazy" />}
+        <span>
+          {side.name}
+          <small>
+            {side.kda.join('/')}
+            {side.level ? ` · Lv ${side.level}` : ''}
+          </small>
+        </span>
+      </span>
+    </th>
+  )
   return (
     <div className="timeline-card matchup-card">
-      <div className="matchup-sides">
-        {[card.player, card.opponent].map((side, index) => (
-          <span key={index} className={index ? 'opponent' : ''}>
-            {side.championId && <img src={championIcon(side.championId)} alt="" loading="lazy" />}
-            <span>
-              {side.name}
-              <small>{side.kda.join(' / ')}</small>
-            </span>
-          </span>
-        ))}
-      </div>
-      <dl>
-        <div>
-          <dt>Gold</dt>
-          <dd className={tone(card.goldDifference)}>{signed(card.goldDifference)}</dd>
-        </div>
-        <div>
-          <dt>CS</dt>
-          <dd className={tone(card.csDifference)}>{signed(card.csDifference)}</dd>
-        </div>
-      </dl>
+      <table>
+        <thead>
+          <tr>
+            <td />
+            {heading(me)}
+            {heading(them)}
+            <th scope="col" className="matchup-diff">
+              Diff
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, mine, theirs]) => (
+            <tr key={label}>
+              <th scope="row">{label}</th>
+              <td>{number(mine)}</td>
+              <td>{number(theirs)}</td>
+              <td className={`matchup-diff ${tone(mine - theirs)}`}>{signed(mine - theirs)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

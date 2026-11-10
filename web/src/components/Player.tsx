@@ -162,7 +162,6 @@ export function Player({
         )}
       </div>
       <SeekControls seek={seek} disabled={state !== 'ready'} />
-      <p className="field-hint">Select a seek button to use the arrow-key shortcuts.</p>
       <a
         className="text-link player-external"
         href={youtubeURL(videoId)}

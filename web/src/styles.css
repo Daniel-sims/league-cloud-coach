@@ -731,7 +731,11 @@ strong {
   border-color: #e9cfc6;
   background: #fbf0eb;
 }
-.notice.warning { color: #765d2b; background: #f7f0df; border-color: #e6d5ad; }
+.notice.warning {
+  color: #765d2b;
+  background: #f7f0df;
+  border-color: #e6d5ad;
+}
 .notice.error .text-link {
   margin-left: auto;
   color: inherit;
@@ -2066,9 +2070,17 @@ strong {
   color: var(--gold, #88703e);
 }
 
-.seek-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.seek-hint { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 4px; line-height: 1.6; }
-.seek-hint > span { white-space: nowrap; }
+.seek-controls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.seek-controls .button {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+}
 /* Collapsible sidebar: hidden entirely so content can use the full window. */
 .sidebar-toggle {
   margin-left: -8px;
@@ -2088,11 +2100,36 @@ strong {
   max-width: none;
   padding: 24px 32px;
 }
-.main-content.wide .video-page-heading {
-  margin: 10px 0 18px;
+/* One line above the video: back, title, date, share. */
+.video-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  margin-bottom: 16px;
 }
-.main-content.wide .video-page-heading h1 {
-  margin: 4px 0;
+.video-back {
+  margin-left: -6px;
+}
+.video-bar h1 {
+  min-width: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.video-date {
+  flex-shrink: 0;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.video-share {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 @media (max-width: 600px) {
   .sidebar-toggle {
@@ -2113,4 +2150,7 @@ strong {
   .watch-main {
     padding: 20px 16px 28px;
   }
+}
+.video-bar .watch-badge {
+  margin-top: 0;
 }

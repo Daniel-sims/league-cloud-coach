@@ -6,7 +6,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
 import {
@@ -16,7 +18,10 @@ import {
   Link2,
   LoaderCircle,
   MessageSquarePlus,
+  PanelRightClose,
+  PanelRightOpen,
   RefreshCw,
+  Settings,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { CommentRow, EventRow, patchOf } from './TimelineRows'
@@ -24,6 +29,7 @@ import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
   clock,
+  context,
   entryKinds,
   filterKinds,
   gameTimeMs,
@@ -59,6 +65,24 @@ const eventPreRollMs = 5000
 const commentPreRollMs = 3000
 const hiddenStorage = 'league-cloud-coach-hidden-kinds'
 const commentsKey = 'comments'
+const widthStorage = 'league-cloud-coach-timeline-width'
+const openStorage = 'league-cloud-coach-timeline'
+const minPanel = 300
+const defaultPanel = 420
+function stored(key: string) {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Layout preferences are per-browser conveniences.
+  }
+}
 
 type Item =
   | { id: string; type: 'event'; entry: TimelineEntry; sortMs: number }
@@ -101,6 +125,45 @@ export function VideoReview({
   const [follow, setFollow] = useState(true)
   const list = useRef<HTMLOListElement>(null)
   const container = useRef<HTMLDivElement>(null)
+  const settingsMenu = useRef<HTMLDetailsElement>(null)
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = Number(stored(widthStorage))
+    return Number.isFinite(saved) && saved >= minPanel ? saved : defaultPanel
+  })
+  const [panelOpen, setPanelOpen] = useState(() => stored(openStorage) !== 'closed')
+  function showPanel(open: boolean) {
+    setPanelOpen(open)
+    store(openStorage, open ? 'open' : 'closed')
+  }
+  function resizeTo(width: number, persist = false) {
+    const total = container.current?.getBoundingClientRect().width ?? 0
+    const next = Math.round(Math.min(Math.max(width, minPanel), Math.max(minPanel, total - 496)))
+    setPanelWidth(next)
+    if (persist) store(widthStorage, String(next))
+  }
+  function dragResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const handle = event.currentTarget
+    const right = handle.parentElement!.getBoundingClientRect().right
+    handle.setPointerCapture(event.pointerId)
+    handle.classList.add('dragging')
+    let width = panelWidth
+    const move = (e: PointerEvent) => {
+      width = right - e.clientX - 8
+      resizeTo(width)
+    }
+    const end = () => {
+      handle.classList.remove('dragging')
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', end)
+      handle.removeEventListener('pointercancel', end)
+      resizeTo(width, true)
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', end)
+    handle.addEventListener('pointercancel', end)
+  }
 
   // The video is as large as fits below the page heading with its controls in
   // view; CSS reads these two measurements.
@@ -220,6 +283,7 @@ export function VideoReview({
 
   const startComment = useCallback(() => {
     if (!controller) return
+    showPanel(true)
     setEditing(null)
     setComposing(Math.max(0, Math.round(controller.currentTime() * 1000)))
   }, [controller])
@@ -272,225 +336,296 @@ export function VideoReview({
   const eventCount = items.filter((i) => i.type === 'event').length
   const commentCount = items.length - eventCount
 
+  const needsSetup = owner && (!review || !anchor)
+  const closeSettings = () => settingsMenu.current?.removeAttribute('open')
   return (
     <div className="review-container" ref={container}>
-      <div className="review-layout">
+      <div
+        className={`review-layout ${panelOpen ? '' : 'timeline-collapsed'}`}
+        style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}
+      >
         <div className="review-video">{renderPlayer(setController)}</div>
-        <section className="review-panel" aria-label="Review timeline">
-          <header className="review-header">
-            <div className="review-title">
-              <h2>Timeline</h2>
-              <span>
-                {eventCount} {eventCount === 1 ? 'event' : 'events'} · {commentCount}{' '}
-                {commentCount === 1 ? 'comment' : 'comments'}
-              </span>
-            </div>
-            <div className="review-tools">
-              {(presentKinds.length > 0 || comments.length > 0) && (
-                <details className="review-filter">
-                  <summary
-                    className={`icon-button ${filtered ? 'active' : ''}`}
-                    aria-label="Filter timeline"
-                    title="Filter timeline"
-                  >
-                    <Filter size={15} />
-                  </summary>
-                  <div className="review-filter-menu">
-                    {presentKinds.map((k) => (
-                      <label key={k.kind}>
-                        <input
-                          type="checkbox"
-                          checked={!hidden.has(k.kind)}
-                          onChange={() => toggle(k.kind)}
-                        />
-                        <i className={`kind-dot kind-${k.kind}`} />
-                        {k.name}
-                        <small>{entries.filter((e) => e.kind === k.kind).length}</small>
-                      </label>
-                    ))}
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={!hidden.has(commentsKey)}
-                        onChange={() => toggle(commentsKey)}
-                      />
-                      <i className="kind-dot kind-comment" />
-                      Comments
-                      <small>{comments.length}</small>
-                    </label>
-                  </div>
-                </details>
-              )}
-              <button
-                className="button button-small"
-                onClick={startComment}
-                disabled={!controller || composing !== null}
-                title={controller ? 'Comment at the playhead (N)' : 'Wait for the video to load'}
-              >
-                <MessageSquarePlus size={15} />
-                Comment
-              </button>
-            </div>
-          </header>
-          <ClockStatus
-            owner={owner}
-            data={data}
-            playerReady={Boolean(controller)}
-            onSync={() => controller && setSyncing(Math.max(0, controller.currentTime()))}
-            onAttach={() => setAttaching(true)}
-          />
-          {actionError && (
-            <div className="notice error review-notice" role="alert">
-              {actionError}
-            </div>
-          )}
-          {composing !== null && (
-            <Composer
-              role={repository.role}
-              timeLabel={commentTime(composing)}
-              videoClock={!anchor}
-              onCancel={() => setComposing(null)}
-              onSave={async (kind, body, name) => {
-                const ok = await act(() =>
-                  repository.addComment({ videoMs: composing, kind, body }, name),
-                )
-                if (ok) setComposing(null)
-                return ok
+        {!panelOpen ? (
+          <button
+            className="review-rail"
+            onClick={() => showPanel(true)}
+            aria-label="Show timeline"
+            title="Show timeline"
+          >
+            <PanelRightOpen size={16} />
+            <span>Timeline</span>
+          </button>
+        ) : (
+          <>
+            <div
+              className="review-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize timeline"
+              aria-valuenow={panelWidth}
+              aria-valuemin={minPanel}
+              tabIndex={0}
+              onPointerDown={dragResize}
+              onDoubleClick={() => resizeTo(defaultPanel, true)}
+              onKeyDown={(event) => {
+                const step = event.shiftKey ? 96 : 32
+                if (event.key === 'ArrowLeft') resizeTo(panelWidth + step, true)
+                else if (event.key === 'ArrowRight') resizeTo(panelWidth - step, true)
+                else return
+                event.preventDefault()
               }}
             />
-          )}
-          {state === 'loading' ? (
-            <div className="review-empty" role="status">
-              <LoaderCircle className="spin" size={18} />
-              Loading the timeline…
-            </div>
-          ) : state === 'error' ? (
-            <div className="review-empty" role="alert">
-              <p>{error}</p>
-              <button className="button secondary button-small" onClick={() => void reload()}>
-                <RefreshCw size={14} />
-                Try again
-              </button>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="review-empty">
-              {entries.length || comments.length ? (
-                <>
-                  <p>Everything on this timeline is hidden by the filter.</p>
+            <section className="review-panel" aria-label="Review timeline">
+              <header className="review-header">
+                <div className="review-title">
+                  <h2>Timeline</h2>
+                  <span>
+                    {eventCount} {eventCount === 1 ? 'event' : 'events'} · {commentCount}{' '}
+                    {commentCount === 1 ? 'comment' : 'comments'}
+                  </span>
+                </div>
+                <div className="review-tools">
+                  {(presentKinds.length > 0 || comments.length > 0) && (
+                    <details className="review-filter">
+                      <summary
+                        className={`icon-button ${filtered ? 'active' : ''}`}
+                        aria-label="Filter timeline"
+                        title="Filter timeline"
+                      >
+                        <Filter size={15} />
+                      </summary>
+                      <div className="review-filter-menu">
+                        {presentKinds.map((k) => (
+                          <label key={k.kind}>
+                            <input
+                              type="checkbox"
+                              checked={!hidden.has(k.kind)}
+                              onChange={() => toggle(k.kind)}
+                            />
+                            <i className={`kind-dot kind-${k.kind}`} />
+                            {k.name}
+                            <small>{entries.filter((e) => e.kind === k.kind).length}</small>
+                          </label>
+                        ))}
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={!hidden.has(commentsKey)}
+                            onChange={() => toggle(commentsKey)}
+                          />
+                          <i className="kind-dot kind-comment" />
+                          Comments
+                          <small>{comments.length}</small>
+                        </label>
+                      </div>
+                    </details>
+                  )}
+                  {owner && data && (
+                    <details className="review-filter" ref={settingsMenu}>
+                      <summary
+                        className={`icon-button ${needsSetup ? 'attention' : ''}`}
+                        aria-label={
+                          needsSetup ? 'Timeline settings (setup needed)' : 'Timeline settings'
+                        }
+                        title="Game and clock"
+                      >
+                        <Settings size={15} />
+                      </summary>
+                      <div className="review-filter-menu review-settings-menu">
+                        <ReviewSettings
+                          data={data}
+                          playerReady={Boolean(controller)}
+                          onSync={() => {
+                            closeSettings()
+                            if (controller) setSyncing(Math.max(0, controller.currentTime()))
+                          }}
+                          onAttach={() => {
+                            closeSettings()
+                            setAttaching(true)
+                          }}
+                        />
+                      </div>
+                    </details>
+                  )}
                   <button
-                    className="button secondary button-small"
-                    onClick={() => {
-                      setHidden(new Set(['opponentItem']))
-                      try {
-                        localStorage.removeItem(hiddenStorage)
-                      } catch {
-                        // Nothing saved.
-                      }
+                    className="icon-button"
+                    onClick={() => showPanel(false)}
+                    aria-label="Hide timeline"
+                    title="Hide timeline"
+                  >
+                    <PanelRightClose size={15} />
+                  </button>
+                  <button
+                    className="button button-small"
+                    onClick={startComment}
+                    disabled={!controller || composing !== null}
+                    title={controller ? 'Comment at the playhead' : 'Wait for the video to load'}
+                  >
+                    <MessageSquarePlus size={15} />
+                    Comment
+                  </button>
+                </div>
+              </header>
+              {!owner && review && !anchor && (
+                <p className="review-note">
+                  <Clock3 size={13} aria-hidden="true" />
+                  Events can't jump to the video until the player syncs the game clock.
+                </p>
+              )}
+              {actionError && (
+                <div className="notice error review-notice" role="alert">
+                  {actionError}
+                </div>
+              )}
+              {composing !== null && (
+                <Composer
+                  role={repository.role}
+                  timeLabel={commentTime(composing)}
+                  videoClock={!anchor}
+                  onCancel={() => setComposing(null)}
+                  onSave={async (kind, body, name) => {
+                    const ok = await act(() =>
+                      repository.addComment({ videoMs: composing, kind, body }, name),
+                    )
+                    if (ok) setComposing(null)
+                    return ok
+                  }}
+                />
+              )}
+              {state === 'loading' ? (
+                <div className="review-empty" role="status">
+                  <LoaderCircle className="spin" size={18} />
+                  Loading the timeline…
+                </div>
+              ) : state === 'error' ? (
+                <div className="review-empty" role="alert">
+                  <p>{error}</p>
+                  <button className="button secondary button-small" onClick={() => void reload()}>
+                    <RefreshCw size={14} />
+                    Try again
+                  </button>
+                </div>
+              ) : items.length === 0 ? (
+                <div className="review-empty">
+                  {entries.length || comments.length ? (
+                    <>
+                      <p>Everything on this timeline is hidden by the filter.</p>
+                      <button
+                        className="button secondary button-small"
+                        onClick={() => {
+                          setHidden(new Set(['opponentItem']))
+                          try {
+                            localStorage.removeItem(hiddenStorage)
+                          } catch {
+                            // Nothing saved.
+                          }
+                        }}
+                      >
+                        Reset filter
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <strong>No comments yet</strong>
+                      <p>
+                        {owner
+                          ? 'Add a comment or question at the playhead. Your coach sees it on the watch page and can reply with their own.'
+                          : 'Add a comment at the playhead. The player sees it straight away.'}
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="review-list-wrap">
+                  <ol
+                    className="review-list"
+                    ref={list}
+                    // The reader taking over the list stops it following the playhead.
+                    onWheel={() => playheadMs !== null && setFollow(false)}
+                    onTouchMove={() => playheadMs !== null && setFollow(false)}
+                    onKeyDown={(event) => {
+                      if (
+                        ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].includes(
+                          event.key,
+                        ) &&
+                        playheadMs !== null
+                      )
+                        setFollow(false)
                     }}
                   >
-                    Reset filter
-                  </button>
-                </>
-              ) : (
-                <>
-                  <strong>No comments yet</strong>
-                  <p>
-                    {owner
-                      ? 'Add a comment or question at the playhead. Your coach sees it on the watch page and can reply with their own.'
-                      : 'Add a comment at the playhead. The player sees it straight away.'}
-                  </p>
-                </>
+                    {items.map((item) =>
+                      item.type === 'event' ? (
+                        <EventRow
+                          key={item.id}
+                          entry={item.entry}
+                          patch={patch}
+                          current={item.id === currentId}
+                          seekable={seekable(item.entry.gameTimeMs)}
+                          dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
+                          onSeek={() => seekGame(item.entry.gameTimeMs)}
+                          onSeekTime={(ms) => seekGame(ms)}
+                        />
+                      ) : editing === item.id ? (
+                        <li key={item.id} className="timeline-row composing">
+                          <Composer
+                            role={repository.role}
+                            timeLabel={commentTime(item.comment.videoMs)}
+                            videoClock={!anchor}
+                            initial={item.comment}
+                            onCancel={() => setEditing(null)}
+                            onSave={async (kind, body) => {
+                              const ok = await act(() =>
+                                repository.updateComment(item.id, { kind, body }),
+                              )
+                              if (ok) setEditing(null)
+                              return ok
+                            }}
+                          />
+                        </li>
+                      ) : (
+                        <CommentRow
+                          key={item.id}
+                          comment={item.comment}
+                          timeLabel={commentTime(item.comment.videoMs)}
+                          videoClock={!anchor}
+                          current={item.id === currentId}
+                          viewer={repository.role}
+                          onSeek={() =>
+                            controller?.seekTo(
+                              Math.max(0, item.comment.videoMs - commentPreRollMs) / 1000,
+                            )
+                          }
+                          onEdit={
+                            item.comment.mine
+                              ? () => {
+                                  setComposing(null)
+                                  setEditing(item.id)
+                                }
+                              : undefined
+                          }
+                          onDelete={
+                            item.comment.mine || owner
+                              ? () => void act(() => repository.deleteComment(item.id))
+                              : undefined
+                          }
+                        />
+                      ),
+                    )}
+                  </ol>
+                  {!follow && playheadMs !== null && (
+                    <button
+                      className="button secondary button-small review-follow"
+                      onClick={() => setFollow(true)}
+                    >
+                      <ArrowDownToLine size={14} />
+                      Return to playhead
+                    </button>
+                  )}
+                </div>
               )}
-            </div>
-          ) : (
-            <div className="review-list-wrap">
-              <ol
-                className="review-list"
-                ref={list}
-                // The reader taking over the list stops it following the playhead.
-                onWheel={() => playheadMs !== null && setFollow(false)}
-                onTouchMove={() => playheadMs !== null && setFollow(false)}
-                onKeyDown={(event) => {
-                  if (
-                    ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].includes(
-                      event.key,
-                    ) &&
-                    playheadMs !== null
-                  )
-                    setFollow(false)
-                }}
-              >
-                {items.map((item) =>
-                  item.type === 'event' ? (
-                    <EventRow
-                      key={item.id}
-                      entry={item.entry}
-                      patch={patch}
-                      current={item.id === currentId}
-                      seekable={seekable(item.entry.gameTimeMs)}
-                      dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
-                      onSeek={() => seekGame(item.entry.gameTimeMs)}
-                      onSeekTime={(ms) => seekGame(ms)}
-                    />
-                  ) : editing === item.id ? (
-                    <li key={item.id} className="timeline-row composing">
-                      <Composer
-                        role={repository.role}
-                        timeLabel={commentTime(item.comment.videoMs)}
-                        videoClock={!anchor}
-                        initial={item.comment}
-                        onCancel={() => setEditing(null)}
-                        onSave={async (kind, body) => {
-                          const ok = await act(() =>
-                            repository.updateComment(item.id, { kind, body }),
-                          )
-                          if (ok) setEditing(null)
-                          return ok
-                        }}
-                      />
-                    </li>
-                  ) : (
-                    <CommentRow
-                      key={item.id}
-                      comment={item.comment}
-                      timeLabel={commentTime(item.comment.videoMs)}
-                      videoClock={!anchor}
-                      current={item.id === currentId}
-                      viewer={repository.role}
-                      onSeek={() =>
-                        controller?.seekTo(
-                          Math.max(0, item.comment.videoMs - commentPreRollMs) / 1000,
-                        )
-                      }
-                      onEdit={
-                        item.comment.mine
-                          ? () => {
-                              setComposing(null)
-                              setEditing(item.id)
-                            }
-                          : undefined
-                      }
-                      onDelete={
-                        item.comment.mine || owner
-                          ? () => void act(() => repository.deleteComment(item.id))
-                          : undefined
-                      }
-                    />
-                  ),
-                )}
-              </ol>
-              {!follow && playheadMs !== null && (
-                <button
-                  className="button secondary button-small review-follow"
-                  onClick={() => setFollow(true)}
-                >
-                  <ArrowDownToLine size={14} />
-                  Return to playhead
-                </button>
-              )}
-            </div>
-          )}
-        </section>
+            </section>
+          </>
+        )}
         {syncing !== null && repository.setAnchor && (
           <SyncClockDialog
             videoSeconds={syncing}
@@ -514,68 +649,52 @@ export function VideoReview({
   )
 }
 
-function ClockStatus({
-  owner,
+function ReviewSettings({
   data,
   playerReady,
   onSync,
   onAttach,
 }: {
-  owner: boolean
-  data: ReviewData | null
+  data: ReviewData
   playerReady: boolean
   onSync(): void
   onAttach(): void
 }) {
-  if (!data) return null
   const review = data.review
-  const me = review?.participants.find((p) => p.id === review.playerId)
+  const lane = review ? context(review) : null
   return (
-    <div className="review-status">
-      <div className="review-status-line">
-        <Link2 size={14} aria-hidden="true" />
-        {review && me ? (
-          <span>
-            {me.championName} · {queues[review.queueId] ?? 'Game'} ·{' '}
-            {clock(review.gameDuration * 1000)}
-          </span>
-        ) : (
-          <span>
-            {owner
-              ? 'Attach the game from your match history to add kills, fights and recalls.'
-              : 'Game events will appear once the player attaches this game.'}
-          </span>
-        )}
-        {owner && (
-          <button className="button secondary button-small" onClick={onAttach}>
-            {review ? 'Change game' : 'Attach game'}
-          </button>
-        )}
+    <div className="review-settings">
+      <div>
+        <small>Game</small>
+        <p>
+          {review && lane
+            ? `${lane.name(review.playerId)}${lane.opponent ? ` vs ${lane.name(lane.opponent)}` : ''} · ${queues[review.queueId] ?? 'Game'} · ${clock(review.gameDuration * 1000)}`
+            : 'No game attached'}
+        </p>
+        <button className="button secondary button-small" onClick={onAttach}>
+          {review ? 'Change game' : 'Attach game'}
+        </button>
       </div>
       {review && (
-        <div className="review-status-line">
-          <Clock3 size={14} aria-hidden="true" />
-          <span>
+        <div>
+          <small>Game clock</small>
+          <p>
             {data.anchor
-              ? `Game clock synced: ${clock(data.anchor.gameTimeSeconds * 1000)} at ${clock(data.anchor.videoOffsetSeconds * 1000)} in the video`
-              : owner
-                ? 'Sync the game clock so events jump to the right moment.'
-                : "Events can't jump to the video until the player syncs the game clock."}
-          </span>
-          {owner && (
-            <button
-              className="button secondary button-small"
-              onClick={onSync}
-              disabled={!playerReady}
-              title={
-                playerReady
-                  ? 'Read the in-game timer from the current frame'
-                  : 'Wait for the video to load'
-              }
-            >
-              {data.anchor ? 'Resync' : 'Sync clock'}
-            </button>
-          )}
+              ? `${clock(data.anchor.gameTimeSeconds * 1000)} at ${clock(data.anchor.videoOffsetSeconds * 1000)} in the video`
+              : 'Not synced'}
+          </p>
+          <button
+            className="button secondary button-small"
+            onClick={onSync}
+            disabled={!playerReady}
+            title={
+              playerReady
+                ? 'Read the in-game timer from the current frame'
+                : 'Wait for the video to load'
+            }
+          >
+            {data.anchor ? 'Resync' : 'Sync clock'}
+          </button>
         </div>
       )}
     </div>
@@ -673,7 +792,6 @@ function Composer({
         onChange={(e) => setBody(e.target.value)}
       />
       <div className="composer-actions">
-        <small>⌘/Ctrl + Enter to save</small>
         <button type="button" className="button secondary button-small" onClick={onCancel}>
           Cancel
         </button>

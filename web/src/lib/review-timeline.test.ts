@@ -84,10 +84,8 @@ it('builds the native timeline: solo kills, teamfights with the player part, obj
     { item: 2003, count: 2 },
   ])
   expect(entries.find((e) => e.id === 'matchup-240000')!.matchup).toMatchObject({
-    goldDifference: 300,
-    csDifference: 6,
-    player: { kda: [1, 0, 0] },
-    opponent: { kda: [0, 1, 0] },
+    player: { name: 'TwistedFate', gold: 1500, cs: 20, xp: 1100, level: 4, kda: [1, 0, 0] },
+    opponent: { name: 'Ahri', gold: 1200, cs: 14, xp: 980, level: 3, kda: [0, 1, 0] },
   })
 })
 

@@ -9,6 +9,8 @@ export type ReviewSnapshot = {
   cs: number;
   jungleCs: number;
   health: number;
+  xp: number;
+  level: number;
 };
 export type ReviewPayload = {
   version: 1;
@@ -168,6 +170,8 @@ export function reduceTimeline(
         cs: int(value.minionsKilled) ?? 0,
         jungleCs: int(value.jungleMinionsKilled) ?? 0,
         health,
+        xp: int(value.xp) ?? 0,
+        level: int(value.level) ?? 0,
       };
     }
     payload.frames.push({ t, snapshots });

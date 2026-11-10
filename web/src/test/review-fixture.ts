@@ -1,12 +1,14 @@
 import type { ReviewPayload } from '../lib/review-timeline'
 
-const snap = (gold: number, cs: number, health = 600) => ({
+const snap = (gold: number, cs: number, xp = 0, level = 1) => ({
   x: 7400,
   y: 7400,
   gold,
   cs,
   jungleCs: 0,
-  health,
+  health: 600,
+  xp,
+  level,
 })
 const buy = (
   t: number,
@@ -51,7 +53,7 @@ export function reviewPayload(): ReviewPayload {
     frames: [
       { t: 0, snapshots: { 3: snap(500, 0), 8: snap(500, 0) } },
       { t: 60023, snapshots: { 3: snap(800, 4), 8: snap(780, 4) } },
-      { t: 240000, snapshots: { 3: snap(1500, 20), 8: snap(1200, 14) } },
+      { t: 240000, snapshots: { 3: snap(1500, 20, 1100, 4), 8: snap(1200, 14, 980, 3) } },
       { t: 420000, snapshots: { 3: snap(2600, 40), 8: snap(2000, 35) } },
       { t: 600000, snapshots: { 3: snap(4200, 70), 8: snap(3300, 62) } },
       { t: 1_500_000 - 21_000, snapshots: { 3: snap(9000, 200), 8: snap(8000, 180) } },

@@ -225,6 +225,7 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const timeline = page.getByRole('region', { name: 'Review timeline' })
   await expect(timeline.getByText('No comments yet')).toBeVisible()
 
+  await timeline.getByLabel('Timeline settings (setup needed)').click()
   await timeline.getByRole('button', { name: 'Attach game' }).click()
   const attach = page.getByRole('dialog')
   // The only synced game on the recording date is preselected.
@@ -240,10 +241,13 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await expect(timeline.getByRole('button', { name: 'Teamfight', exact: true })).toBeDisabled()
 
   const video = await seekVideo(page, 'Ranked mid review', 60)
+  await timeline.getByLabel('Timeline settings (setup needed)').click()
   await timeline.getByRole('button', { name: 'Sync clock' }).click()
   await page.getByRole('dialog').getByLabel('In-game clock').fill('10:00')
   await page.getByRole('dialog').getByRole('button', { name: 'Sync', exact: true }).click()
-  await expect(timeline.getByText('Game clock synced: 10:00 at 1:00 in the video')).toBeVisible()
+  await timeline.getByLabel('Timeline settings', { exact: true }).click()
+  await expect(timeline.getByText('10:00 at 1:00 in the video')).toBeVisible()
+  await timeline.getByLabel('Timeline settings', { exact: true }).click()
   // 10:00 fight sits at video 1:00; the seek lands five seconds before it.
   await timeline.getByRole('button', { name: 'Teamfight', exact: true }).click()
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(55)
@@ -283,6 +287,25 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   expect(Math.round((stage.width / stage.height) * 9)).toBe(16)
   expect(panel!.x).toBeGreaterThan(stage.right)
   await page.screenshot({ path: testInfo.outputPath('review-owner-collapsed.png') })
+  // Dragging the divider left widens the timeline; the width is remembered.
+  const handle = page.getByRole('separator', { name: 'Resize timeline' })
+  const grip = (await handle.boundingBox())!
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + 200)
+  await page.mouse.down()
+  await page.mouse.move(grip.x - 150, grip.y + 200, { steps: 5 })
+  await page.mouse.up()
+  await expect
+    .poll(async () => (await timeline.boundingBox())!.width)
+    .toBeGreaterThan(panel!.width + 140)
+  expect(
+    await page.evaluate(() => Number(localStorage.getItem('league-cloud-coach-timeline-width'))),
+  ).toBeGreaterThan(panel!.width + 140)
+  await page.getByRole('button', { name: 'Back 30 seconds' }).click()
+  await page.getByRole('button', { name: 'Hide timeline' }).click()
+  await expect(timeline).toHaveCount(0)
+  await page.screenshot({ path: testInfo.outputPath('review-timeline-hidden.png') })
+  await page.getByRole('button', { name: 'Show timeline' }).click()
+  await expect(timeline).toBeVisible()
   await page.reload()
   await expect(page.getByRole('button', { name: 'Show sidebar' })).toBeVisible()
   await page.getByRole('button', { name: 'Show sidebar' }).click()
@@ -297,8 +320,8 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const question = guestTimeline.getByRole('listitem').filter({ hasText: 'Should I have backed' })
   await expect(question.getByText('Player')).toBeVisible()
   await expect(question.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
+  await expect(guestTimeline.getByLabel(/Timeline settings/)).toHaveCount(0)
   await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
-  await expect(guestTimeline.getByRole('button', { name: 'Attach game' })).toHaveCount(0)
   await seekVideo(guest, 'Ranked mid review', 72)
   await guestTimeline.getByRole('button', { name: 'Comment', exact: true }).click()
   await guestTimeline.getByLabel('Your name').fill('Coach Sam')

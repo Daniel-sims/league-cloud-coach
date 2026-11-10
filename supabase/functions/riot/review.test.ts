@@ -33,6 +33,8 @@ const frame = (id: number, extra: object = {}) => ({
   participantId: id,
   position: { x: 7000, y: 7000 },
   totalGold: 500,
+  xp: 280,
+  level: 2,
   minionsKilled: 3,
   jungleMinionsKilled: 0,
   championStats: { health: 600 },
@@ -119,6 +121,7 @@ it("reduces a Riot timeline to the review payload without account identities", (
   ]);
   expect(Object.keys(payload.frames[0].snapshots)).toEqual(["3", "8"]);
   expect(payload.frames[1].snapshots["3"].gold).toBe(900);
+  expect(payload.frames[0].snapshots["3"]).toMatchObject({ xp: 280, level: 2 });
   expect(payload.kills).toEqual([
     { t: 61000, killer: 8, victim: 3, assists: [7], x: 7100, y: 7200, turretDamage: 320 },
   ]);

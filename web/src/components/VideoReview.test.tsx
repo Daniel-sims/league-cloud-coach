@@ -74,18 +74,18 @@ it('lets the owner sync the game clock, after which events seek with pre-roll', 
     comments: [],
   })
   render(<VideoReview repository={repo} renderPlayer={player.render} />)
-  expect(
-    await screen.findByText('Sync the game clock so events jump to the right moment.'),
-  ).toBeVisible()
-  const kill = screen.getByRole('button', { name: 'Killed Ahri' })
+  const kill = await screen.findByRole('button', { name: 'Killed Ahri' })
   expect(kill).toBeDisabled()
+  await userEvent.click(screen.getByLabelText('Timeline settings (setup needed)'))
+  expect(screen.getByText('Not synced')).toBeVisible()
   await userEvent.click(screen.getByRole('button', { name: 'Sync clock' }))
   const dialog = screen.getByRole('dialog')
   expect(within(dialog).getByText('11:40')).toBeVisible()
   await userEvent.type(within(dialog).getByLabelText('In-game clock'), '10:00')
   await userEvent.click(within(dialog).getByRole('button', { name: 'Sync' }))
   expect(repo.setAnchor).toHaveBeenCalledWith({ gameTimeSeconds: 600, videoOffsetSeconds: 700 })
-  expect(await screen.findByText('Game clock synced: 10:00 at 11:40 in the video')).toBeVisible()
+  expect(await screen.findByText('10:00 at 11:40 in the video')).toBeInTheDocument()
+  expect(screen.getByLabelText('Timeline settings')).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Killed Ahri' }))
   // The 3:00 kill sits at video 4:40; seeks land five seconds early.
   expect(player.seekTo).toHaveBeenCalledWith(275)
@@ -174,9 +174,9 @@ it('lets the owner remove but not rewrite a coach comment, and keeps comments wi
   expect(within(row).getByText('Coach')).toBeVisible()
   expect(within(row).getByText('video')).toBeVisible()
   expect(within(row).queryByRole('button', { name: 'Edit comment' })).toBeNull()
-  expect(
-    screen.getByText('Attach the game from your match history to add kills, fights and recalls.'),
-  ).toBeVisible()
+  await userEvent.click(screen.getByLabelText('Timeline settings (setup needed)'))
+  expect(screen.getByText('No game attached')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Attach game' })).toBeVisible()
   expect(screen.queryByRole('button', { name: 'Sync clock' })).toBeNull()
   await userEvent.click(within(row).getByRole('button', { name: 'Delete comment' }))
   await userEvent.click(within(row).getByRole('button', { name: 'Delete' }))
