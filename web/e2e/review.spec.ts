@@ -539,21 +539,17 @@ async function drawingVideo(context: BrowserContext) {
 }
 
 async function expectReadableCapture(page: Page) {
-  const row = page.locator('.capture-row').first()
+  const row = page.locator('.kind-capture').first()
   await row.scrollIntoViewIfNeeded()
   const layout = await row.evaluate((element) => {
-    const row = element.getBoundingClientRect()
-    const button = element.querySelector('button')!.getBoundingClientRect()
-    const title = element.querySelector('strong')!.getBoundingClientRect()
-    return {
-      rowWidth: row.width,
-      buttonWidth: button.width,
-      titleWidth: title.width,
-      titleHeight: title.height,
-    }
+    const time = element.querySelector('.timeline-time')!.textContent
+    const body = element.querySelector('.timeline-body')!.getBoundingClientRect()
+    const title = element.querySelector('.timeline-label')!.getBoundingClientRect()
+    return { time, bodyWidth: body.width, titleWidth: title.width, titleHeight: title.height }
   })
-  expect(layout.buttonWidth).toBeCloseTo(layout.rowWidth, 0)
-  expect(layout.titleWidth).toBeGreaterThan(100)
+  expect(layout.time).toMatch(/\d+:\d{2}/)
+  expect(layout.bodyWidth).toBeGreaterThan(150)
+  expect(layout.titleWidth).toBeGreaterThan(80)
   expect(layout.titleHeight).toBeLessThan(45)
 }
 

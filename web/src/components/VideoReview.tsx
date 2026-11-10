@@ -25,9 +25,9 @@ import {
   Settings,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
-import { DrawingCapture, CapturePreview, CaptureThumbnail } from './DrawingCapture'
+import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
-import { CommentRow, EventRow, patchOf } from './TimelineRows'
+import { CaptureRow, CommentRow, EventRow, patchOf } from './TimelineRows'
 import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
@@ -95,7 +95,13 @@ type Item =
 function loadHidden(): Set<string> {
   try {
     const saved = localStorage.getItem(hiddenStorage)
-    if (saved !== null) return new Set(JSON.parse(saved))
+    if (saved !== null) {
+      const kinds = new Set<string>(JSON.parse(saved))
+      // These kinds have no filter option, so a stale saved choice can't be undone.
+      for (const kind of ['flag', 'absentFight']) kinds.delete(kind)
+      kinds.add('opponentItem')
+      return kinds
+    }
   } catch {
     // Filters are a per-browser convenience.
   }
@@ -460,8 +466,6 @@ export function VideoReview({
     presentKinds.some((k) => hidden.has(k.kind)) ||
     hidden.has(commentsKey) ||
     hidden.has(capturesKey)
-  const eventCount = items.filter((i) => i.type === 'event').length
-  const commentCount = items.filter((i) => i.type === 'comment').length
 
   const needsSetup = owner && (!review || !anchor)
   const closeSettings = () => settingsMenu.current?.removeAttribute('open')
@@ -529,12 +533,6 @@ export function VideoReview({
               <header className="review-header">
                 <div className="review-title">
                   <h2>Timeline</h2>
-                  <span>
-                    {eventCount} {eventCount === 1 ? 'event' : 'events'} · {commentCount}{' '}
-                    {commentCount === 1 ? 'comment' : 'comments'}
-                    {captures.length > 0 &&
-                      ` · ${items.filter((item) => item.type === 'capture').length} ${items.filter((item) => item.type === 'capture').length === 1 ? 'capture' : 'captures'}`}
-                  </span>
                 </div>
                 <div className="review-tools">
                   {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
@@ -742,30 +740,15 @@ export function VideoReview({
                           onSeekTime={(ms, kind) => seekGame(ms, seekLeadMs(kind))}
                         />
                       ) : item.type === 'capture' ? (
-                        <li
+                        <CaptureRow
                           key={item.id}
-                          data-item={item.id}
-                          className={`timeline-row capture-row ${item.id === currentId ? 'current' : ''}`}
-                        >
-                          <button
-                            className="capture-open"
-                            onClick={() => setViewingCapture(item.capture)}
-                          >
-                            <CaptureThumbnail capture={item.capture} repository={repository} />
-                            <span>
-                              <span className="capture-time">
-                                {commentTime(item.capture.videoMs)}
-                              </span>
-                              <strong>Drawing capture</strong>
-                              {item.capture.body && <span>{item.capture.body}</span>}
-                              <small>
-                                {item.capture.role === 'owner'
-                                  ? 'Player'
-                                  : item.capture.author || 'Coach'}
-                              </small>
-                            </span>
-                          </button>
-                        </li>
+                          capture={item.capture}
+                          repository={repository}
+                          timeLabel={commentTime(item.capture.videoMs)}
+                          videoClock={!anchor}
+                          current={item.id === currentId}
+                          onOpen={() => setViewingCapture(item.capture)}
+                        />
                       ) : editing === item.id ? (
                         <li key={item.id} className="timeline-row composing">
                           <Composer

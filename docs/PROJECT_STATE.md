@@ -41,6 +41,16 @@ PostgreSQL 17 permission suites. The live app returns HTTP 200. The desktop
 split is recorded locally as commit `8b87981`; no native GitHub repository was
 created. No cloud migration or resource change was required.
 
+## Timeline header and capture rows simplified
+
+The timeline header no longer shows event/comment/capture counts, which pushed the
+toolbar buttons around. Drawing captures now render as ordinary timeline rows (time
+in the gutter, dot on the spine, "Drawing capture" label, thumbnail, note and author).
+The filter no longer offers Flags, Fights without you or Opponent items. Flag and
+absent-fight events are always shown; opponent purchases stay hidden, and stale saved
+filter choices for these kinds are ignored. Frontend only; no backend or native change.
+All 132 unit tests, the production build and 22 Chrome workflows pass.
+
 ## Capture timeline row layout correction
 
 Capture buttons now span all three timeline grid columns, with the text

@@ -211,7 +211,7 @@ it('lets the owner remove but not rewrite a coach comment, and keeps comments wi
   await waitFor(() => expect(repo.deleteComment).toHaveBeenCalledWith('c3'))
 })
 
-it('hides opponent purchases by default and remembers filter changes', async () => {
+it('keeps opponent purchases out of the filter and remembers filter changes', async () => {
   const repo = repository('coach', {
     matchId: 'EUW1_1',
     review: reviewPayload(),
@@ -223,13 +223,14 @@ it('hides opponent purchases by default and remembers filter changes', async () 
   await screen.findByRole('button', { name: 'Killed Ahri' })
   expect(screen.queryByText('Ahri bought 1 item')).toBeNull()
   await userEvent.click(screen.getByLabelText('Filter timeline'))
-  await userEvent.click(screen.getByRole('checkbox', { name: /Opponent items/ }))
-  expect(screen.getByText('Ahri bought 1 item')).toBeVisible()
+  expect(
+    screen.queryByRole('checkbox', { name: /Opponent items|Flags|Fights without you/ }),
+  ).toBeNull()
   await userEvent.click(screen.getByRole('checkbox', { name: /Kills/ }))
   expect(screen.queryByRole('button', { name: 'Killed Ahri' })).toBeNull()
   // A fight the player killed in still answers to the fight filter.
   expect(screen.getAllByRole('button', { name: 'Teamfight' })).toHaveLength(1)
-  expect(JSON.parse(localStorage.getItem('league-cloud-coach-hidden-kinds')!)).toEqual(['kill'])
+  expect(JSON.parse(localStorage.getItem('league-cloud-coach-hidden-kinds')!)).toEqual(['opponentItem', 'kill'])
 })
 
 it('seeks comments and ordinary events exactly, with lead-in only for ultimates and deaths including fight moments', async () => {

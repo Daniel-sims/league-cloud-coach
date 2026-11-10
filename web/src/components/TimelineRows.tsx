@@ -10,7 +10,8 @@ import {
   type MatchupCard,
   type TimelineEntry,
 } from '../lib/review-timeline'
-import { commentKinds, type ReviewComment } from '../lib/review'
+import { commentKinds, type ReviewCapture, type ReviewComment, type ReviewRepository } from '../lib/review'
+import { CaptureThumbnail } from './DrawingCapture'
 
 const itemNames = new Map<string, Promise<Record<string, string>>>()
 /// Item names for tooltips; icons render without them while Data Dragon answers.
@@ -361,6 +362,51 @@ export function CommentRow({
         )}
         <button className="comment-text" onClick={onSeek} title="Watch this moment">
           {comment.body}
+        </button>
+      </div>
+    </li>
+  )
+}
+
+export function CaptureRow({
+  capture,
+  repository,
+  timeLabel,
+  videoClock,
+  current,
+  onOpen,
+}: {
+  capture: ReviewCapture
+  repository: ReviewRepository
+  timeLabel: string
+  videoClock: boolean
+  current: boolean
+  onOpen(): void
+}) {
+  const author = capture.role === 'owner' ? 'Player' : capture.author || 'Coach'
+  return (
+    <li
+      onClick={rowClick(onOpen)}
+      className={`timeline-row kind-capture clickable ${current ? 'current' : ''}`}
+      data-item={capture.id}
+    >
+      <span className="timeline-time" title={videoClock ? 'Video time' : 'Game time'}>
+        {timeLabel}
+        {videoClock && <small>video</small>}
+      </span>
+      <span className="timeline-spine" aria-hidden="true">
+        <i />
+      </span>
+      <div className="timeline-body">
+        <button className="timeline-label" onClick={onOpen} title="Open this drawing">
+          Drawing capture
+        </button>
+        <button className="capture-open" onClick={onOpen} aria-label="Open drawing capture">
+          <CaptureThumbnail capture={capture} repository={repository} />
+          <span>
+            {capture.body && <span>{capture.body}</span>}
+            <small>{author}</small>
+          </span>
         </button>
       </div>
     </li>

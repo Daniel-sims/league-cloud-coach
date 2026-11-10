@@ -79,16 +79,13 @@ export type EntryKind =
   | 'objective'
   | 'opponentItem'
 export const entryKinds: { kind: EntryKind; name: string }[] = [
-  { kind: 'flag', name: 'Flags' },
   { kind: 'ultimate', name: 'Ultimates' },
   { kind: 'kill', name: 'Kills' },
   { kind: 'death', name: 'Deaths' },
   { kind: 'fight', name: 'Fights' },
-  { kind: 'absentFight', name: 'Fights without you' },
   { kind: 'recall', name: 'Recalls' },
   { kind: 'matchup', name: 'Lane matchups' },
   { kind: 'objective', name: 'Objectives' },
-  { kind: 'opponentItem', name: 'Opponent items' },
 ]
 export type ItemStack = { item: number; count: number }
 export type FightParticipant = {
