@@ -15,10 +15,19 @@
   --surface-sunk: #f4f3ec;
   --ahead: #3f7a52;
   --behind: #a14336;
+  /* The largest 16:9 video that fits the window beside the seek controls;
+     the timeline takes whatever width is left and matches its height. */
+  --video-width: min(
+    max(
+      480px,
+      calc((100dvh - var(--review-top, 220px) - var(--review-chrome, 64px) - 24px) * 16 / 9)
+    ),
+    calc(100% - 364px)
+  );
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  grid-template-columns: var(--video-width) minmax(340px, 1fr);
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
 }
 [data-theme='dark'] .review-layout {
   --event-flag: #e0b25e;
@@ -39,12 +48,12 @@
   min-width: 0;
 }
 .review-panel {
-  position: sticky;
-  top: 24px;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 48px);
+  /* Sized by the row (the video), never by its own list. */
+  contain: size;
   min-height: 420px;
+  max-width: 720px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -773,12 +782,17 @@
   color: var(--danger);
 }
 
-@media (max-width: 1280px) {
+.review-container {
+  container-type: inline-size;
+}
+/* Too narrow for the video and a readable timeline side by side. */
+@container (max-width: 900px) {
   .review-layout {
     grid-template-columns: minmax(0, 1fr);
   }
   .review-panel {
-    position: static;
+    contain: none;
+    max-width: none;
     max-height: 75vh;
   }
 }

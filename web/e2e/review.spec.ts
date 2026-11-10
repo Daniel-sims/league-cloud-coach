@@ -265,6 +265,28 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     .poll(() => inList(timeline.getByRole('listitem').filter({ hasText: 'Should I have backed' })))
     .toBe(true)
   await page.screenshot({ path: testInfo.outputPath('review-owner-desktop.png'), fullPage: true })
+  // Collapsing the sidebar gives the video the width; the choice survives reload.
+  const before = await video.evaluate((v) => v.getBoundingClientRect().width)
+  await page.getByRole('button', { name: 'Hide sidebar' }).click()
+  await expect(page.locator('#app-sidebar')).toBeHidden()
+  await expect
+    .poll(() => video.evaluate((v) => v.getBoundingClientRect().width))
+    .toBeGreaterThan(before)
+  await page.setViewportSize({ width: 1903, height: 958 })
+  await page.waitForTimeout(100)
+  const stage = await video.evaluate((v) => v.parentElement!.getBoundingClientRect())
+  const wrap = await video.evaluate((v) => v.closest('.player-wrap')!.getBoundingClientRect())
+  const panel = await timeline.boundingBox()
+  // The whole player, seek controls included, fits in the window.
+  expect(wrap.bottom).toBeLessThanOrEqual(958)
+  expect(Math.abs(panel!.y + panel!.height - wrap.bottom)).toBeLessThan(2)
+  expect(Math.round((stage.width / stage.height) * 9)).toBe(16)
+  expect(panel!.x).toBeGreaterThan(stage.right)
+  await page.screenshot({ path: testInfo.outputPath('review-owner-collapsed.png') })
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Show sidebar' })).toBeVisible()
+  await page.getByRole('button', { name: 'Show sidebar' }).click()
+  await page.setViewportSize({ width: 1440, height: 900 })
 
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await mock(guestContext, state, false)

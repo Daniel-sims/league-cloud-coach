@@ -18,6 +18,8 @@ import {
   Link2,
   LoaderCircle,
   MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Play,
   Plus,
   Search,
@@ -118,6 +120,22 @@ export function App({ authError = null }: { authError?: string | null }) {
   const [authMessage, setAuthMessage] = useState(authError || '')
   const [signingIn, setSigningIn] = useState(false)
   const [help, setHelp] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('league-cloud-coach-sidebar') === 'collapsed'
+    } catch {
+      return false
+    }
+  })
+  function toggleSidebar() {
+    const next = !collapsed
+    setCollapsed(next)
+    try {
+      localStorage.setItem('league-cloud-coach-sidebar', next ? 'collapsed' : 'open')
+    } catch {
+      // Layout preference only.
+    }
+  }
   const [setup, setSetup] = useState(false)
   const [settings, setSettings] = useState(false)
   const [settingsVersion, setSettingsVersion] = useState(0)
@@ -219,8 +237,8 @@ export function App({ authError = null }: { authError?: string | null }) {
     session?.user.user_metadata?.full_name || session?.user.email?.split('@')[0] || 'Your account'
   const ownVideoId = route.match(/^\/(?:preview\/)?video\/([a-f0-9-]+)$/)?.[1]
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <aside className="sidebar" id="app-sidebar">
         <Brand />
         <div className="workspace-label">YOUR WORKSPACE</div>
         <nav aria-label="Main navigation">
@@ -258,6 +276,16 @@ export function App({ authError = null }: { authError?: string | null }) {
       </aside>
       <div className="main-shell">
         <header className="topbar">
+          <button
+            className="icon-button sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-controls="app-sidebar"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
           <div className="breadcrumb">
             <Cloud size={16} />
             <span>Workspace</span>
@@ -295,7 +323,7 @@ export function App({ authError = null }: { authError?: string | null }) {
             )}
           </div>
         </header>
-        <main className="main-content">
+        <main className={`main-content ${ownVideoId ? 'wide' : ''}`}>
           {authMessage && <ErrorNotice message={authMessage} />}
           {local && (
             <div className="notice preview-notice">
@@ -1513,7 +1541,11 @@ function OwnVideo({
                     onController={onController}
                   />
                 ) : (
-                  <Player videoId={record.youtube_video_id!} title={record.title} onController={onController} />
+                  <Player
+                    videoId={record.youtube_video_id!}
+                    title={record.title}
+                    onController={onController}
+                  />
                 )
               }
             />
@@ -1617,9 +1649,18 @@ function Watch({ token }: { token: string }) {
               repository={review}
               renderPlayer={(onController) =>
                 video.provider === 'stream' ? (
-                  <StreamPlayer key={token} shareToken={token} title={video.title} onController={onController} />
+                  <StreamPlayer
+                    key={token}
+                    shareToken={token}
+                    title={video.title}
+                    onController={onController}
+                  />
                 ) : (
-                  <Player videoId={video.youtube_video_id!} title={video.title} onController={onController} />
+                  <Player
+                    videoId={video.youtube_video_id!}
+                    title={video.title}
+                    onController={onController}
+                  />
                 )
               }
             />

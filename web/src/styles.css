@@ -2069,3 +2069,48 @@ strong {
 .seek-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .seek-hint { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 4px; line-height: 1.6; }
 .seek-hint > span { white-space: nowrap; }
+/* Collapsible sidebar: hidden entirely so content can use the full window. */
+.sidebar-toggle {
+  margin-left: -8px;
+}
+.sidebar-toggle + .breadcrumb {
+  margin-right: auto;
+}
+.app-shell.sidebar-collapsed .sidebar {
+  display: none;
+}
+.app-shell.sidebar-collapsed .main-shell {
+  margin-left: 0;
+  width: 100%;
+}
+/* Video pages use the whole content width; the review layout sizes the video. */
+.main-content.wide {
+  max-width: none;
+  padding: 24px 32px;
+}
+.main-content.wide .video-page-heading {
+  margin: 10px 0 18px;
+}
+.main-content.wide .video-page-heading h1 {
+  margin: 4px 0;
+}
+@media (max-width: 600px) {
+  .sidebar-toggle {
+    display: none;
+  }
+  .app-shell.sidebar-collapsed .sidebar {
+    display: flex;
+  }
+  .main-content.wide {
+    padding: 24px 16px;
+  }
+}
+.watch-main {
+  max-width: none;
+  padding: 24px 32px 32px;
+}
+@media (max-width: 600px) {
+  .watch-main {
+    padding: 20px 16px 28px;
+  }
+}
