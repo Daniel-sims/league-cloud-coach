@@ -6,7 +6,7 @@ Last reviewed: 10 November 2026. This is the durable session handoff, not a repl
 
 Settings is anchored at the bottom of the desktop sidebar, above the workspace footer; mobile retains accessible Settings after the main navigation. Settings has an Appearance section with a keyboard-accessible Dark mode switch. It applies immediately, defaults to light, and saves only the theme preference in browser local storage (`league-cloud-coach-theme`). Theme persists across reload and sign-out; no server preference or token-storage change is involved. Dark styling covers the workspace, Home statistics/history, library, forms/dialogs, notices, buttons and inputs while preserving video/images.
 
-Local verification: all 92 unit/component/handler tests and production build passed. The new Chrome check verifies sidebar position, immediate theme changes, browser persistence after reload, keyboard toggling, desktop/mobile fit and dialog colors; screenshots were inspected. Frontend publication is in progress.
+Local verification: all 92 unit/component/handler tests and production build passed. The new Chrome check verifies sidebar position, immediate theme changes, browser persistence after reload, keyboard toggling, desktop/mobile fit and dialog colors; screenshots were inspected. Frontend release `5433e47b670c43bc5181ab4bbf6387012d0571ed` is deployed through [successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42805071817), which passed all 92 tests, 14 browser checks, both runtime checks, production build and all five database security suites.
 
 ## Video seeking and new-token propagation
 
