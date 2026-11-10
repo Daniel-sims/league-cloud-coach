@@ -81,7 +81,7 @@ async function setup(context: BrowserContext, empty = false) {
 }
 test('home loads stats, champion and result filters, scoreboard, and keeps the video library reachable', async ({
   page,
-}) => {
+}, testInfo) => {
   await setup(page.context())
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Home.' })).toBeVisible()
@@ -94,7 +94,7 @@ test('home loads stats, champion and result filters, scoreboard, and keeps the v
   await page.getByRole('button', { name: /Scoreboard for 2/ }).click()
   await expect(page.getByText('Defeat · Blue team')).toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'Damage / taken' })).toHaveCount(2)
-  await page.screenshot({ path: '/private/tmp/league-home-desktop.png', fullPage: true })
+  await page.screenshot({ path: testInfo.outputPath('home-desktop.png'), fullPage: true })
   await page.getByRole('link', { name: /Video library/ }).click()
   await expect(page.getByRole('button', { name: 'Upload your first video' })).toBeVisible()
   await page.getByRole('link', { name: 'Home', exact: true }).click()
@@ -102,7 +102,7 @@ test('home loads stats, champion and result filters, scoreboard, and keeps the v
 })
 test('mobile home connects an account with keyboard access and fits the viewport', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await setup(page.context(), true)
   await page.goto('/#/home')
@@ -122,5 +122,5 @@ test('mobile home connects an account with keyboard access and fits the viewport
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
-  await page.screenshot({ path: '/private/tmp/league-home-mobile.png', fullPage: true })
+  await page.screenshot({ path: testInfo.outputPath('home-mobile.png'), fullPage: true })
 })
