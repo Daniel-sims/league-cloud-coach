@@ -2,6 +2,17 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Capture timeline row layout correction
+
+Capture buttons now span all three timeline grid columns, with the text
+allowed to fill the space beside the thumbnail. Previously the single button
+occupied the 52px timestamp gutter (44px on mobile), causing the timestamp,
+label and note to wrap one character per line. Added Chrome assertions check
+full-row button width and readable title dimensions, including the 300px
+minimum desktop panel and 390px mobile viewport. Production build and the two
+affected owner/coach workflows pass; publication is in progress. No database
+or native changes are needed.
+
 ## Drawing captures (deployed)
 
 Owner and watch pages now have **Draw** (D): pause/freeze a video frame, annotate

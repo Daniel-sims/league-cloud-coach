@@ -1069,6 +1069,8 @@
   overflow-wrap: anywhere;
 }
 .capture-open {
+  grid-column: 1 / -1;
+  min-width: 0;
   display: flex;
   text-align: left;
   align-items: flex-start;
@@ -1081,6 +1083,7 @@
   cursor: pointer;
 }
 .capture-open > span:not(.capture-thumb) {
+  flex: 1;
   display: grid;
   gap: 4px;
   min-width: 0;

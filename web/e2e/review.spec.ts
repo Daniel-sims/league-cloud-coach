@@ -538,6 +538,25 @@ async function drawingVideo(context: BrowserContext) {
   })
 }
 
+async function expectReadableCapture(page: Page) {
+  const row = page.locator('.capture-row').first()
+  await row.scrollIntoViewIfNeeded()
+  const layout = await row.evaluate((element) => {
+    const row = element.getBoundingClientRect()
+    const button = element.querySelector('button')!.getBoundingClientRect()
+    const title = element.querySelector('strong')!.getBoundingClientRect()
+    return {
+      rowWidth: row.width,
+      buttonWidth: button.width,
+      titleWidth: title.width,
+      titleHeight: title.height,
+    }
+  })
+  expect(layout.buttonWidth).toBeCloseTo(layout.rowWidth, 0)
+  expect(layout.titleWidth).toBeGreaterThan(100)
+  expect(layout.titleHeight).toBeLessThan(45)
+}
+
 test('drawing freezes a real frame, keeps failed saves, and persists a capture on the exact timeline timestamp', async ({
   page,
 }, testInfo) => {
@@ -610,6 +629,7 @@ test('drawing freezes a real frame, keeps failed saves, and persists a capture o
   )
   expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
   await expect(page.getByAltText('Annotated frame thumbnail')).toBeVisible()
+  await expectReadableCapture(page)
   await page.getByRole('button', { name: /Drawing capture/ }).click()
   const preview = page.getByRole('dialog', { name: /^Capture at/ })
   await expect(preview.getByAltText('Hold this position')).toBeVisible()
@@ -631,6 +651,10 @@ test('drawing freezes a real frame, keeps failed saves, and persists a capture o
     .toBe(state.captures![0].videoMs)
   await page.reload()
   await expect(page.getByAltText('Annotated frame thumbnail')).toBeVisible()
+  await page.evaluate(() => localStorage.setItem('league-cloud-coach-timeline-width', '300'))
+  await page.reload()
+  await expectReadableCapture(page)
+  await page.screenshot({ path: testInfo.outputPath('capture-row-narrow-desktop.png') })
   await page.getByRole('button', { name: /Drawing capture/ }).click()
   await page.getByRole('button', { name: 'Delete capture' }).click()
   await expect(page.getByRole('button', { name: /Drawing capture/ })).toHaveCount(0)
@@ -664,6 +688,8 @@ test('signed-out coaches can draw, capture and delete their own stills while pla
   await expect(editor).toHaveCount(0)
   expect(state.captures![0].role).toBe('coach')
   expect(state.captures![0].author).toBe('Coach')
+  await expectReadableCapture(page)
+  await page.screenshot({ path: testInfo.outputPath('capture-row-mobile.png') })
   await page.getByRole('button', { name: /Drawing capture/ }).click()
   await expect(page.getByRole('button', { name: 'Delete capture' })).toBeVisible()
   await page.getByRole('button', { name: 'Close dialog' }).click()
