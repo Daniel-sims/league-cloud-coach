@@ -10,8 +10,12 @@ occupied the 52px timestamp gutter (44px on mobile), causing the timestamp,
 label and note to wrap one character per line. Added Chrome assertions check
 full-row button width and readable title dimensions, including the 300px
 minimum desktop panel and 390px mobile viewport. Production build and the two
-affected owner/coach workflows pass; publication is in progress. No database
-or native changes are needed.
+affected owner/coach workflows pass; desktop and mobile screenshots were
+inspected. Release `a8334efbdd06ddf97ecb125fd3507f1677c44c9a` is deployed through
+[successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42886000647),
+including all 132 tests, 22 browser workflows and eight PostgreSQL 17 suites.
+The public stylesheet was checked for the full-grid capture placement. No
+database or native changes were needed.
 
 ## Drawing captures (deployed)
 
