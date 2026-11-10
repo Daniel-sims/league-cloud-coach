@@ -46,6 +46,8 @@ jobs:
           deno-version: v2.x
       - name: Check Stream Edge Function
         run: deno check --config ../supabase/functions/stream/deno.json ../supabase/functions/stream/index.ts
+      - name: Check Riot Edge Function
+        run: deno check --config ../supabase/functions/riot/deno.json ../supabase/functions/riot/index.ts
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
@@ -62,6 +64,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/security.sql
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/stream-security.sql
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/import-recovery.sql
+          psql -v ON_ERROR_STOP=1 -f ../supabase/tests/league-security.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.VITE_SUPABASE_URL != '' && vars.VITE_SUPABASE_PUBLISHABLE_KEY != ''

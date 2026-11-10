@@ -17,7 +17,7 @@ Help a League player share full game recordings with a coach and eventually revi
 - Only explicitly enabled owner memberships can manage a library. Additional Google accounts may authenticate but gain no management permission automatically.
 - The owner can upload a local file directly to Cloudflare through the app, add an existing private Stream video ID, or add a YouTube Studio **Unlisted** URL. There is no automatic YouTube channel access.
 - Anonymous viewers resolve a share capability and watch with ordinary video controls. Stream requires explicit session start; YouTube retains unlisted playback. They cannot enumerate a library or mutate recordings.
-- Timeline, annotations, AI review, Riot sync, automatic uploads, and the separate Mac companion are planned, not implemented in this web release.
+- Home includes saved Riot profiles, current ranks, cached match history/scoreboards and native-style stats. Timeline, annotations, AI review, automatic YouTube uploads, and the separate Mac companion remain planned.
 - Cloudflare Stream is now an authorized optional paid provider, with its backend deployed. Keep existing YouTube recordings working. See the Stream setup/limitations in the README and current handoff before publishing.
 
 ## Architecture and source map
@@ -25,6 +25,9 @@ Help a League player share full game recordings with a coach and eventually revi
 | Path | Responsibility |
 |---|---|
 | `web/src/App.tsx` | Account state, library, forms/dialogs, owner video pages, public watch routes |
+| `web/src/components/Home.tsx`, `Loadout.tsx`, `web/src/league.css` | Owner Home, profile/champion selection, stats, history and scoreboard UI |
+| `web/src/lib/league.ts`, `league-repository.ts` | Native-matched stats/filter rules and private profile/match repository |
+| `supabase/functions/riot/` | Verified owner-only Riot requests; backend-only RIOT_API_KEY, shared request budget and persisted match cache |
 | `web/src/main.tsx` | Completes the OAuth callback before rendering the app |
 | `web/src/lib/supabase.ts` | Browser Supabase client, RPC repository, PKCE handoff, app URLs |
 | `web/src/lib/auth-errors.ts` | Safe classification of provider errors without echoing codes/secrets |
@@ -56,6 +59,7 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 - `stream_imports` is private service-only import history, maintained atomically by a recordings insert trigger. It survives library removal so reconciliation does not intentionally restore removed entries. Never let anonymous/authenticated clients enumerate or erase this history.
 - A pasted URL cannot prove channel ownership or Unlisted visibility. Do not imply either is verified by the basic embed preview.
 - Migrations are append-only once applied. Do not reset the live project or run `supabase/tests/bootstrap-local.sql` there.
+- League profiles/matches have RLS and no anonymous/authenticated direct table grants. Enabled owners list only their own data through RPCs; only the verified Riot backend writes API-derived data. Keep Riot keys backend-only. Match payloads must never be added to public watch resolution. Preserve native remake, role-scoping, ratio, opponent and patch/split semantics in `league.ts`; tests and the README record the parity limits.
 
 ## Authentication and deployment constraints
 

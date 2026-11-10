@@ -21,7 +21,7 @@ it('exchanges a PKCE code once and removes it from browser history', async () =>
   expect(await initializeAuth()).toBeNull()
   expect(exchange).toHaveBeenCalledExactlyOnceWith('one-time-code')
   expect(location.search).toBe('')
-  expect(location.hash).toBe('#/library')
+  expect(location.hash).toBe('#/home')
   await initializeAuth()
   expect(exchange).toHaveBeenCalledTimes(1)
 })
@@ -34,7 +34,7 @@ it.each(['/?error=access_denied', '/#error=access_denied&error_description=cance
     expect(await initializeAuth()).toContain('sign-in was cancelled')
     expect(exchange).not.toHaveBeenCalled()
     expect(location.search).toBe('')
-    expect(location.hash).toBe('#/library')
+    expect(location.hash).toBe('#/home')
   },
 )
 
@@ -58,7 +58,7 @@ it('identifies a provider token exchange failure without showing the one-time co
   expect(message).not.toContain('cancelled')
   expect(message).not.toContain('sensitive-one-time-code')
   expect(exchange).not.toHaveBeenCalled()
-  expect(location.hash).toBe('#/library')
+  expect(location.hash).toBe('#/home')
 })
 
 it('does not mistake an unknown server failure for user cancellation or echo provider text', async () => {

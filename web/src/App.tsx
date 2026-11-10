@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Film,
   FileVideo,
+  House,
   Link2,
   LoaderCircle,
   LogOut,
@@ -30,6 +31,7 @@ import { Dialog } from './components/Dialog'
 import { Player } from './components/Player'
 import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
+import { Home } from './components/Home'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
@@ -37,9 +39,9 @@ import type { LibraryRepository, Recording, WatchVideo, UploadSync } from './lib
 
 const isDev = import.meta.env.DEV
 function useRoute() {
-  const [route, setRoute] = useState(window.location.hash.slice(1) || '/library')
+  const [route, setRoute] = useState(window.location.hash.slice(1) || '/home')
   useEffect(() => {
-    const update = () => setRoute(window.location.hash.slice(1) || '/library')
+    const update = () => setRoute(window.location.hash.slice(1) || '/home')
     window.addEventListener('hashchange', update)
     return () => window.removeEventListener('hashchange', update)
   }, [])
@@ -48,7 +50,7 @@ function useRoute() {
 function Brand({ small = false }: { small?: boolean }) {
   return (
     <a
-      href="#/library"
+      href="#/home"
       className={`brand ${small ? 'brand-small' : ''}`}
       aria-label="League Cloud Coach home"
     >
@@ -113,6 +115,7 @@ export function App({ authError = null }: { authError?: string | null }) {
   const [help, setHelp] = useState(false)
   const [setup, setSetup] = useState(false)
   const local = isDev && route.startsWith('/preview')
+  const home = route === '/home'
 
   useEffect(() => {
     if (!supabase) return
@@ -205,7 +208,12 @@ export function App({ authError = null }: { authError?: string | null }) {
         <Brand />
         <div className="workspace-label">YOUR WORKSPACE</div>
         <nav aria-label="Main navigation">
-          <a className="nav-item active" href={local ? '#/preview' : '#/library'}>
+          <a className={`nav-item ${home ? 'active' : ''}`} href="#/home">
+            <House size={18} />
+            Home
+            {home && <ChevronRight size={14} className="nav-chevron" />}
+          </a>
+          <a className={`nav-item ${!home ? 'active' : ''}`} href={local ? '#/preview' : '#/library'}>
             <FileVideo size={18} />
             Video library
             <ChevronRight size={14} className="nav-chevron" />
@@ -227,7 +235,7 @@ export function App({ authError = null }: { authError?: string | null }) {
             <Cloud size={16} />
             <span>Workspace</span>
             <span className="crumb-slash">/</span>
-            <strong>Video library</strong>
+            <strong>{home ? 'Home' : 'Video library'}</strong>
           </div>
           <div className="topbar-actions">
             {local ? (
@@ -278,6 +286,8 @@ export function App({ authError = null }: { authError?: string | null }) {
                 repository={local ? localRepository : cloudRepository}
                 local={local}
               />
+            ) : home && session ? (
+              <Home key={session.user.id} ownerId={session.user.id} />
             ) : (
               <Library
                 key={local ? 'local' : session!.user.id}

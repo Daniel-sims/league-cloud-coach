@@ -70,7 +70,7 @@ export async function initializeAuth(): Promise<string | null> {
   if (!hasProviderError && !code) return null
   // Remove sensitive OAuth response parameters from history even on failure.
   current.search = ''
-  current.hash = '/library'
+  current.hash = '/home'
   history.replaceState(null, '', current)
   if (hasProviderError) return oauthErrorMessage(error, errorCode, description)
   if (code) {

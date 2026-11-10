@@ -26,3 +26,7 @@ secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 # verify the user JWT with Supabase Auth before calling owner RPCs.
 [functions.stream]
 verify_jwt = false
+
+# Owner JWT and enabled membership are checked before any Riot request.
+[functions.riot]
+verify_jwt = false

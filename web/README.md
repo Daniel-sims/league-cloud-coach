@@ -1,6 +1,6 @@
 # League Cloud Coach
 
-A static web app for a personal League recording library and account-free watch links. Upload recordings directly to Cloudflare Stream for private two-hour sessions, add an existing Stream video ID, or use unlisted YouTube links.
+A static web app for League match history, player statistics, a personal recording library and account-free watch links. Upload recordings directly to Cloudflare Stream for private two-hour sessions, add an existing Stream video ID, or use unlisted YouTube links.
 
 **Deployment status:** The Stream migration and backend function are deployed, with Cloudflare credentials stored in backend secrets. See [current project state](../docs/PROJECT_STATE.md) for frontend publication and live acceptance status before configuring or publishing.
 
@@ -15,6 +15,7 @@ The long-term product has three parts: the existing League Helper app, this web 
 ### Current release
 
 - Google authentication through Supabase, with library management restricted to explicitly enabled owner memberships.
+- Home with saved Riot accounts, profile level/current ranks, recent-game statistics, champion selection, season/split champion records, filtered match history and expandable team scoreboards. Riot data is fetched on the backend and stored privately per owner.
 - Upload a video file directly to Cloudflare with progress, pause/resume, retry, and processing checks. Add a YouTube URL or an already-uploaded private Cloudflare Stream video ID with a title and optional game date. Stream IDs are verified against the configured account on the backend.
 - Search, filter, sort, rename, open, and remove recordings from the owner's library.
 - Create, replace, copy, and revoke share links.
@@ -25,7 +26,7 @@ Other Google users may authenticate, but signing in does not automatically grant
 
 ### Outside the current release
 
-There is no automatic YouTube/channel integration, Mac companion, timeline, annotations, coach comments, Riot sync, or AI analysis in this web release. Do not mistake features of the separate native app or items in the roadmap for implemented web functionality.
+There is no automatic YouTube/channel integration, Mac companion, timeline, annotations, coach comments, or AI analysis in this web release. Riot sync for Home is implemented; it does not migrate the Mac's local journal, recordings or historical rank observations.
 
 The current manual flow is **YouTube Studio upload as Unlisted → Add video in Cloud Coach → Share an app watch link**. YouTube visibility is selected by the uploader; the site cannot verify it or claim that an unlisted video is private.
 
@@ -43,6 +44,7 @@ Use GitHub Pages for the static frontend and Supabase for identity/private metad
 | Narrow database RPCs | Owner mutations and minimal anonymous share resolution |
 | YouTube iframe / HLS video player | Provider-hosted playback with standard controls |
 | Supabase `stream` Edge Function | Verify owner actions/share sessions, check Cloudflare privacy, mint five-minute playback tokens |
+| Supabase `riot` Edge Function | Verify owner JWT/membership, resolve Riot accounts, refresh current ranks and cache completed matches |
 | GitHub Actions + Pages | Verification, configured production build, and static deployment |
 
 Video files never pass through our website/backend. GitHub Pages has no server handlers. The `stream` Supabase Edge Function returns short-lived playback authorization; Cloudflare delivers the media. There are no video-storage buckets. Owner libraries are protected by database permissions and row-level security; anonymous viewers can resolve a valid capability but cannot list libraries or edit records.
@@ -65,6 +67,18 @@ YouTube recordings use unlisted sharing. Anyone with a YouTube URL can watch or 
 For agents, read `web/AGENTS.md` (also the standalone root `AGENTS.md`), then [current project state](../docs/PROJECT_STATE.md) and the [implementation decisions](../docs/league-cloud-coach-web-plan.md). The state file records completed setup and remaining acceptance work so a fresh session does not recreate resources. These are durable project documents; previous chat history, a temporary checkout, or an existing login should not be assumed.
 
 In the original native workspace, `scripts/export-cloud-coach.py` copies web-only source to the standalone repo. The exported root README is generated from this complete document with relative links rebased, and root `AGENTS.md` comes from `web/AGENTS.md`. Native source, history, database files, and recordings must not be published in the public web repository.
+
+## Home and League account setup
+
+The root route and Google sign-in now open Home (`/#/home`). Video library remains at `/#/library`, and existing owner/watch links continue working. Choose **Add League account**, enter `Name#TAG`, and select EUW, EUNE, NA or KR (the same regions as the native app). Saved accounts switch independently of your Google identity; adding a Riot ID is a profile lookup, not proof of Riot account ownership. The last selected account, recent-game window and Solo/Duo preference are remembered in that owner's browser.
+
+The existing Supabase project needs all pending migrations and the `riot` function deployed. Store `RIOT_API_KEY` in **Supabase → Edge Functions → Secrets**, never in frontend configuration, Git or chat. Deploy with `supabase functions deploy riot --project-ref YOUR_PROJECT_REF`. Personal/development keys may expire; renew the backend secret when Riot rejects it. See [Riot's key guidance](https://developer.riotgames.com/docs/portal) and [League API documentation](https://developer.riotgames.com/docs/lol). This requires no Riot password or additional Google permission.
+
+Saved matches render before background refresh. The first visit refreshes current ranks and up to 20 recent games; **Refresh match history** fetches at least the selected recent-game window. **Sync older games** adds the next 20, using a server-persisted cursor. Each backend page fetches at most five games, caches immutable results and preserves completed work after errors. Request scheduling is shared across backend instances; rate-limit errors are actionable without dropping saved history. Histories and season totals describe synced games, not an implied complete lifetime archive. Riot may no longer serve older matches. A new browser can load the saved matches; the local preview remains video-only.
+
+Statistics follow native `RecentGames.swift`: remakes occupy a recent-window slot but are excluded from averages and records; deathless KDA is Perfect; farm/gold rates use total time, and role-sensitive dashboard rates use the most-played role. Champion farm uses every decided game on that champion. Kill participation and damage share average per-game shares, skipping zero denominators. Result filters narrow rows while the matchup record includes both outcomes. Opponent filters match the enemy in the player's lane, falling back to any enemy when Riot supplies no position. Season is the major patch version; season 16 splits start at 16.1, 16.9 and 16.15, matching native defaults. Other seasons show whole-season totals until boundaries are added; custom native split settings are not synchronized.
+
+Expanded scoreboards show the complete available roster, champion/level, KDA, damage dealt/taken, wards/control wards/vision score, farm and items. Match rows include spells/runes, lane opponent, duration, queue and patch. Current rank/LP is supported; per-game historical LP changes need rank observations and are not inferred from today's rank. Local journal/check-in/AI review data and match-to-recording links are not transferred by Riot sync. Existing uploads remain in Video library.
 
 ## Upload from your computer
 
