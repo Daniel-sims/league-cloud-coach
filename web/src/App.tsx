@@ -31,6 +31,15 @@ import {
 import { Dialog } from './components/Dialog'
 import { Player } from './components/Player'
 import { RecordingThumbnail } from './components/RecordingThumbnail'
+import { AccessDeniedError } from './lib/supabase'
+import {
+  clearLibraryCaches,
+  selectLibraryCacheAccount,
+  invalidateLibraryCache,
+  libraryCacheEpoch,
+  readLibraryCache,
+  saveLibraryCache,
+} from './lib/library-cache'
 import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
@@ -155,6 +164,7 @@ export function App({ authError = null }: { authError?: string | null }) {
       .then(({ data, error }) => {
         if (!active) return
         if (error) setAuthMessage('Could not restore your session. Please sign in again.')
+        selectLibraryCacheAccount(data.session?.user.id ?? null)
         setSession(data.session)
         setAuthLoading(false)
       })
@@ -167,6 +177,7 @@ export function App({ authError = null }: { authError?: string | null }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, next) => {
+      selectLibraryCacheAccount(next?.user.id ?? null)
       setSession(next)
       setAuthLoading(false)
     })
@@ -605,8 +616,9 @@ function Library({
   local: boolean
   ownerId?: string
 }) {
-  const [records, setRecords] = useState<Recording[]>([])
-  const [loading, setLoading] = useState(true)
+  const [cached] = useState(() => (local ? null : readLibraryCache(ownerId)))
+  const [records, setRecords] = useState<Recording[]>(cached ?? [])
+  const [loading, setLoading] = useState(cached === null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<'all' | 'shared'>('all')
@@ -619,7 +631,15 @@ function Library({
   const [notice, setNotice] = useState('')
   const [uploads, setUploads] = useState<UploadSync['pending']>([])
   const [uploadError, setUploadError] = useState('')
+  function loadFailed(reason: unknown) {
+    if (reason instanceof AccessDeniedError) {
+      clearLibraryCaches()
+      setRecords([])
+    }
+    setError(reason instanceof Error ? reason.message : 'Could not refresh the library.')
+  }
   async function refresh() {
+    const epoch = libraryCacheEpoch()
     if (repository.syncUploads) {
       try {
         const result = await repository.syncUploads()
@@ -634,35 +654,52 @@ function Library({
         setUploadError('Could not refresh uploads. Your saved library is still available.')
       }
     }
-    const next = await repository.list()
+    let next: Recording[]
+    try {
+      next = await repository.list()
+    } catch (error) {
+      loadFailed(error)
+      throw error
+    }
+    if (epoch !== libraryCacheEpoch()) return
+    setError('')
     setRecords(next)
+    if (!local) saveLibraryCache(ownerId, next, epoch)
   }
   useEffect(() => {
     let active = true
+    const epoch = libraryCacheEpoch()
+    async function loadList() {
+      const next = await repository.list()
+      if (active && epoch === libraryCacheEpoch()) {
+        setRecords(next)
+        setError('')
+        if (!local) saveLibraryCache(ownerId, next, epoch)
+      }
+    }
     async function open() {
+      // List metadata is independent of Cloudflare reconciliation: show it first.
       try {
-        if (repository.syncUploads) {
-          try {
-            const result = await repository.syncUploads()
-            if (active) {
-              setUploads(result?.pending || [])
-              if (result?.imported > 0) {
-                setTab('all')
-                setQuery('')
-                setNotice('Your completed upload has been added to the library.')
-              }
-            }
-          } catch {
-            if (active)
-              setUploadError('Could not refresh uploads. Your saved library is still available.')
-          }
-        }
-        const next = await repository.list()
-        if (active) setRecords(next)
+        await loadList()
       } catch (e) {
-        if (active) setError((e as Error).message)
+        if (active && epoch === libraryCacheEpoch()) loadFailed(e)
       } finally {
         if (active) setLoading(false)
+      }
+      if (!active || !repository.syncUploads) return
+      try {
+        const result = await repository.syncUploads()
+        if (!active || epoch !== libraryCacheEpoch()) return
+        setUploads(result?.pending || [])
+        if (result?.imported > 0) {
+          setTab('all')
+          setQuery('')
+          setNotice('Your completed upload has been added to the library.')
+          await loadList()
+        }
+      } catch {
+        if (active)
+          setUploadError('Could not refresh uploads. Your saved library is still available.')
       }
     }
     void open()
@@ -678,6 +715,14 @@ function Library({
     return () => window.clearInterval(timer)
   }, [repository, uploads.length, uploads.some((upload) => upload.state !== 'error')])
   async function changed(message: string) {
+    if (!local) {
+      invalidateLibraryCache(ownerId)
+      if (selected?.action === 'remove') {
+        const next = records.filter((r) => r.id !== selected.record.id)
+        setRecords(next)
+        saveLibraryCache(ownerId, next)
+      }
+    }
     setModal(null)
     setSelected(null)
     setNotice(message)
@@ -750,7 +795,7 @@ function Library({
             className="text-link"
             onClick={async () => {
               setError('')
-              setLoading(true)
+              setLoading(records.length === 0 && cached === null)
               try {
                 await refresh()
               } catch (e) {
@@ -825,6 +870,7 @@ function Library({
             <RecordingRow
               key={record.id}
               record={record}
+              ownerId={local ? undefined : ownerId}
               local={local}
               onAction={(action) => setSelected({ record, action })}
             />
@@ -956,10 +1002,12 @@ function Library({
 
 function RecordingRow({
   record,
+  ownerId,
   local,
   onAction,
 }: {
   record: Recording
+  ownerId?: string
   local: boolean
   onAction(action: 'share' | 'rename' | 'remove'): void
 }) {
@@ -970,7 +1018,7 @@ function RecordingRow({
         href={`#/${local ? 'preview/' : ''}video/${record.id}`}
         aria-label={`Watch ${record.title}`}
       >
-        <RecordingThumbnail record={record} />
+        <RecordingThumbnail record={record} ownerId={ownerId} />
         <span className="thumbnail-play">
           <Play size={17} fill="currentColor" />
         </span>

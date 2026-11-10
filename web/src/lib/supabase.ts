@@ -16,13 +16,15 @@ export const supabase = configured
     })
   : null
 
+export class AccessDeniedError extends Error {}
+
 export async function rpc<T>(name: string, args?: Record<string, unknown>): Promise<T> {
   if (!supabase) throw new Error('The cloud connection has not been configured yet.')
   const { data, error } = await supabase.rpc(name, args)
   if (error) {
     if (error.code === '23505') throw new Error('This video is already in your library.')
     if (error.code === '42501')
-      throw new Error('This account does not have permission to manage this library.')
+      throw new AccessDeniedError('This account does not have permission to manage this library.')
     if (error.code === 'PGRST202')
       throw new Error('The database setup needs to be completed. See web/README.md.')
     throw new Error(error.message || 'Could not reach your library. Please try again.')

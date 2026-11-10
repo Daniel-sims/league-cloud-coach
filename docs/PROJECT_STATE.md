@@ -2,6 +2,14 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Browser library cache
+
+The library now initializes from a project/account-scoped cache of allowlisted titles, dates, provider IDs and share-state metadata, then refreshes in the background without replacing saved rows with a loading screen. Cold loads fetch metadata before Cloudflare upload reconciliation, so provider latency does not block the list. Cache snapshots last up to seven days and contain at most 1,000 rows. Mutations invalidate stale in-flight list responses; removing a row prunes its preview. Explicit permission denial clears cached data. Normal Supabase session and enabled-membership checks still precede rendering.
+
+Stream preview bytes are cached in IndexedDB, keyed by account/recording/provider-video identity, with an in-memory blob URL for immediate return visits. Up to 96 raster images of at most 256 KiB each are retained for seven days. Signed image URLs and credentials are not persisted by the cache. A fresh browser page can read the saved image without another thumbnail lease or any video playback. If storage/CORS is unavailable, the direct image flow remains available. Sign-out/account switching clears metadata, image bytes and object URLs, and in-flight work cannot restore the signed-out cache. YouTube keeps its stable public thumbnail/browser HTTP-cache behavior.
+
+Verification: 127 unit/component/handler tests, production build and all 19 Chrome workflows passed. The new real-browser storage test holds the list RPC after a full reload, verifies saved title/blob thumbnail rendering before releasing the server response, checks the updated server title is applied, confirms zero playback requests and no repeated thumbnail authorization, then confirms metadata and IndexedDB are empty after sign-out. Focused decoding/zero-playback assertions passed afterward. Browser auth/media are simulated; storage uses real Chrome localStorage/IndexedDB. No backend, schema or native change is required. Frontend publication is pending verification.
+
 ## Library labels and first-frame thumbnails
 
 Library rows no longer repeat GAME RECORDING or In your library; Shared remains when a share exists. Stream recordings load private first-frame thumbnails at `time=0s` through the new owner-only `thumbnail` Stream action. It verifies the JWT, enabled membership and library ownership, rechecks provider readiness/privacy, then returns a five-minute signed image URL without download permission. The client loads previews near the viewport, renews a failed image once and retains the play placeholder if unavailable. YouTube entries retain YouTube's supplied thumbnail; arbitrary first-frame extraction is not provided by its embed API. Mobile row actions now sit below the title/meta instead of squeezing the title into a narrow column.

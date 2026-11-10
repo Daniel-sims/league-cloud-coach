@@ -28,6 +28,7 @@ type Fixture = {
   member: boolean
   shared: boolean
   uploadState?: 'uploading' | 'processing' | 'ready'
+  thumbnailRequests?: number
 }
 
 async function mockBackend(context: BrowserContext, state: Fixture) {
@@ -73,11 +74,13 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
       })
       result = { ok: true }
     }
-    if (name === 'stream' && args.action === 'thumbnail')
+    if (name === 'stream' && args.action === 'thumbnail') {
+      state.thumbnailRequests = (state.thumbnailRequests || 0) + 1
       result = {
         url: 'https://customer-test.cloudflarestream.com/signed-thumbnail/thumbnails/thumbnail.jpg?time=0s&height=180&fit=clip',
         expiresAt: new Date(Date.now() + 300000).toISOString(),
       }
+    }
     if (name === 'stream' && args.action === 'owner')
       result = {
         url: 'https://customer-test.cloudflarestream.com/keyboard-review.wav',
@@ -496,4 +499,123 @@ test('library drops redundant labels and shows a signed first-frame Stream thumb
     path: testInfo.outputPath('library-first-frame-mobile.png'),
     fullPage: true,
   })
+})
+
+test('library restores metadata and image bytes before a slow refresh and clears them on sign-out', async ({
+  page,
+}) => {
+  const state: Fixture = {
+    member: true,
+    shared: false,
+    rows: [
+      {
+        id: recordingId,
+        title: 'Cached mid review',
+        youtube_video_id: null,
+        provider: 'stream',
+        stream_video_id: 'd'.repeat(32),
+        recorded_on: '2026-11-10',
+        created_at: '2026-11-10T12:00:00Z',
+        has_share: false,
+      },
+    ],
+  }
+  let playbackRequests = 0
+  page.on('request', (request) => {
+    if (
+      request.url().endsWith('/functions/v1/stream') &&
+      request.method() === 'POST' &&
+      request.postDataJSON()?.action === 'owner'
+    )
+      playbackRequests++
+  })
+  await mockBackend(page.context(), state)
+  await setOwnerSession(page.context())
+  await page.route(
+    'https://customer-test.cloudflarestream.com/**/thumbnails/thumbnail.jpg?**',
+    (route) =>
+      route.fulfill({
+        contentType: 'image/png',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6kEIAAAAASUVORK5CYII=',
+          'base64',
+        ),
+      }),
+  )
+  await page.goto('/#/library')
+  const title = () => page.getByRole('link', { name: state.rows[0].title, exact: true })
+  await expect(title()).toBeVisible()
+  await expect(page.locator('.recording-thumbnail img')).toHaveAttribute('src', /^blob:/)
+  await expect
+    .poll(() =>
+      page
+        .locator('.recording-thumbnail img')
+        .evaluate((img: HTMLImageElement) => img.naturalWidth),
+    )
+    .toBe(1)
+  expect(playbackRequests).toBe(0)
+  expect(state.thumbnailRequests).toBe(1)
+  const stored = await page.evaluate(() =>
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('league-cloud-coach.library.v1:'))
+      .map((k) => localStorage.getItem(k))
+      .join(''),
+  )
+  expect(stored).toContain('Cached mid review')
+  expect(stored).not.toContain('signed-thumbnail')
+  // Hold only the list RPC. Auth/membership checks still complete normally.
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let held = true
+  await page.route(
+    'https://cloud-coach-test.supabase.co/rest/v1/rpc/list_recordings',
+    async (route) => {
+      if (held) await gate
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(state.rows) })
+    },
+  )
+  await page.reload()
+  await expect(title()).toBeVisible()
+  await expect(page.getByText('Loading your games…', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.recording-thumbnail img')).toHaveAttribute('src', /^blob:/)
+  expect(state.thumbnailRequests).toBe(1) // Fresh page uses IndexedDB, not another signed lease.
+  state.rows[0].title = 'Updated title from server'
+  held = false
+  release()
+  await expect(title()).toBeVisible()
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Sign out', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: 'Continue with Google', exact: true }),
+  ).toBeVisible()
+  expect(
+    await page.evaluate(
+      () =>
+        Object.keys(localStorage).filter((k) => k.startsWith('league-cloud-coach.library.v1:'))
+          .length,
+    ),
+  ).toBe(0)
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const databases = await indexedDB.databases()
+        const cache = databases.find((d) => d.name?.startsWith('league-cloud-coach.library.v1:'))
+        if (!cache?.name) return 0
+        return new Promise<number>((resolve) => {
+          const request = indexedDB.open(cache.name!)
+          request.onsuccess = () => {
+            const db = request.result
+            const count = db.transaction('images').objectStore('images').count()
+            count.onsuccess = () => {
+              db.close()
+              resolve(count.result)
+            }
+          }
+        })
+      }),
+    )
+    .toBe(0)
 })
