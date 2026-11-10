@@ -32,6 +32,7 @@ import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
 import { Settings } from './components/Settings'
+import { useTheme } from './lib/theme'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
@@ -105,6 +106,7 @@ function formatDate(value: string | null) {
 }
 
 export function App({ authError = null }: { authError?: string | null }) {
+  const [theme, setTheme] = useTheme()
   const route = useRoute()
   const [session, setSession] = useState<Session | null>(null)
   const [authLoading, setAuthLoading] = useState(Boolean(supabase))
@@ -236,13 +238,15 @@ export function App({ authError = null }: { authError?: string | null }) {
             <CircleHelp size={18} />
             How it works
           </button>
-          {session && member && (
+        </nav>
+        {session && member && (
+          <nav className="sidebar-settings" aria-label="Settings navigation">
             <button className="nav-item" onClick={() => setSettings(true)}>
               <Settings2 size={18} />
               Settings
             </button>
-          )}
-        </nav>
+          </nav>
+        )}
         <div className="sidebar-bottom">
           <span className="status-dot" />
           {local ? 'Local preview' : 'League Cloud Coach'}
@@ -353,6 +357,8 @@ export function App({ authError = null }: { authError?: string | null }) {
       {settings && session && member && (
         <Settings
           key={session.user.id}
+          theme={theme}
+          onThemeChange={setTheme}
           onClose={() => setSettings(false)}
           onSaved={() => setSettingsVersion((old) => old + 1)}
         />

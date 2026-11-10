@@ -3,8 +3,19 @@ import { ExternalLink } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { riotRequest } from '../lib/league-repository'
 import { platforms } from '../lib/league'
+import type { Theme } from '../lib/theme'
 
-export function Settings({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+export function Settings({
+  onClose,
+  onSaved,
+  theme = 'light',
+  onThemeChange,
+}: {
+  onClose: () => void
+  onSaved: () => void
+  theme?: Theme
+  onThemeChange?: (theme: Theme) => void
+}) {
   const [token, setToken] = useState('')
   const [platform, setPlatform] = useState('euw1')
   const [status, setStatus] = useState<{ configured: boolean; sharedDefault: boolean } | null>(null)
@@ -72,6 +83,22 @@ export function Settings({ onClose, onSaved }: { onClose: () => void; onSaved: (
         if (!busy) onClose()
       }}
     >
+      <section className="appearance-settings" aria-label="Appearance">
+        <h3>Appearance</h3>
+        <label className="theme-setting">
+          <span>
+            Dark mode<small>{theme === 'dark' ? 'Dark appearance' : 'Light appearance'}</small>
+          </span>
+          <input
+            className="theme-switch"
+            aria-label="Dark mode"
+            type="checkbox"
+            role="switch"
+            checked={theme === 'dark'}
+            onChange={(event) => onThemeChange?.(event.target.checked ? 'dark' : 'light')}
+          />
+        </label>
+      </section>
       <h3>Riot connection</h3>
       <p className="dialog-intro">
         Add your Riot API token to load your League account, match history and stats. Replace it

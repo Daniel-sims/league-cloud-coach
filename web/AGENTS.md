@@ -33,7 +33,8 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/lib/auth-errors.ts` | Safe classification of provider errors without echoing codes/secrets |
 | `web/src/lib/youtube.ts` | Validates URLs/IDs; never accepts arbitrary iframe HTML |
 | `web/src/lib/local.ts` | Development-only localStorage preview, never a cloud/auth substitute |
-| `web/src/components/Player.tsx` | Standard YouTube player, loading/failure handling, cleanup |
+| `web/src/components/Player.tsx`, `SeekControls.tsx` | YouTube playback and shared 1/10/30-second seek controls |
+| `web/src/lib/theme.ts`, `web/src/theme.css` | Browser-local light/dark preference and appearance overrides; bottom Settings navigation |
 | `web/src/components/UploadDialog.tsx`, `web/src/lib/uploads.ts` | Direct private TUS upload, progress/pause/resume, per-owner browser recovery, library reconciliation and confirmed success state |
 | `web/src/components/StreamPlayer.tsx` | Private HLS playback, explicit session start, fixed deadline, playlist renewal |
 | `supabase/functions/stream/` | Verified Stream import, owner playback, anonymous session authorization and short playback leases |

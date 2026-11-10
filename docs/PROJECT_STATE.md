@@ -2,13 +2,19 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Appearance and bottom Settings
+
+Settings is anchored at the bottom of the desktop sidebar, above the workspace footer; mobile retains accessible Settings after the main navigation. Settings has an Appearance section with a keyboard-accessible Dark mode switch. It applies immediately, defaults to light, and saves only the theme preference in browser local storage (`league-cloud-coach-theme`). Theme persists across reload and sign-out; no server preference or token-storage change is involved. Dark styling covers the workspace, Home statistics/history, library, forms/dialogs, notices, buttons and inputs while preserving video/images.
+
+Local verification: all 92 unit/component/handler tests and production build passed. The new Chrome check verifies sidebar position, immediate theme changes, browser persistence after reload, keyboard toggling, desktop/mobile fit and dialog colors; screenshots were inspected. Frontend publication is in progress.
+
 ## Video seeking and new-token propagation
 
 Video seek controls now support Left/Right for 1 second, Shift+Left/Right for 10 seconds and Ctrl+Left/Right for 30 seconds, with Ctrl precedence. Uploaded-video key events are captured before native arrow defaults; seeks clamp to duration and do not change pause/play state or multiply by playback rate. Buttons expose the same modifiers and a compact shortcut legend. YouTube uses its IFrame seek API from page controls; focus the seek buttons beneath its iframe, since keyboard events inside a cross-origin YouTube embed stay with YouTube. No shortcuts are captured outside the player or in editable controls; Alt/Meta combinations are preserved.
 
 Settings now saves a well-formed Riot token even if verification fails or the new token has not propagated. It shows an amber saved-with-warning notice explaining that newly generated tokens may take a few minutes to work, rather than rejecting the replacement or claiming it was verified. Sync authentication errors carry the same guidance. Encryption, membership/owner checks and invalid-format/storage errors are unchanged. No token-storage location change is included.
 
-Verification and deployment are in progress. New tests cover both player adapters, modifier/direction rules, boundaries, playback-rate independence, saved-but-unverified warnings and browser-level keyboard behavior.
+Frontend release `58f6d90` is deployed through [successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42804203642), and the updated Riot function is deployed. Verification: 92 unit/component/handler tests, production build, Deno runtime check and all 13 Chrome workflows passed; CI also passed both runtime checks and all five PostgreSQL security suites. New tests cover both player adapters, modifier/direction rules, boundaries, playback-rate independence, saved-but-unverified warnings and browser-level keyboard behavior on a synthetic seekable media timeline.
 
 ## Riot token Settings and sign-out confirmation
 

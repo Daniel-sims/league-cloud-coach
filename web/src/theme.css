@@ -1,0 +1,237 @@
+.sidebar .sidebar-settings {
+  margin-top: auto;
+  width: 100%;
+}
+.sidebar-settings + .sidebar-bottom {
+  margin-top: 0;
+}
+.appearance-settings {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.appearance-settings h3 {
+  margin-bottom: 16px;
+}
+.theme-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  font-size: 13px;
+}
+.theme-setting > span {
+  display: grid;
+  gap: 4px;
+}
+.theme-setting small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.theme-switch {
+  appearance: none;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--line);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.theme-switch::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  background: var(--paper);
+}
+.theme-switch:checked {
+  background: var(--green);
+  border-color: var(--green);
+}
+.theme-switch:checked::before {
+  transform: translateX(18px);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  color: var(--ink);
+  background: #171c19;
+  --ink: #e7eae2;
+  --muted: #a8b2a3;
+  --line: #3a433b;
+  --paper: #232b25;
+  --surface: #1d241f;
+  --gold: #c6ab70;
+  --green: #a0c0a4;
+  --danger: #e7a99a;
+}
+[data-theme='dark'] .sidebar {
+  background: #1d241f;
+  border-color: var(--line);
+}
+[data-theme='dark'] :is(.topbar, .sidebar-bottom) {
+  border-color: var(--line);
+}
+[data-theme='dark']
+  :is(
+    .nav-item,
+    .breadcrumb,
+    .breadcrumb > svg,
+    .workspace-label,
+    .sidebar-bottom,
+    .account-name,
+    .field-hint,
+    .dialog-intro,
+    .library-heading p,
+    .video-page-heading p,
+    .recording-meta,
+    .recording-kicker,
+    .library-bottom,
+    .tabs button,
+    .main-footer,
+    .form-label > span,
+    .access-state p,
+    .welcome-hero > p,
+    .feature p
+  ) {
+  color: var(--muted);
+}
+[data-theme='dark'] :is(.breadcrumb strong, .nav-item.active, .tabs button.selected) {
+  color: var(--ink);
+}
+[data-theme='dark'] .nav-item.active {
+  background: #334032;
+}
+[data-theme='dark'] .nav-item:hover {
+  background: #2b352c;
+}
+[data-theme='dark']
+  :is(.account-avatar, .feature-icon, .tabs button > span, .share-status, .watch-badge) {
+  background: #303b2d;
+  color: #bdc9b1;
+}
+[data-theme='dark'] :is(.text-link, .validated-link) {
+  color: #d1bb86;
+}
+[data-theme='dark'] .text-link:hover {
+  color: #ecdaa8;
+}
+[data-theme='dark'] :is(input, select, .url-input) {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line);
+}
+[data-theme='dark'] input::placeholder {
+  color: #94a08e;
+}
+[data-theme='dark'] :is(.url-input input, .search-field input, .theme-switch) {
+  background: transparent;
+}
+[data-theme='dark'] .theme-switch {
+  background: var(--line);
+}
+[data-theme='dark'] .theme-switch:checked {
+  background: var(--green);
+}
+[data-theme='dark'] .theme-switch::before {
+  background: #e7eae2;
+}
+[data-theme='dark'] .theme-switch:checked::before {
+  background: var(--surface);
+}
+[data-theme='dark'] :is(.button.secondary, .button.light, .hero-actions .button) {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme='dark']
+  :is(
+    .button.secondary:hover,
+    .button.light:hover,
+    .hero-actions .button:hover,
+    .icon-button:hover,
+    .row-menu-content button:hover,
+    .row-menu-content a:hover
+  ) {
+  background: #35402f;
+}
+[data-theme='dark'] .icon-button {
+  color: var(--muted);
+}
+[data-theme='dark'] :is(.dialog, .row-menu-content) {
+  background: var(--paper);
+  border-color: var(--line);
+}
+[data-theme='dark'] .dialog::backdrop {
+  background: #080c09b3;
+}
+[data-theme='dark'] .notice {
+  background: #303224;
+  border-color: #4c5039;
+  color: #d4d1b8;
+}
+[data-theme='dark'] .notice.error {
+  background: #3c2925;
+  border-color: #6a443b;
+  color: #f0b8a9;
+}
+[data-theme='dark'] .notice.success {
+  background: #293a2b;
+  border-color: #466147;
+  color: #c3dfbe;
+}
+[data-theme='dark'] .notice.warning {
+  background: #3b3223;
+  border-color: #75613b;
+  color: #ead09b;
+}
+[data-theme='dark'] :is(.league-history-record, .league-team-heading) {
+  background: var(--surface);
+}
+[data-theme='dark'] :is(.league-champion-choice:hover, .league-match-toggle:hover) {
+  background: #2c362d;
+}
+[data-theme='dark'] .league-focused-player {
+  background: #393727;
+}
+[data-theme='dark'] .league-result.win {
+  background: #304332;
+}
+[data-theme='dark'] .league-result.loss {
+  background: #4a3029;
+}
+[data-theme='dark'] .league-result.remake {
+  background: #343c30;
+}
+[data-theme='dark'] .recording-thumbnail {
+  background: #323e2d;
+}
+[data-theme='dark']
+  :is(
+    .empty-art-back,
+    .empty-art-front,
+    .empty-play,
+    .empty-icon,
+    .add-instructions,
+    .share-illustration > span,
+    .steps li > span
+  ) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+@media (max-width: 600px) {
+  .sidebar .sidebar-settings {
+    margin: 0 0 0 auto;
+    width: auto;
+    flex: 0 0 auto;
+  }
+  .sidebar-settings .nav-item {
+    width: auto;
+  }
+}

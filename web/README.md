@@ -82,6 +82,10 @@ Statistics follow native `RecentGames.swift`: remakes occupy a recent-window slo
 
 Expanded scoreboards show the complete available roster, champion/level, KDA, damage dealt/taken, wards/control wards/vision score, farm and items. Match rows include spells/runes, lane opponent, duration, queue and patch. Current rank/LP is supported; per-game historical LP changes need rank observations and are not inferred from today's rank. Local journal/check-in/AI review data and match-to-recording links are not transferred by Riot sync. Existing uploads remain in Video library.
 
+## Appearance and Settings
+
+**Settings** is at the bottom of the desktop sidebar. Open **Settings → Appearance → Dark mode** to switch between light and dark. The choice applies immediately and is remembered in this browser, including after reload and sign-out. It is not stored on the server. Light remains the default.
+
 ## Video keyboard controls
 
 While an uploaded video or its seek buttons are focused, use **Left/Right** to move 1 second, **Shift + Left/Right** for 10 seconds, and **Ctrl + Left/Right** for 30 seconds. Ctrl takes precedence if Shift is also held. Jumps use video time regardless of playback rate, stop at the video boundaries and preserve paused/playing state. The seek buttons support the same modifiers when clicked. For YouTube, focus the seek buttons below the embed to use these shortcuts; keyboard events inside the embedded YouTube player remain controlled by YouTube.
