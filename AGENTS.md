@@ -17,7 +17,8 @@ Help a League player share full game recordings with a coach and eventually revi
 - Only explicitly enabled owner memberships can manage a library. Additional Google accounts may authenticate but gain no management permission automatically.
 - The owner can upload a local file directly to Cloudflare through the app, add an existing private Stream video ID, or add a YouTube Studio **Unlisted** URL. There is no automatic YouTube channel access.
 - Anonymous viewers resolve a share capability and watch with ordinary video controls. Stream requires explicit session start; YouTube retains unlisted playback. They cannot enumerate a library or mutate recordings.
-- Home includes saved Riot profiles, current ranks, cached match history/scoreboards and native-style stats. Timeline, annotations, AI review, automatic YouTube uploads, and the separate Mac companion remain planned.
+- Home includes saved Riot profiles, current ranks, cached match history/scoreboards and native-style stats.
+- Video pages have the native-style review timeline: the owner attaches a synced game (its Riot timeline is fetched once by the backend and stored with the recording), syncs the game clock, and both the owner and anyone with the watch link add timestamped comments. Match-level notes, AI review, automatic YouTube uploads, and the separate Mac companion remain planned.
 - Cloudflare Stream is now an authorized optional paid provider, with its backend deployed. Keep existing YouTube recordings working. See the Stream setup/limitations in the README and current handoff before publishing.
 
 ## Architecture and source map
@@ -34,6 +35,9 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/lib/youtube.ts` | Validates URLs/IDs; never accepts arbitrary iframe HTML |
 | `web/src/lib/local.ts` | Development-only localStorage preview, never a cloud/auth substitute |
 | `web/src/components/Player.tsx`, `SeekControls.tsx` | YouTube playback and shared 1/10/30-second seek controls |
+| `web/src/components/VideoReview.tsx`, `TimelineRows.tsx`, `web/src/review.css` | Review timeline beside the player: events, comments, clock sync, game attachment |
+| `web/src/lib/review-timeline.ts`, `review.ts` | Port of native `ReviewTimeline.swift` detectors and clock anchor; owner/watch-link review repositories |
+| `supabase/functions/riot/timeline.ts` | Reduces a Riot match timeline to the stored review payload (no puuids/Riot IDs) |
 | `web/src/lib/theme.ts`, `web/src/theme.css` | Browser-local light/dark preference and appearance overrides; bottom Settings navigation |
 | `web/src/components/UploadDialog.tsx`, `web/src/lib/uploads.ts` | Direct private TUS upload, progress/pause/resume, per-owner browser recovery, library reconciliation and confirmed success state |
 | `web/src/components/StreamPlayer.tsx` | Private HLS playback, explicit session start, fixed deadline, playlist renewal |
@@ -60,7 +64,7 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 - `stream_imports` is private service-only import history, maintained atomically by a recordings insert trigger. It survives library removal so reconciliation does not intentionally restore removed entries. Never let anonymous/authenticated clients enumerate or erase this history.
 - A pasted URL cannot prove channel ownership or Unlisted visibility. Do not imply either is verified by the basic embed preview.
 - Migrations are append-only once applied. Do not reset the live project or run `supabase/tests/bootstrap-local.sql` there.
-- League profiles/matches have RLS and no anonymous/authenticated direct table grants. Enabled owners list only their own data through RPCs; only the verified Riot backend writes API-derived data. Settings submits user-entered Riot tokens once for validation and encrypted backend storage; never store them in browser persistence or return them from an API. Preserve `RIOT_TOKEN_ENCRYPTION_KEY` across deploys. Credential table access is service-only, with owner identity derived from verified JWTs. Match payloads/tokens must never be added to public watch resolution. Preserve native remake, role-scoping, ratio, opponent and patch/split semantics in `league.ts`; tests and the README record the parity limits.
+- League profiles/matches have RLS and no anonymous/authenticated direct table grants. Enabled owners list only their own data through RPCs; only the verified Riot backend writes API-derived data. Settings submits user-entered Riot tokens once for validation and encrypted backend storage; never store them in browser persistence or return them from an API. Preserve `RIOT_TOKEN_ENCRYPTION_KEY` across deploys. Credential table access is service-only, with owner identity derived from verified JWTs. Tokens must never be added to public watch resolution. Watch links deliberately expose the attached game's reduced review payload (champions, team slots, positions, events, item purchases) through `get_shared_review`; never add puuids, Riot IDs, summoner names or raw match payloads to it. Review comments are written through narrow RPCs: owners by membership, guests by a valid watch link plus a per-browser author key whose hash is stored. Guests edit/delete only their own comments; owners edit their own and may delete any on their recordings. Revocation/expiry ends guest review reads and writes. Preserve native remake, role-scoping, ratio, opponent and patch/split semantics in `league.ts`; tests and the README record the parity limits.
 
 ## Authentication and deployment constraints
 

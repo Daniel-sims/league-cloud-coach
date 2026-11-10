@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, LoaderCircle, VideoOff } from 'lucide-react'
 import { isVideoId, youtubeURL } from '../lib/youtube'
 import { SeekControls, seekPosition, seekWithKeyboard } from './SeekControls'
+import type { PlayerController } from '../lib/player'
 
 type PlayerInstance = {
   destroy(): void
@@ -48,7 +49,15 @@ function loadAPI(): Promise<YouTubeAPI> {
   return loading
 }
 
-export function Player({ videoId, title }: { videoId: string; title: string }) {
+export function Player({
+  videoId,
+  title,
+  onController,
+}: {
+  videoId: string
+  title: string
+  onController?: (controller: PlayerController | null) => void
+}) {
   const host = useRef<HTMLDivElement>(null)
   const instance = useRef<PlayerInstance | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -95,6 +104,11 @@ export function Player({ videoId, title }: { videoId: string; title: string }) {
               clearTimeout(readyTimer)
               host.current?.querySelector('iframe')?.setAttribute('title', title)
               setState('ready')
+              onController?.({
+                currentTime: () => player!.getCurrentTime(),
+                duration: () => player!.getDuration(),
+                seekTo: (seconds) => player!.seekTo(Math.max(0, seconds), true),
+              })
             },
             onError: (event: { data: number }) => {
               if (disposed) return
@@ -121,6 +135,7 @@ export function Player({ videoId, title }: { videoId: string; title: string }) {
     return () => {
       disposed = true
       clearTimeout(readyTimer)
+      onController?.(null)
       player?.destroy()
       instance.current = null
     }

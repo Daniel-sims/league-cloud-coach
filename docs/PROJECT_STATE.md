@@ -2,6 +2,16 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Review timeline and shared comments
+
+Owner video pages and watch pages now place a review timeline beside the player (stacked below it under 1280px). It ports the native `ReviewTimelineBuilder`: solo kills/deaths, teamfight cards with location, outcome, dive callouts and the player's moments or event-backed absence, rewatch flags, recalls with purchases and build after, per-minute lane matchups, objectives and (hidden by default) opponent purchases. Filters persist per browser; the list follows the playhead until the reader scrolls. One deliberate difference: Riot stamps minute frames a few milliseconds late (60023…), and the native "exact multiple of 60 s" check drops every lane-matchup row on real payloads; the web accepts frames within 5 s of a minute. The native bug is not fixed here.
+
+**Attach game** lets the owner pick a game already synced in Home. The `riot` function's new `review-timeline` action verifies the JWT, membership, recording ownership and the saved match, fetches `/lol/match/v5/matches/{id}/timeline` once, reduces it (about 70 KB for a 32-minute game against roughly 920 KB raw; no puuids, Riot IDs or summoner names) and stores it through service-only `save_recording_timeline`. **Sync clock** stores one game-clock/video-position anchor in the existing `recordings` anchor columns; events seek five seconds early and are disabled until synced or outside the video. Coaches need no Riot token.
+
+Comments are pinned to the video position, shown in game time once synced, and come in Comment, Question and (owner only) Mindset kinds. The owner writes through membership-checked RPCs; anyone holding a valid watch link writes through `add/update/delete_shared_comment` with a name and a per-browser author key (localStorage; only its SHA-256 hash is stored). Guests change only their own comments; the owner edits their own and may delete any. Reads/writes follow the same validity rule as share resolution, so revocation and Stream expiry end guest review access. Polling every 20 s and on focus picks up the other party's comments. Limits: 2,000 characters per comment, 1,000 comments per recording.
+
+Migration `202611100003_review_timeline.sql` is applied to the hosted project and the updated `riot` function is deployed (gateway JWT verification off, as before; the handler verifies). Live anonymous checks: unknown watch links return null from `get_shared_review`; `get_recording_review`, `save_recording_timeline` and direct `recording_comments` reads are denied (401/42501); the `review-timeline` action without a session returns 401. Verification: 109 unit/component/handler tests, production build, `deno check` of the `riot` function, all 16 Chrome workflows (including a new owner attach → sync → seek → comment → signed-out coach reply flow at desktop and phone widths, light and dark; screenshots inspected) and all six SQL suites on disposable PostgreSQL 16, including the new `review-security.sql` (cross-owner, anonymous, author-key, moderation and revoked-link denial). The reducer and builder were also run on a real cached timeline from the native store. A real Riot timeline fetch through the deployed function and real-owner acceptance remain unverified.
+
 ## Match-history days and selector spacing
 
 Home match history now groups visible games beneath full calendar-date headings with per-group game counts, using each game's start time and the viewer's local timezone. Groups preserve the selected newest/oldest order and follow filters and pagination; empty dates are omitted. Day grouping handles midnight and daylight-saving transitions without UTC-date truncation. Existing match rows and scoreboards keep their information and interactions.
@@ -141,7 +151,7 @@ Use the exact error and bounded auth logs to diagnose future failures. A success
 1. A separate macOS companion with the same Supabase account identity, reuse of existing capture, and a durable upload queue.
 2. Automatic YouTube uploads after explicit channel authorization. Google identity login alone does not grant `youtube.upload`; recheck API/OAuth requirements when implementing it.
 3. Versioned export/import of match identity, recording/game-clock anchors, and structured review timeline events.
-4. A web timeline matching the existing League Helper review experience, then annotations and coach feedback with an explicit ownership model.
+4. Beyond the review timeline above: match-level notes, comment replies/threads, native ultimate/death-review cards, and importing comments from the Mac app.
 5. Broader user onboarding only when intentionally opening the product beyond its initial owner.
 
 No ordering or implementation beyond the current release should be inferred as already authorized by the roadmap.

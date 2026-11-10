@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
   ArrowDownUp,
@@ -32,6 +32,9 @@ import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
 import { Settings } from './components/Settings'
+import { VideoReview } from './components/VideoReview'
+import { ownerReview, sharedReview } from './lib/review'
+import { leagueRepository } from './lib/league-repository'
 import { useTheme } from './lib/theme'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
@@ -1449,6 +1452,7 @@ function OwnVideo({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [share, setShare] = useState(false)
+  const review = useMemo(() => (local ? null : ownerReview(id)), [id, local])
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -1493,10 +1497,26 @@ function OwnVideo({
               Share video
             </button>
           </div>
-          {record.provider === 'stream' ? (
-            <StreamPlayer key={record.id} recordingId={record.id} title={record.title} />
-          ) : (
+          {local ? (
             <Player videoId={record.youtube_video_id!} title={record.title} />
+          ) : (
+            <VideoReview
+              repository={review!}
+              league={leagueRepository}
+              recordedOn={record.recorded_on}
+              renderPlayer={(onController) =>
+                record.provider === 'stream' ? (
+                  <StreamPlayer
+                    key={record.id}
+                    recordingId={record.id}
+                    title={record.title}
+                    onController={onController}
+                  />
+                ) : (
+                  <Player videoId={record.youtube_video_id!} title={record.title} onController={onController} />
+                )
+              }
+            />
           )}
           {share && (
             <ShareDialog
@@ -1533,6 +1553,7 @@ function Watch({ token }: { token: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const review = useMemo(() => sharedReview(token), [token])
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -1592,11 +1613,16 @@ function Watch({ token }: { token: string }) {
             <div className="watch-eyebrow">
               <span className="eyebrow">SHARED GAME RECORDING</span>
             </div>
-            {video.provider === 'stream' ? (
-              <StreamPlayer key={token} shareToken={token} title={video.title} />
-            ) : (
-              <Player videoId={video.youtube_video_id!} title={video.title} />
-            )}
+            <VideoReview
+              repository={review}
+              renderPlayer={(onController) =>
+                video.provider === 'stream' ? (
+                  <StreamPlayer key={token} shareToken={token} title={video.title} onController={onController} />
+                ) : (
+                  <Player videoId={video.youtube_video_id!} title={video.title} onController={onController} />
+                )
+              }
+            />
             <div className="watch-details">
               <div>
                 <h1>{video.title}</h1>

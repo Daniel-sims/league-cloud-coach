@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken, encryptToken } from "./tokens.ts";
+import { reduceTimeline, TimelineError } from "./timeline.ts";
 
 type Dependencies = {
   env(key: string): string | undefined;
@@ -77,6 +78,7 @@ export function createRiotHandler(deps: Dependencies) {
           "token-status",
           "save-token",
           "remove-token",
+          "review-timeline",
         ].includes(body.action)
       )
         throw new Failure(400, "Choose a League action.");
@@ -322,6 +324,63 @@ export function createRiotHandler(deps: Dependencies) {
         .maybeSingle();
       if (profileError || !profile)
         throw new Failure(404, "League account unavailable.");
+      if (body.action === "review-timeline") {
+        // One owner-initiated fetch per recording; guests then read the stored copy.
+        if (
+          typeof body.recordingId !== "string" ||
+          !uuid.test(body.recordingId) ||
+          typeof body.matchId !== "string" ||
+          !/^[A-Z0-9]+_\d+$/.test(body.matchId)
+        )
+          throw new Failure(400, "Choose a recording and a synced game.");
+        const { data: recording, error: recordingError } = await admin
+          .from("recordings")
+          .select("id")
+          .eq("id", body.recordingId)
+          .eq("owner_id", ownerId)
+          .maybeSingle();
+        if (recordingError || !recording)
+          throw new Failure(404, "Recording unavailable.");
+        const { data: saved, error: savedError } = await admin
+          .from("league_matches")
+          .select("match")
+          .eq("profile_id", profile.id)
+          .eq("match_id", body.matchId)
+          .maybeSingle();
+        if (savedError) throw new Failure(503, "Could not read saved history.");
+        if (!saved)
+          throw new Failure(
+            404,
+            "Sync this game in Home first, then attach it again.",
+          );
+        const raw = await riot(
+          regions[profile.platform],
+          `/lol/match/v5/matches/${body.matchId}/timeline`,
+        );
+        let review;
+        try {
+          review = reduceTimeline(raw, saved.match, profile.puuid);
+        } catch (error) {
+          throw new Failure(
+            502,
+            error instanceof TimelineError
+              ? error.message
+              : "Riot returned an incomplete timeline. Try again.",
+          );
+        }
+        const { error } = await admin.rpc("save_recording_timeline", {
+          p_owner: ownerId,
+          p_recording: recording.id,
+          p_match: body.matchId,
+          p_review: review,
+        });
+        if (error)
+          throw new Failure(
+            503,
+            "Could not save the game timeline. Please retry.",
+          );
+        return reply({ ok: true });
+      }
       const { data: claimed, error: claimError } = await admin.rpc(
         "claim_league_sync",
         { p_profile: profile.id, p_owner: ownerId },

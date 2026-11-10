@@ -8,15 +8,18 @@ import {
   viewerSession,
   type PlaybackLease,
 } from '../lib/supabase'
+import type { PlayerController } from '../lib/player'
 
 export function StreamPlayer({
   title,
   recordingId,
   shareToken,
+  onController,
 }: {
   title: string
   recordingId?: string
   shareToken?: string
+  onController?: (controller: PlayerController | null) => void
 }) {
   const video = useRef<HTMLVideoElement>(null)
   const [started, setStarted] = useState(Boolean(recordingId))
@@ -26,6 +29,22 @@ export function StreamPlayer({
   const [remaining, setRemaining] = useState<number | null>(null)
   const [stopped, setStopped] = useState(false)
   const [canSeek, setCanSeek] = useState(false)
+  useEffect(() => {
+    const media = video.current
+    if (!onController) return
+    if (!canSeek || !media) {
+      onController(null)
+      return
+    }
+    onController({
+      currentTime: () => media.currentTime,
+      duration: () => media.duration,
+      seekTo: (seconds) => {
+        media.currentTime = Math.max(0, Math.min(media.duration || seconds, seconds))
+      },
+    })
+    return () => onController(null)
+  }, [canSeek, onController])
   function seek(delta: number) {
     const media = video.current
     if (

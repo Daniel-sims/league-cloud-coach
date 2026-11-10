@@ -10,7 +10,7 @@ Live app: [League Cloud Coach](https://daniel-sims.github.io/league-cloud-coach/
 
 League Helper already provides a local Mac workflow for recording games and reviewing them with a timeline. League Cloud Coach extends that experience so a coach can see a player's games through a web link, without installing the native app or creating an account.
 
-The long-term product has three parts: the existing League Helper app, this web review/sharing application, and a new Mac companion that will capture games and upload them to the same account. The companion and full web review timeline are future work. This release supplies the account, library, and shared playback foundation.
+The long-term product has three parts: the existing League Helper app, this web review/sharing application, and a new Mac companion that will capture games and upload them to the same account. The companion is future work. This release supplies the account, library, shared playback and the review timeline.
 
 ### Current release
 
@@ -26,7 +26,13 @@ Other Google users may authenticate, but signing in does not automatically grant
 
 ### Outside the current release
 
-There is no automatic YouTube/channel integration, Mac companion, timeline, annotations, coach comments, or AI analysis in this web release. Riot sync for Home is implemented; it does not migrate the Mac's local journal, recordings or historical rank observations.
+There is no automatic YouTube/channel integration, Mac companion, match-level notes or AI analysis in this web release.
+
+### Review timeline
+
+Each video page shows a timeline beside the player, ported from the Mac app's review panel: kills and deaths, teamfight cards (who was there, outcome, dive callouts, and your part or where you were), fights worth a rewatch, recalls with purchases and the resulting build, minute-by-minute lane matchups, objectives and (off by default) the lane opponent's purchases. Choose **Attach game** to pick a synced game from Home; the backend fetches its Riot timeline once with your token and stores a reduced copy with the video, so coaches never need a Riot token. Then pause on a frame, choose **Sync clock**, and type the in-game timer: that one reading maps every event onto the video for you and anyone with the watch link. Events jump five seconds early so the moment is watched arriving.
+
+Comments are pinned to the video position and shown in game time once the clock is synced. The owner adds comments, questions or mindset notes; anyone with a valid watch link adds comments and questions under a name they choose. A coach can edit or delete only the comments written from their browser; the owner can remove any comment on their videos. Revoking or replacing the link ends guest access to the review as well as the video. Press **N** to comment at the playhead. Riot sync for Home is implemented; it does not migrate the Mac's local journal, recordings or historical rank observations.
 
 The current manual flow is **YouTube Studio upload as Unlisted → Add video in Cloud Coach → Share an app watch link**. YouTube visibility is selected by the uploader; the site cannot verify it or claim that an unlisted video is private.
 
@@ -230,6 +236,7 @@ psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap-local.sql
 for migration in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$migration"; done
 psql -v ON_ERROR_STOP=1 -f supabase/tests/security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/stream-security.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/review-security.sql
 ```
 
 Run those paths from the repository root. The tests check validation, private listings, unauthorized accounts, direct mutation denial, cross-owner operations, anonymous capability lookup, share rotation/revocation, disabled owners, and deletion. The fixture transaction rolls back. The CI workflow runs the same tests.
@@ -242,7 +249,7 @@ The YouTube path needs no paid video subscription. Cloudflare Stream usage is bi
 
 ## Future work
 
-Direct Cloudflare uploads are implemented; automatic channel uploads, timeline, and the Mac companion remain future work. The player wrapper can support YouTube time/seek events when timeline exports arrive. A future companion can reuse native capture and save returned YouTube IDs into the same Supabase user library after receiving explicit YouTube upload authorization.
+Direct Cloudflare uploads and the review timeline are implemented; automatic channel uploads and the Mac companion remain future work. A future companion can reuse native capture and save returned YouTube IDs into the same Supabase user library after receiving explicit YouTube upload authorization.
 
 The later timeline should preserve match identity and game/video clock anchors, with a versioned structured export from League Helper's existing review logic. Coach annotations and editable shared reviews will need their own ownership/conflict model. Broader user onboarding is a deliberate product decision; do not enable library management for every Google sign-in by default.
 
