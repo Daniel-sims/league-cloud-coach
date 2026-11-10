@@ -8,7 +8,7 @@ Home match history now groups visible games beneath full calendar-date headings 
 
 All single-choice selectors use a consistently inset chevron, 12px from the right edge with 36px text padding, in light and dark modes. They remain native select elements for keyboard/popup behavior.
 
-Verification: 95 unit/component/handler tests and production build passed locally. Focused browser verification and publication are in progress.
+Verification: 95 unit/component/handler tests and production build passed locally. The Chrome check verifies date groups, sorting/filtering, both themes, arrow inset/text padding and mobile fit; screenshots were inspected. Frontend release `5ff512d467bedc452c5bb950e36b3a3961aae229` is deployed through [successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42807129412), which passed all 95 tests, 15 browser checks, runtime/build checks and the five database security suites. No backend or schema change was included in this UI release.
 
 ## Appearance and bottom Settings
 
