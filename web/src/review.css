@@ -296,6 +296,9 @@
 .timeline-row.clickable:hover .comment-text {
   color: var(--gold);
 }
+.kind-ultimate {
+  --dot: var(--gold);
+}
 .kind-flag {
   --dot: var(--event-flag);
 }

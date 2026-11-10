@@ -18,7 +18,7 @@ Help a League player share full game recordings with a coach and eventually revi
 - The owner can upload a local file directly to Cloudflare through the app, add an existing private Stream video ID, or add a YouTube Studio **Unlisted** URL. There is no automatic YouTube channel access.
 - Anonymous viewers resolve a share capability and watch with ordinary video controls. Stream requires explicit session start; YouTube retains unlisted playback. They cannot enumerate a library or mutate recordings.
 - Home includes saved Riot profiles, current ranks, cached match history/scoreboards and native-style stats.
-- Video pages have the native-style review timeline: the owner attaches a synced game (its Riot timeline is fetched once by the backend and stored with the recording), syncs the game clock, and both the owner and anyone with the watch link add timestamped comments. Match-level notes, AI review, automatic YouTube uploads, and the separate Mac companion remain planned.
+- Video pages have the native-style review timeline: the owner attaches a synced game (its Riot timeline is fetched once by the backend and stored with the recording), syncs the game clock, and both the owner and anyone with the watch link add timestamped comments. League Helper can now Push to web: local timeline preparation and ultimate detection, then original-video upload and reduced review publication through an approved upload-only companion capability. Match-level notes, AI review and automatic YouTube uploads remain planned.
 - Cloudflare Stream is now an authorized optional paid provider, with its backend deployed. Keep existing YouTube recordings working. See the Stream setup/limitations in the README and current handoff before publishing.
 
 ## Architecture and source map
@@ -41,6 +41,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/lib/theme.ts`, `web/src/theme.css` | Browser-local light/dark preference and appearance overrides; bottom Settings navigation |
 | `web/src/components/UploadDialog.tsx`, `web/src/lib/uploads.ts` | Direct private TUS upload, progress/pause/resume, per-owner browser recovery, library reconciliation and confirmed success state |
 | `web/src/components/StreamPlayer.tsx` | Private HLS playback, explicit session start, fixed deadline, playlist renewal |
+| `supabase/functions/companion/`, `web/src/components/CompanionConnection.tsx` | Upload-only native connection approval/revocation, provider-verified upload and strict reduced-review publication |
 | `supabase/functions/stream/` | Verified Stream import, owner playback, anonymous session authorization and short playback leases |
 | `web/src/components/Dialog.tsx` | Native modal dialog, focus restoration, Escape handling |
 | `web/src/styles.css` | Responsive neutral visual system with restrained accents |
@@ -104,3 +105,5 @@ Keep the UI quiet and video-focused: system fonts, neutral surfaces, restrained 
 The standalone repo is `Daniel-sims/league-cloud-coach`. Native League Helper source is intentionally absent. If working from the original native workspace, `scripts/export-cloud-coach.py <destination>` copies web-only source, this guide as root `AGENTS.md`, the full product README, and shared handoff docs. Check destination edits before exporting. Never publish native history or local recordings as part of the web repository.
 
 Do not depend on a previous session's temporary checkout, browser, CLI login, or running server. In a new session, inspect the repository and service status again. Update `docs/PROJECT_STATE.md` when behaviour, deployment, or remaining work materially changes; keep product scope in the README and architectural decisions in the plan. Store no personal account identifiers or secrets in these public documents.
+
+Companion capabilities: only SHA-256 hashes are stored in private `companion_devices`; browser approval/revocation requires an enabled owner. Only the service role may authorize raw tokens or publish review data. Never accept raw Riot identity payloads in the companion review schema or add browser JWTs to native pairing links. `companion` uses its own authorization and must deploy with `verify_jwt = false`. Retain imported ultimate video timestamps when refreshing the same match timeline. Native app changes remain in the original workspace only.

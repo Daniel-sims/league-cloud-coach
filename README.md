@@ -10,7 +10,19 @@ Live app: [League Cloud Coach](https://daniel-sims.github.io/league-cloud-coach/
 
 League Helper already provides a local Mac workflow for recording games and reviewing them with a timeline. League Cloud Coach extends that experience so a coach can see a player's games through a web link, without installing the native app or creating an account.
 
-The long-term product has three parts: the existing League Helper app, this web review/sharing application, and a new Mac companion that will capture games and upload them to the same account. The companion is future work. This release supplies the account, library, shared playback and the review timeline.
+League Helper remains the recorder and local preparation companion. Its Push to web action uploads completed recordings, an attached match timeline, clock sync and ultimate-cast markers to this web application. Watching, sharing and commenting work entirely in the browser. A separate companion application is not required.
+
+## Push to web from League Helper
+
+In the native app, choose **Push to web…** from a recording's actions or its player toolbar (Command-Shift-U). Choose **Connect to web**, approve the matching eight-character code in the browser using your enabled owner account, then return to League Helper and choose **Check connection**. The web sidebar's **Connected apps** page lists connections and lets you disconnect them. A connection expires after 90 days; use **Replace expired or disconnected connection** in League Helper to connect again.
+
+Attach the correct match, focus the summoner who played it, confirm the game-clock/video-position anchor and enter a title. Push to web fetches a missing Riot timeline using the native app's Riot key, detects ultimate casts locally, uploads the original video directly to Cloudflare using resumable TUS chunks, and publishes the reduced timeline and clock anchor. **Open in web** appears only after both the video and review data are saved. Originals remain on your Mac. Gate detection, ultimate ratings, local review comments and AI findings are not exported.
+
+A failed or paused push can be retried from the same recording. The app keeps the private upload destination in a protected Application Support job file and asks Cloudflare for its saved offset. Once the video is processing or published, retries reuse it. Processing is checked for up to ten minutes per attempt; if it takes longer, retry later. **Update web timeline** republishes the current match/anchor/markers using the existing video. Change the recording title on the web after the upload has been reserved. Removing a recording from the web does not silently restore it on a retry; explicitly use Add existing video to restore it first.
+
+Ultimate markers retain video timestamps and move against game time when you resync the clock. Both owners and watch-link viewers see them, and the Ultimates filter can hide them. Refreshing the same Riot timeline retains imported markers; attaching a different match or detaching the timeline clears that imported review. Detection uses the existing Twisted Fate HUD colour thresholds and capture layout; arbitrary HUD scales, champions and cropped videos have not been validated. Scanning adds no Cloudflare processing charge; normal Stream storage and playback charges still apply.
+
+The native capability is upload-only and stored in macOS Keychain. The browser approves its SHA-256 hash; raw capabilities, browser sessions, Riot credentials and Cloudflare credentials never appear in shared reviews. The `companion` Edge Function verifies that capability and enabled membership on every API request, verifies provider ownership/readiness/privacy before publishing, and strictly validates the reduced review schema. Apply migration `202611100004_companion.sql` and deploy `companion` with gateway JWT verification off (the handler implements capability authorization). Existing Stream/Riot functions and OAuth configuration need no changes.
 
 ### Current release
 
@@ -237,6 +249,7 @@ for migration in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$migr
 psql -v ON_ERROR_STOP=1 -f supabase/tests/security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/stream-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/review-security.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/companion-security.sql
 ```
 
 Run those paths from the repository root. The tests check validation, private listings, unauthorized accounts, direct mutation denial, cross-owner operations, anonymous capability lookup, share rotation/revocation, disabled owners, and deletion. The fixture transaction rolls back. The CI workflow runs the same tests.
@@ -249,8 +262,8 @@ The YouTube path needs no paid video subscription. Cloudflare Stream usage is bi
 
 ## Future work
 
-Direct Cloudflare uploads and the review timeline are implemented; automatic channel uploads and the Mac companion remain future work. A future companion can reuse native capture and save returned YouTube IDs into the same Supabase user library after receiving explicit YouTube upload authorization.
+Direct Cloudflare uploads, review timelines and League Helper Push to web are implemented. Automatic YouTube channel uploads remain future work and require explicit upload authorization.
 
-The later timeline should preserve match identity and game/video clock anchors, with a versioned structured export from League Helper's existing review logic. Coach annotations and editable shared reviews will need their own ownership/conflict model. Broader user onboarding is a deliberate product decision; do not enable library management for every Google sign-in by default.
+Imported timelines already preserve match identity, game/video anchors and versioned ultimate timestamps. Future work includes richer review cards, threaded feedback and exporting local comments. Broader user onboarding is a deliberate product decision; do not enable library management for every Google sign-in by default.
 
 Keep the interface modern and uncluttered: neutral surfaces, system typography, restrained accents, a recording-focused library, and a large video player. Add review controls when the corresponding functionality exists, rather than filling the current watch page with future-feature placeholders.

@@ -34,6 +34,7 @@ import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
 import { Settings } from './components/Settings'
+import { CompanionConnection } from './components/CompanionConnection'
 import { VideoReview } from './components/VideoReview'
 import { ownerReview, sharedReview } from './lib/review'
 import { leagueRepository } from './lib/league-repository'
@@ -204,6 +205,8 @@ export function App({ authError = null }: { authError?: string | null }) {
     setSigningIn(true)
     setAuthMessage('')
     try {
+      if (/^\/connect\/[a-f0-9]{64}$/.test(route))
+        sessionStorage.setItem('league-cloud-coach-connect', route)
       const redirect = new URL(import.meta.env.BASE_URL, window.location.origin).href
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -262,6 +265,12 @@ export function App({ authError = null }: { authError?: string | null }) {
         </nav>
         {session && member && (
           <nav className="sidebar-settings" aria-label="Settings navigation">
+            {member && (
+              <a className="nav-item" href="#/connect">
+                <Link2 size={18} />
+                Connected apps
+              </a>
+            )}
             <button className="nav-item" onClick={() => setSettings(true)}>
               <Settings2 size={18} />
               Settings
@@ -290,7 +299,9 @@ export function App({ authError = null }: { authError?: string | null }) {
             <Cloud size={16} />
             <span>Workspace</span>
             <span className="crumb-slash">/</span>
-            <strong>{home ? 'Home' : 'Video library'}</strong>
+            <strong>
+              {home ? 'Home' : route.startsWith('/connect') ? 'Connected apps' : 'Video library'}
+            </strong>
           </div>
           <div className="topbar-actions">
             {local ? (
@@ -340,7 +351,12 @@ export function App({ authError = null }: { authError?: string | null }) {
               Opening your workspace…
             </div>
           ) : local || (session && member) ? (
-            ownVideoId ? (
+            route.startsWith('/connect') ? (
+              <CompanionConnection
+                key={route}
+                hash={route.startsWith('/connect/') ? route.slice(9) : undefined}
+              />
+            ) : ownVideoId ? (
               <OwnVideo
                 key={ownVideoId}
                 id={ownVideoId}

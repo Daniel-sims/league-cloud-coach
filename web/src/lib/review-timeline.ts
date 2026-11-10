@@ -29,6 +29,7 @@ export type ItemEvent = {
   restored?: number
 }
 export type ReviewPayload = {
+  ultimates?: { detectorVersion: number; videoTimestampsMs: number[] }
   version: 1
   matchId: string
   queueId: number
@@ -67,6 +68,7 @@ export type ReviewPayload = {
 }
 
 export type EntryKind =
+  | 'ultimate'
   | 'fight'
   | 'absentFight'
   | 'flag'
@@ -78,6 +80,7 @@ export type EntryKind =
   | 'opponentItem'
 export const entryKinds: { kind: EntryKind; name: string }[] = [
   { kind: 'flag', name: 'Flags' },
+  { kind: 'ultimate', name: 'Ultimates' },
   { kind: 'kill', name: 'Kills' },
   { kind: 'death', name: 'Deaths' },
   { kind: 'fight', name: 'Fights' },
@@ -798,4 +801,20 @@ export function monsterName(type: string, subType: string | null) {
       .map((w) => w[0]?.toUpperCase() + w.slice(1))
       .join(' ')
   )
+}
+
+/** Casts stay on the video clock; resyncing moves them against game events. */
+export function ultimateEntries(
+  payload: ReviewPayload,
+  anchor: ClockAnchor | null,
+): TimelineEntry[] {
+  if (!anchor || !payload.ultimates) return []
+  return [...new Set(payload.ultimates.videoTimestampsMs)]
+    .filter((ms) => Number.isSafeInteger(ms) && ms >= 0 && gameTime(anchor, ms / 1000) > 0)
+    .map((ms): TimelineEntry => ({
+      id: `ultimate-${ms}`,
+      gameTimeMs: gameTimeMs(anchor, ms),
+      kind: 'ultimate',
+      label: 'Cast ultimate',
+    }))
 }

@@ -70,7 +70,9 @@ export async function initializeAuth(): Promise<string | null> {
   if (!hasProviderError && !code) return null
   // Remove sensitive OAuth response parameters from history even on failure.
   current.search = ''
-  current.hash = '/home'
+  const connectionRoute = sessionStorage.getItem('league-cloud-coach-connect')
+  current.hash =
+    connectionRoute && /^\/connect\/[a-f0-9]{64}$/.test(connectionRoute) ? connectionRoute : '/home'
   history.replaceState(null, '', current)
   if (hasProviderError) return oauthErrorMessage(error, errorCode, description)
   if (code) {

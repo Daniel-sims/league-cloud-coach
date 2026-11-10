@@ -95,6 +95,7 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
     let result: unknown = null
     if (name === 'user') result = owner ? user : null
     if (name === 'is_library_owner') result = owner
+    if (name === 'list_companions') result = []
     if (name === 'list_recordings')
       result = [
         {
@@ -368,4 +369,42 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     .first()
     .screenshot({ path: testInfo.outputPath('matchup-dark.png') })
   await guestContext.close()
+})
+
+test('companion approval is explicit and imported ultimate markers seek for a signed-out coach', async ({
+  page,
+  browser,
+}, testInfo) => {
+  const hash = 'a'.repeat(64)
+  const state: State = {
+    review: reviewPayload(),
+    anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 10 },
+    comments: [],
+    calls: [],
+  }
+  state.review!.ultimates = { detectorVersion: 1, videoTimestampsMs: [40000] }
+  await mock(page.context(), state, true)
+  await signIn(page.context())
+  await page.goto(`/#/connect/${hash}`)
+  await expect(
+    page.getByRole('heading', { name: 'Connect League Helper', exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText('AAAAAAAA', { exact: true })).toBeVisible()
+  expect(state.calls.some((c) => c.name === 'connect_companion')).toBe(false)
+  await page.screenshot({ path: testInfo.outputPath('companion-approval.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Connect League Helper', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Return to League Helper')
+  expect(state.calls.find((c) => c.name === 'connect_companion')?.args).toEqual({ p_hash: hash })
+  const coach = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  await mock(coach, state, false)
+  const watch = await coach.newPage()
+  await watch.goto(`/#/watch/${token}`)
+  await watch.getByRole('button', { name: 'Start session', exact: true }).click()
+  const marker = watch.getByRole('button', { name: 'Cast ultimate', exact: true })
+  await expect(marker).toBeEnabled()
+  await marker.click()
+  const video = watch.locator('video')
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(35, 0)
+  await watch.screenshot({ path: testInfo.outputPath('ultimate-marker.png'), fullPage: true })
+  await coach.close()
 })

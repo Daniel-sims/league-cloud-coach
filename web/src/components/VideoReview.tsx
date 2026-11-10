@@ -28,6 +28,7 @@ import { CommentRow, EventRow, patchOf } from './TimelineRows'
 import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
+  ultimateEntries,
   clock,
   context,
   entryKinds,
@@ -237,7 +238,15 @@ export function VideoReview({
 
   const review = data?.review ?? null
   const anchor = data?.anchor ?? null
-  const entries = useMemo(() => (review ? buildTimeline(review) : []), [review])
+  const entries = useMemo(
+    () =>
+      review
+        ? [...buildTimeline(review), ...ultimateEntries(review, anchor)].sort(
+            (a, b) => a.gameTimeMs - b.gameTimeMs,
+          )
+        : [],
+    [review, anchor],
+  )
   const coverage = useMemo(
     () => (anchor && durationMs ? [gameTimeMs(anchor, 0), gameTimeMs(anchor, durationMs)] : null),
     [anchor, durationMs],

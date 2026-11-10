@@ -2158,3 +2158,39 @@ strong {
 .video-bar .watch-badge {
   margin-top: 0;
 }
+
+.companion-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  max-width: 700px;
+}
+.companion-connect h1,
+.companion-connect h2,
+.companion-connect p {
+  margin: 0;
+}
+.companion-connect p {
+  line-height: 1.6;
+}
+.companion-connect h2 {
+  margin-top: 12px;
+  font-size: 18px;
+}
+.companion-connect code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: 0.08em;
+}
+.companion-connect ul {
+  list-style: none;
+  padding: 0;
+  width: 100%;
+}
+.companion-connect li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}

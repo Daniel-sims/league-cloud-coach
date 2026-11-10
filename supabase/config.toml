@@ -30,3 +30,7 @@ verify_jwt = false
 # Owner JWT and enabled membership are checked before any Riot request.
 [functions.riot]
 verify_jwt = false
+
+# Companion requests use a separately approved, upload-only capability.
+[functions.companion]
+verify_jwt = false

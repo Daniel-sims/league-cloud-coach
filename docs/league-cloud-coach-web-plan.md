@@ -1,3 +1,7 @@
+## Implemented companion decision (10 November 2026)
+
+Retain League Helper and add Push to web, rather than replacing it with a new companion. Preparation and ultimate detection run locally; upload the original video directly to Stream and publish a strict, reduced timeline plus clock anchor and video-based ultimate timestamps. Browser-approved, revocable upload capabilities link the native app to the existing web account without copying browser sessions or Riot credentials. See docs/PROJECT_STATE.md and web/README.md for current behavior and release verification. Historical separate-companion roadmap text below is superseded by this implementation.
+
 # League Cloud Coach: web MVP plan
 
 Updated 9 November 2026. **Stream update:** The owner has now authorized paid Cloudflare Stream. Source adds private video-ID import, five-minute playback leases, fixed two-hour browser sessions, and direct owner-authorized TUS uploads with browser recovery and processing checks. The backend and frontend are deployed; see the handoff for verification and remaining browser acceptance. See [current handoff](PROJECT_STATE.md) and the Stream setup in `web/README.md`. The original YouTube architecture below is retained as historical rationale; existing YouTube recordings remain supported alongside Stream.
