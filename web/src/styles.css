@@ -265,31 +265,8 @@ strong {
   margin-left: auto;
   color: #8a947b;
 }
-.sidebar-note {
-  margin-top: auto;
-  padding: 22px 13px 24px;
-  border-top: 1px solid #dde1d3;
-}
-.note-icon {
-  color: #9b8c5f;
-  display: block;
-  margin-bottom: 13px;
-}
-.sidebar-note h3 {
-  font-weight: 550;
-  font-size: 12px;
-  margin-bottom: 9px;
-}
-.sidebar-note p {
-  font-size: 11px;
-  line-height: 1.7;
-  color: #818977;
-  margin-bottom: 15px;
-}
-.sidebar-note .text-link {
-  font-size: 10px;
-}
 .sidebar-bottom {
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -548,41 +525,6 @@ strong {
 }
 .library-heading > .button {
   margin-top: 16px;
-}
-.library-tip {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #eeefe5;
-  border: 1px solid #e3e6d7;
-  border-radius: 8px;
-  padding: 16px 18px;
-  margin-bottom: 35px;
-}
-.tip-icon {
-  color: #9e9767;
-  display: flex;
-}
-.library-tip p {
-  font-size: 10px;
-  color: #737d64;
-  line-height: 1.8;
-}
-.library-tip p > span {
-  color: #929b82;
-  display: block;
-}
-.library-tip > a {
-  font-size: 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-left: auto;
-  white-space: nowrap;
-  color: #757d64;
-}
-.library-tip > a:hover {
-  text-decoration: underline;
 }
 .library-controls {
   display: flex;
@@ -1491,12 +1433,6 @@ strong {
   .share-status {
     display: none;
   }
-  .library-tip {
-    padding: 13px;
-  }
-  .library-tip p > span {
-    max-width: 270px;
-  }
   .overview-grid {
     gap: 0;
   }
@@ -1549,9 +1485,6 @@ strong {
   .nav-chevron {
     display: none;
   }
-  .sidebar-note {
-    display: none;
-  }
   .sidebar-bottom {
     font-size: 0;
     margin-top: auto;
@@ -1581,13 +1514,6 @@ strong {
   }
   .library-heading .eyebrow {
     font-size: 8px;
-  }
-  .library-tip > a {
-    font-size: 0;
-  }
-  .library-tip > a > svg {
-    height: 16px;
-    width: 16px;
   }
   .recording-thumbnail {
     width: 120px;
@@ -1846,25 +1772,6 @@ strong {
   .library-heading > .button svg {
     width: 14px;
   }
-  .library-tip {
-    gap: 9px;
-    margin-bottom: 22px;
-    padding: 12px;
-  }
-  .library-tip p {
-    font-size: 9px;
-    line-height: 1.8;
-  }
-  .library-tip p > span {
-    font-size: 9px;
-    max-width: none;
-  }
-  .tip-icon svg {
-    width: 16px;
-  }
-  .library-tip > a {
-    margin-left: 0;
-  }
   .library-controls {
     gap: 0;
     flex-direction: column;
@@ -2098,16 +2005,53 @@ strong {
   }
 }
 
-.stream-session-start { padding: 48px 24px; text-align: center; background: var(--surface, #f5f4f0); border-radius: 8px; }
-.stream-session-start p { max-width: 520px; margin: 16px auto 24px; }
-.player-stage video { width: 100%; height: 100%; display: block; }
-.player-stage[hidden] { display: none; }
-.form-label select { display: block; width: 100%; margin-top: 8px; padding: 10px; font: inherit; }
+.stream-session-start {
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--surface, #f5f4f0);
+  border-radius: 8px;
+}
+.stream-session-start p {
+  max-width: 520px;
+  margin: 16px auto 24px;
+}
+.player-stage video {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.player-stage[hidden] {
+  display: none;
+}
+.form-label select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  font: inherit;
+}
 
-.library-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.upload-progress { margin: 20px 0; }
-.upload-progress progress { width: 100%; accent-color: var(--gold, #88703e); }
-.upload-recovery { margin-top: 20px; }
-.upload-success { padding: 24px 0 8px; }
-.upload-success > div[role='status'] { text-align: center; }
-.upload-success svg { color: var(--gold, #88703e); }
+.library-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.upload-progress {
+  margin: 20px 0;
+}
+.upload-progress progress {
+  width: 100%;
+  accent-color: var(--gold, #88703e);
+}
+.upload-recovery {
+  margin-top: 20px;
+}
+.upload-success {
+  padding: 24px 0 8px;
+}
+.upload-success > div[role='status'] {
+  text-align: center;
+}
+.upload-success svg {
+  color: var(--gold, #88703e);
+}

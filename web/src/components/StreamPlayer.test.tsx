@@ -56,6 +56,15 @@ it('does not claim or fetch media until the viewer explicitly starts', async () 
   expect(streamRequest).not.toHaveBeenCalled()
   expect(screen.queryByLabelText('Private game')).not.toBeInTheDocument()
 })
+it('loads owner playback without claiming a guest session or requiring an extra action', async () => {
+  vi.mocked(streamRequest).mockClear()
+  await act(async () => {
+    render(<StreamPlayer recordingId="owner-recording" title="My recording" />)
+  })
+  expect(streamRequest).toHaveBeenCalledExactlyOnceWith('owner', { recordingId: 'owner-recording' })
+  expect(screen.getByLabelText('My recording')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Start session' })).not.toBeInTheDocument()
+})
 it('reloads fresh segment signatures while preserving playback position on renewal', async () => {
   await start()
   const media = screen.getByLabelText('Private game') as HTMLVideoElement

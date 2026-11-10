@@ -215,19 +215,9 @@ export function App({ authError = null }: { authError?: string | null }) {
             How it works
           </button>
         </nav>
-        <div className="sidebar-note">
-          <span className="note-icon">
-            <Link2 size={17} />
-          </span>
-          <h3>Better, together.</h3>
-          <p>A second perspective can change your next game.</p>
-          <button className="text-link" onClick={() => setHelp(true)}>
-            Start sharing <ArrowRight size={13} />
-          </button>
-        </div>
         <div className="sidebar-bottom">
           <span className="status-dot" />
-          {local ? 'Local preview' : 'Your perspective, shared.'}
+          {local ? 'Local preview' : 'League Cloud Coach'}
           <span className="version">V.01</span>
         </div>
       </aside>
@@ -305,16 +295,12 @@ export function App({ authError = null }: { authError?: string | null }) {
                 This library is currently open to its owner only. Your account hasn’t been given
                 access yet.
               </p>
-              <p className="muted">
-                If this is your account, complete the owner setup in Supabase using the instructions
-                in web/README.md.
-              </p>
               <button className="button secondary" onClick={signOut}>
                 Use a different Google account
               </button>
             </div>
           ) : (
-            <Welcome onSignIn={signIn} signingIn={signingIn} onHelp={() => setHelp(true)} />
+            <Welcome onSignIn={signIn} signingIn={signingIn} />
           )}
         </main>
         <footer className="main-footer">
@@ -329,12 +315,12 @@ export function App({ authError = null }: { authError?: string | null }) {
             <li>
               <span>01</span>
               <div>
-                <h3>Upload your recording</h3>
+                <h3>Upload or add a recording</h3>
                 <p>
-                  For private timed access, choose Upload video in your library. Cloudflare uploads
-                  are private by default. Or use YouTube Studio with visibility set to{' '}
-                  <strong>Unlisted</strong> and allow embedding. For games over 15 minutes, verify
-                  your channel first.
+                  Choose Upload video to select a file from your computer. It will appear in your
+                  library when processing finishes. Already have a video on Cloudflare Stream or
+                  YouTube? Choose Add existing video instead. YouTube videos should be Unlisted with
+                  embedding allowed.
                 </p>
                 <a
                   className="text-link"
@@ -349,19 +335,20 @@ export function App({ authError = null }: { authError?: string | null }) {
             <li>
               <span>02</span>
               <div>
-                <h3>Add it to your library</h3>
+                <h3>Create a watch link</h3>
                 <p>
-                  Paste the Stream video ID or YouTube link and give your game a title. Keep
-                  everything together in your workspace.
+                  Choose Share beside a recording, then Create share link. Copy the link to send to
+                  your coach.
                 </p>
               </div>
             </li>
             <li>
               <span>03</span>
               <div>
-                <h3>Share a new perspective</h3>
+                <h3>Send it to your coach</h3>
                 <p>
-                  Create a watch link and send it to your coach. They can watch without signing in.
+                  Your coach opens the link without signing in. For a private recording, they choose
+                  Start session when ready to watch; the two-hour timer includes pauses.
                 </p>
               </div>
             </li>
@@ -374,26 +361,20 @@ export function App({ authError = null }: { authError?: string | null }) {
         </Dialog>
       )}
       {setup && (
-        <Dialog title="Connect your cloud workspace" onClose={() => setSetup(false)}>
+        <Dialog title="Sign-in unavailable" onClose={() => setSetup(false)}>
           <p className="dialog-intro">
-            The app is ready for a Supabase connection. Google sign-in needs a project and an OAuth
-            client configured first.
-          </p>
-          <ol className="setup-list">
-            <li>Create a free Supabase project and enable Google sign-in.</li>
-            <li>Apply the included database migration and grant your account owner access.</li>
-            <li>
-              Add the project URL and publishable key to <code>web/.env.local</code>, then restart
-              the app.
-            </li>
-          </ol>
-          <p className="muted">
-            Full steps are in <code>web/README.md</code>. No paid video hosting is required.
+            Sign-in is temporarily unavailable. Please try again later.
           </p>
           {isDev && (
-            <a className="button" href="#/preview" onClick={() => setSetup(false)}>
-              Open local preview <ArrowRight size={16} />
-            </a>
+            <>
+              <p className="muted">
+                For local development, follow the cloud setup instructions in{' '}
+                <code>web/README.md</code>.
+              </p>
+              <a className="button" href="#/preview" onClick={() => setSetup(false)}>
+                Open local preview <ArrowRight size={16} />
+              </a>
+            </>
           )}
         </Dialog>
       )}
@@ -401,15 +382,7 @@ export function App({ authError = null }: { authError?: string | null }) {
   )
 }
 
-function Welcome({
-  onSignIn,
-  signingIn,
-  onHelp,
-}: {
-  onSignIn(): void
-  signingIn: boolean
-  onHelp(): void
-}) {
+function Welcome({ onSignIn, signingIn }: { onSignIn(): void; signingIn: boolean }) {
   return (
     <>
       <section className="welcome-hero">
@@ -430,9 +403,6 @@ function Welcome({
             <GoogleIcon />
             {signingIn ? 'Connecting…' : 'Continue with Google'}
             <ArrowRight size={16} />
-          </button>
-          <button className="text-link" onClick={onHelp}>
-            How it works <ArrowRight size={14} />
           </button>
         </div>
         <div className="hero-assurance">
@@ -461,8 +431,8 @@ function Welcome({
           <Feature
             number="03"
             icon={<Play size={20} />}
-            title="Press play. Find your next step."
-            text="Clear, familiar video controls. Space to focus on the game."
+            title="Review with your coach"
+            text="Watch the recording together and discuss what to try next game."
           />
         </div>
       </section>
@@ -607,7 +577,7 @@ function Library({
           <h1>
             Video library<span className="heading-dot">.</span>
           </h1>
-          <p>Your games, collected. Ready for another perspective.</p>
+          <p>Upload recordings and share them with your coach.</p>
         </div>
         <div className="library-heading-actions">
           <button className="button secondary" onClick={() => setModal('add')}>
@@ -622,21 +592,6 @@ function Library({
           )}
         </div>
       </section>
-      <div className="library-tip">
-        <span className="tip-icon">
-          <Link2 size={18} />
-        </span>
-        <p>
-          A good review starts with a shared perspective.
-          <span>
-            {' '}
-            Add a Cloudflare Stream recording or an unlisted YouTube video, then share a link.
-          </span>
-        </p>
-        <a href="https://studio.youtube.com" target="_blank" rel="noopener noreferrer">
-          YouTube Studio <ExternalLink size={13} />
-        </a>
-      </div>
       {(uploadError || uploads.length > 0) && (
         <div className="notice" role="status">
           <div>
@@ -793,9 +748,9 @@ function Library({
               Show all recordings
             </button>
           ) : (
-            <button className="button" onClick={() => setModal('add')}>
+            <button className="button" onClick={() => setModal(local ? 'add' : 'upload')}>
               <Plus size={16} />
-              Add your first video
+              {local ? 'Add your first video' : 'Upload your first video'}
             </button>
           )}
           <span className="empty-footnote">
@@ -1205,7 +1160,7 @@ function ShareDialog({
   }
   return (
     <Dialog
-      title="Another perspective starts here"
+      title="Share recording"
       onClose={() => {
         if (!busy) onClose()
       }}
@@ -1285,7 +1240,7 @@ function ShareDialog({
       )}
       <p className="share-fineprint">
         {record.provider === 'stream'
-          ? 'One browser session per link. Start within seven days; access ends two hours after starting. Replacing or revoking stops renewal; issued playback tokens may work for up to five minutes, plus buffered video.'
+          ? 'One browser session per link. Start within seven days; access ends two hours after starting. Replacing the link or stopping sharing can take up to five minutes to stop access; buffered video may continue playing.'
           : 'Anyone with the underlying YouTube link can still watch. To stop access to the video itself, make it Private or delete it in YouTube Studio.'}
       </p>
     </Dialog>

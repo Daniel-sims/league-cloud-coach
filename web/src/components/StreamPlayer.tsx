@@ -17,7 +17,7 @@ export function StreamPlayer({
   shareToken?: string
 }) {
   const video = useRef<HTMLVideoElement>(null)
-  const [started, setStarted] = useState(false)
+  const [started, setStarted] = useState(Boolean(recordingId))
   const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -154,14 +154,13 @@ export function StreamPlayer({
     <div className="player-wrap">
       {!started ? (
         <div className="stream-session-start">
-          <h2>{shareToken ? 'Ready for your review?' : 'Watch your recording'}</h2>
+          <h2>Ready for your review?</h2>
           <p>
-            {shareToken
-              ? 'Start a two-hour session in this browser. Pausing counts toward the session. Only the owner can issue a new link.'
-              : 'Play your private recording with normal video controls.'}
+            Start a two-hour session in this browser. Pausing counts toward the session. Ask the
+            owner for a new link when it ends.
           </p>
           <button className="button" onClick={() => setStarted(true)}>
-            {shareToken ? 'Start session' : 'Load video'}
+            Start session
           </button>
         </div>
       ) : (

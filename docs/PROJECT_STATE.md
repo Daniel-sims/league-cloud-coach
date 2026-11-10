@@ -1,6 +1,12 @@
 # League Cloud Coach: current project state
 
-Last reviewed: 9 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+
+## Interface cleanup
+
+The library now keeps one How it works entry, removes the duplicate Start sharing promotion and permanent library marketing tip, and uses Upload your first video for the cloud empty state. Add existing video remains a separate import action; the development preview retains its link-only empty state. Help explains upload-or-import → create link → send to coach, including automatic library insertion after processing. Account access and production sign-in failures no longer expose Supabase setup or repository paths. Sharing copy describes access delays without playback-token terminology. Owner Stream playback loads the player directly without an extra Load video button; guest playback still requires explicit Start session before claiming the timed session, and video playback remains manual.
+
+The interface cleanup is prepared for the standalone web release using the export helper. Check the Pages workflow for its deployment status. Verification: 62 frontend tests, all eight simulated-backend browser workflow checks, production build, and diff whitespace checks passed. Coverage includes automatic owner-player loading, explicit guest session start, and the cloud empty-state upload action. Live visual acceptance remains unavailable without an in-app browser connection.
 
 ## Stream integration: deployed
 

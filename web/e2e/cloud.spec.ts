@@ -156,7 +156,7 @@ test('owner adds a recording, shares to a signed-out visitor, and revokes its ap
   await mockBackend(page.context(), state)
   await setOwnerSession(page.context())
   await page.goto('/#/library')
-  await page.getByRole('button', { name: 'Add your first video' }).click()
+  await page.getByRole('button', { name: 'Add existing video' }).click()
   await page.getByLabel('YouTube link', { exact: true }).fill('https://youtu.be/aqz-KE-bpKQ')
   await page.getByLabel('Title', { exact: true }).fill('Review with my coach')
   await page.getByRole('dialog').getByRole('button', { name: 'Add video', exact: true }).click()
@@ -206,7 +206,7 @@ test('Stream owner adds a video ID and guest must explicitly start private playb
   await mockBackend(page.context(), state)
   await setOwnerSession(page.context())
   await page.goto('/#/library')
-  await page.getByRole('button', { name: 'Add your first video' }).click()
+  await page.getByRole('button', { name: 'Add existing video' }).click()
   await page.getByLabel('Video hosting').selectOption('stream')
   await page.getByLabel('Stream video ID', { exact: true }).fill('d'.repeat(32))
   await page.getByLabel('Title', { exact: true }).fill('Private Stream review')
@@ -265,7 +265,7 @@ test('owner uploads directly to Cloudflare and the library waits for processing'
     })
   })
   await page.goto('/#/library')
-  await page.getByRole('button', { name: 'Upload video', exact: true }).click()
+  await page.getByRole('button', { name: 'Upload your first video', exact: true }).click()
   await page.getByLabel('Video file', { exact: true }).setInputFiles({
     name: 'game.mov',
     mimeType: 'video/quicktime',
