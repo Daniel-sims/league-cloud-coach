@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type Hls from 'hls.js'
 import { LoaderCircle } from 'lucide-react'
+import { SeekControls, seekPosition, seekWithKeyboard } from './SeekControls'
 import {
   streamRequest,
   StreamAccessError,
@@ -24,6 +25,21 @@ export function StreamPlayer({
   const [loading, setLoading] = useState(Boolean(recordingId))
   const [remaining, setRemaining] = useState<number | null>(null)
   const [stopped, setStopped] = useState(false)
+  const [canSeek, setCanSeek] = useState(false)
+  function seek(delta: number) {
+    const media = video.current
+    if (
+      !started ||
+      stopped ||
+      !media ||
+      media.readyState < 1 ||
+      !Number.isFinite(media.duration) ||
+      media.duration <= 0
+    )
+      return false
+    media.currentTime = seekPosition(media.currentTime, delta, media.duration)
+    return true
+  }
   useEffect(() => {
     if (!started) return
     let disposed = false
@@ -52,6 +68,7 @@ export function StreamPlayer({
       media.removeAttribute('src')
       media.load()
       setStopped(true)
+      setCanSeek(false)
       setLoading(false)
       setError(message)
     }
@@ -126,6 +143,7 @@ export function StreamPlayer({
     setStopped(false)
     setError('')
     setLoading(true)
+    setCanSeek(false)
     void getLease(true)
     timer = window.setInterval(() => {
       if (!lease || disposed || terminated) return
@@ -151,7 +169,7 @@ export function StreamPlayer({
     }
   }, [started, attempt, recordingId, shareToken])
   return (
-    <div className="player-wrap">
+    <div className="player-wrap" onKeyDownCapture={(event) => seekWithKeyboard(event, seek)}>
       {!started ? (
         <div className="stream-session-start">
           <h2>Ready for your review?</h2>
@@ -172,6 +190,12 @@ export function StreamPlayer({
               playsInline
               preload="auto"
               aria-label={title}
+              onLoadedMetadata={(event) =>
+                setCanSeek(
+                  Number.isFinite(event.currentTarget.duration) && event.currentTarget.duration > 0,
+                )
+              }
+              onEmptied={() => setCanSeek(false)}
               onCanPlay={() => setLoading(false)}
               onPlaying={() => setLoading(false)}
               onWaiting={() => {
@@ -180,6 +204,7 @@ export function StreamPlayer({
               onError={() => {
                 if (!stopped) {
                   setLoading(false)
+                  setCanSeek(false)
                   setError('Video playback failed. Try reconnecting below.')
                 }
               }}
@@ -191,6 +216,7 @@ export function StreamPlayer({
               </div>
             )}
           </div>
+          {!stopped && <SeekControls seek={seek} disabled={!canSeek} />}
           {!stopped && remaining !== null && (
             <p className="field-hint" role="status">
               {remaining} {remaining === 1 ? 'minute' : 'minutes'} remaining

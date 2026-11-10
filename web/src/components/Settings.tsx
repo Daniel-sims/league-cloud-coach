@@ -11,6 +11,7 @@ export function Settings({ onClose, onSaved }: { onClose: () => void; onSaved: (
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [message, setMessage] = useState('')
+  const [warning, setWarning] = useState(false)
   useEffect(() => {
     let active = true
     riotRequest<{ configured: boolean; sharedDefault: boolean }>({ action: 'token-status' })
@@ -29,11 +30,17 @@ export function Settings({ onClose, onSaved }: { onClose: () => void; onSaved: (
     setBusy(true)
     setError('')
     setMessage('')
+    setWarning(false)
     try {
-      await riotRequest({ action: 'save-token', token: token.trim(), platform })
+      const result = await riotRequest<{ verified: boolean; warning?: string }>({
+        action: 'save-token',
+        token: token.trim(),
+        platform,
+      })
       setToken('')
       setStatus({ configured: true, sharedDefault: status?.sharedDefault ?? false })
-      setMessage('Riot token saved and verified.')
+      setWarning(Boolean(result.warning))
+      setMessage(result.warning || 'Riot token saved and verified.')
       onSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save your Riot token.')
@@ -45,6 +52,7 @@ export function Settings({ onClose, onSaved }: { onClose: () => void; onSaved: (
     setBusy(true)
     setError('')
     setMessage('')
+    setWarning(false)
     try {
       await riotRequest({ action: 'remove-token' })
       setToken('')
@@ -126,7 +134,7 @@ export function Settings({ onClose, onSaved }: { onClose: () => void; onSaved: (
           </div>
         )}
         {message && (
-          <div className="notice" role="status">
+          <div className={warning ? 'notice warning' : 'notice'} role="status">
             {message}
           </div>
         )}

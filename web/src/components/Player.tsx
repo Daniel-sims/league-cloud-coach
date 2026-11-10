@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, LoaderCircle, VideoOff } from 'lucide-react'
 import { isVideoId, youtubeURL } from '../lib/youtube'
+import { SeekControls, seekPosition, seekWithKeyboard } from './SeekControls'
 
-type PlayerInstance = { destroy(): void }
+type PlayerInstance = {
+  destroy(): void
+  getCurrentTime(): number
+  getDuration(): number
+  seekTo(seconds: number, allowSeekAhead: boolean): void
+}
 type YouTubeAPI = {
   Player: new (element: HTMLElement, options: Record<string, unknown>) => PlayerInstance
 }
@@ -44,9 +50,19 @@ function loadAPI(): Promise<YouTubeAPI> {
 
 export function Player({ videoId, title }: { videoId: string; title: string }) {
   const host = useRef<HTMLDivElement>(null)
+  const instance = useRef<PlayerInstance | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  function seek(delta: number) {
+    const player = instance.current
+    if (state !== 'ready' || !player) return false
+    const duration = player.getDuration(),
+      position = player.getCurrentTime()
+    if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(position)) return false
+    player.seekTo(seekPosition(position, delta, duration), true)
+    return true
+  }
   useEffect(() => {
     if (!isVideoId(videoId)) return
     let disposed = false
@@ -94,6 +110,7 @@ export function Player({ videoId, title }: { videoId: string; title: string }) {
             },
           },
         })
+        instance.current = player
       })
       .catch((reason: Error) => {
         if (!disposed) {
@@ -105,10 +122,11 @@ export function Player({ videoId, title }: { videoId: string; title: string }) {
       disposed = true
       clearTimeout(readyTimer)
       player?.destroy()
+      instance.current = null
     }
   }, [videoId, title, attempt])
   return (
-    <div className="player-wrap">
+    <div className="player-wrap" onKeyDownCapture={(event) => seekWithKeyboard(event, seek)}>
       <div className="player-stage">
         <div className="player-host" ref={host} />
         {state === 'loading' && (
@@ -128,6 +146,8 @@ export function Player({ videoId, title }: { videoId: string; title: string }) {
           </div>
         )}
       </div>
+      <SeekControls seek={seek} disabled={state !== 'ready'} />
+      <p className="field-hint">Select a seek button to use the arrow-key shortcuts.</p>
       <a
         className="text-link player-external"
         href={youtubeURL(videoId)}

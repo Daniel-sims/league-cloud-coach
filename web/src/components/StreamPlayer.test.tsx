@@ -143,3 +143,49 @@ it('does not repeatedly renew a lease that already reaches the session deadline'
   })
   expect(screen.getByRole('alert')).toHaveTextContent('two-hour session has ended')
 })
+it('seeks by 1, 10 or 30 seconds in both directions and overrides native arrow defaults', async () => {
+  await start()
+  const media = screen.getByLabelText('Private game') as HTMLVideoElement
+  Object.defineProperty(media, 'duration', { configurable: true, value: 180 })
+  Object.defineProperty(media, 'readyState', { configurable: true, value: 1 })
+  fireEvent.loadedMetadata(media)
+  media.currentTime = 90
+  expect(fireEvent.keyDown(media, { key: 'ArrowRight' })).toBe(false)
+  expect(media.currentTime).toBe(91)
+  fireEvent.keyDown(media, { key: 'ArrowLeft' })
+  expect(media.currentTime).toBe(90)
+  fireEvent.keyDown(media, { key: 'ArrowRight', shiftKey: true })
+  expect(media.currentTime).toBe(100)
+  fireEvent.keyDown(media, { key: 'ArrowLeft', shiftKey: true })
+  expect(media.currentTime).toBe(90)
+  media.playbackRate = 2
+  fireEvent.keyDown(media, { key: 'ArrowRight', ctrlKey: true })
+  expect(media.currentTime).toBe(120)
+  fireEvent.keyDown(media, { key: 'ArrowLeft', ctrlKey: true, shiftKey: true })
+  expect(media.currentTime).toBe(90)
+  fireEvent.keyDown(media, { key: 'ArrowRight', metaKey: true })
+  expect(media.currentTime).toBe(90)
+  fireEvent.keyDown(media, { key: 'ArrowLeft', altKey: true })
+  expect(media.currentTime).toBe(90)
+  media.currentTime = 2
+  fireEvent.keyDown(media, { key: 'ArrowLeft', ctrlKey: true })
+  expect(media.currentTime).toBe(0)
+  media.currentTime = 179
+  fireEvent.keyDown(media, { key: 'ArrowRight', ctrlKey: true })
+  expect(media.currentTime).toBe(180)
+})
+it('leaves unready media alone and accepts seek shortcuts from the visible seek buttons', async () => {
+  await start()
+  const media = screen.getByLabelText('Private game') as HTMLVideoElement
+  media.currentTime = 50
+  expect(fireEvent.keyDown(media, { key: 'ArrowRight' })).toBe(true)
+  expect(media.currentTime).toBe(50)
+  Object.defineProperty(media, 'duration', { configurable: true, value: 180 })
+  Object.defineProperty(media, 'readyState', { configurable: true, value: 1 })
+  fireEvent.loadedMetadata(media)
+  const forward = screen.getByRole('button', { name: 'Forward 1 second' })
+  fireEvent.keyDown(forward, { key: 'ArrowRight', ctrlKey: true })
+  expect(media.currentTime).toBe(80)
+  fireEvent.click(forward, { shiftKey: true })
+  expect(media.currentTime).toBe(90)
+})

@@ -730,6 +730,7 @@ strong {
   border-color: #e9cfc6;
   background: #fbf0eb;
 }
+.notice.warning { color: #765d2b; background: #f7f0df; border-color: #e6d5ad; }
 .notice.error .text-link {
   margin-left: auto;
   color: inherit;
@@ -2062,3 +2063,7 @@ strong {
 .upload-success svg {
   color: var(--gold, #88703e);
 }
+
+.seek-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.seek-hint { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 4px; line-height: 1.6; }
+.seek-hint > span { white-space: nowrap; }

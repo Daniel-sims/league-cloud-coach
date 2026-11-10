@@ -175,7 +175,7 @@ export function createRiotHandler(deps: Dependencies) {
         if (response.status === 401 || response.status === 403)
           throw new Failure(
             503,
-            "Riot rejected this token. Replace it in Settings with a current API token, then retry.",
+            "Riot hasn't accepted this token yet. If you just generated it, it may take a few minutes to start working. Otherwise, check or replace it in Settings.",
           );
         if (response.status === 404)
           throw new Failure(
@@ -228,7 +228,13 @@ export function createRiotHandler(deps: Dependencies) {
         };
       }
       if (body.action === "save-token") {
-        await riot(body.platform, "/lol/status/v4/platform-data");
+        let warning: string | undefined;
+        try {
+          await riot(body.platform, "/lol/status/v4/platform-data");
+        } catch {
+          warning =
+            "Token saved, but it couldn't be verified with Riot yet. If you just generated it, it may take a few minutes to start working. Try refreshing your match history again shortly.";
+        }
         let encrypted: string;
         try {
           encrypted = await encryptToken(key!, encryptionSecret!, deps.crypto);
@@ -238,19 +244,21 @@ export function createRiotHandler(deps: Dependencies) {
             "Could not securely save your Riot token. Please retry.",
           );
         }
-        const { error } = await admin
-          .from("riot_credentials")
-          .upsert({
-            owner_id: ownerId,
-            encrypted_token: encrypted,
-            updated_at: new Date().toISOString(),
-          });
+        const { error } = await admin.from("riot_credentials").upsert({
+          owner_id: ownerId,
+          encrypted_token: encrypted,
+          updated_at: new Date().toISOString(),
+        });
         if (error)
           throw new Failure(
             503,
             "Could not save your Riot token. Please retry.",
           );
-        return reply({ ok: true });
+        return reply({
+          ok: true,
+          verified: !warning,
+          ...(warning ? { warning } : {}),
+        });
       }
       if (body.action === "connect") {
         if (

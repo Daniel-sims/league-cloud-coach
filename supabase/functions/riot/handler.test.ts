@@ -290,16 +290,26 @@ it("verifies a personal token before saving only encrypted data under the verifi
   expect(sync.status).toBe(200);
   expect(provider.mock.calls.at(-1)![1].headers["X-Riot-Token"]).toBe(token);
 });
-it("does not replace the saved token when Riot rejects a replacement", async () => {
+it("saves a replacement with a propagation warning when Riot hasn't accepted it yet", async () => {
   provider.mockResolvedValueOnce(new Response("do-not-echo", { status: 403 }));
   const response = await request({
     action: "save-token",
     token: "RGAPI-" + "b".repeat(36),
     platform: "euw1",
   });
-  expect(response.status).toBe(503);
-  expect(writes).not.toHaveBeenCalled();
-  expect(await response.text()).not.toContain("do-not-echo");
+  expect(response.status).toBe(200);
+  const result = await response.json();
+  expect(result.verified).toBe(false);
+  expect(result.warning).toContain("a few minutes");
+  expect(JSON.stringify(result)).not.toContain("do-not-echo");
+  const stored = writes.mock.calls.find((c) => c[0] === "riot_credentials")![1];
+  expect(
+    await decryptToken(
+      stored.encrypted_token,
+      encryptionSecret,
+      webcrypto as unknown as Crypto,
+    ),
+  ).toBe("RGAPI-" + "b".repeat(36));
 });
 it("removes only the verified owner token and never calls Riot for status or removal", async () => {
   expect(

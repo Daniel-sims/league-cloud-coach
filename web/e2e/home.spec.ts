@@ -23,7 +23,7 @@ const profile: LeagueProfile = {
   ],
   syncedAt: '2026-11-10T00:00:00Z',
 }
-async function setup(context: BrowserContext, empty = false) {
+async function setup(context: BrowserContext, empty = false, tokenWarning = false) {
   const user = {
     id: ownerId,
     aud: 'authenticated',
@@ -65,7 +65,18 @@ async function setup(context: BrowserContext, empty = false) {
       ]
     if (name === 'riot') {
       if (args.action === 'token-status') result = { configured: false, sharedDefault: false }
-      else if (args.action === 'save-token' || args.action === 'remove-token') result = { ok: true }
+      else if (args.action === 'save-token')
+        result = {
+          ok: true,
+          verified: !tokenWarning,
+          ...(tokenWarning
+            ? {
+                warning:
+                  'Token saved. If you just generated it, it may take a few minutes to start working.',
+              }
+            : {}),
+        }
+      else if (args.action === 'remove-token') result = { ok: true }
       else if (args.action === 'connect') {
         profiles = [profile]
         result = { id: profile.id }
@@ -158,4 +169,18 @@ test('mobile home connects an account with keyboard access and fits the viewport
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
   await page.screenshot({ path: testInfo.outputPath('home-mobile.png'), fullPage: true })
+})
+test('a newly generated Riot token is saved with a warning while verification is pending', async ({
+  page,
+}) => {
+  await setup(page.context(), false, true)
+  await page.goto('/#/home')
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
+  await settings.getByLabel('Riot API token').fill('RGAPI-' + 'a'.repeat(36))
+  await settings.getByRole('button', { name: 'Save token' }).click()
+  await expect(settings.getByRole('status')).toContainText('a few minutes')
+  await expect(settings.getByText('A personal Riot token is saved.')).toBeVisible()
+  await expect(settings.getByLabel('Riot API token')).toHaveValue('')
+  await expect(settings.getByRole('alert')).toHaveCount(0)
 })

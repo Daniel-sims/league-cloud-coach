@@ -26,14 +26,30 @@ it('masks the token, clears it after saving and never reads a saved token back',
     platform: 'euw1',
   })
 })
-it('keeps invalid-token failures actionable without claiming the token was saved', async () => {
+it('keeps storage failures actionable without claiming the token was saved', async () => {
   vi.mocked(riotRequest)
     .mockResolvedValueOnce({ configured: false, sharedDefault: false })
-    .mockRejectedValueOnce(new Error('Riot rejected this token.'))
+    .mockRejectedValueOnce(new Error('Could not save your Riot token.'))
   render(<Settings onClose={() => {}} onSaved={() => {}} />)
   await screen.findByText('No Riot token saved yet.')
   await userEvent.type(screen.getByLabelText('Riot API token'), 'RGAPI-invalid')
   await userEvent.click(screen.getByRole('button', { name: 'Save token' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('Riot rejected this token.')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not save your Riot token.')
+  expect(screen.queryByText('Riot token saved and verified.')).not.toBeInTheDocument()
+})
+it('shows the saved-token propagation warning and clears the input without claiming verification', async () => {
+  const warning =
+    'Token saved. If you just generated it, it may take a few minutes to start working.'
+  vi.mocked(riotRequest)
+    .mockResolvedValueOnce({ configured: false, sharedDefault: false })
+    .mockResolvedValueOnce({ verified: false, warning })
+  const saved = vi.fn()
+  render(<Settings onClose={() => {}} onSaved={saved} />)
+  await screen.findByText('No Riot token saved yet.')
+  await userEvent.type(screen.getByLabelText('Riot API token'), 'RGAPI-new-token')
+  await userEvent.click(screen.getByRole('button', { name: 'Save token' }))
+  expect(await screen.findByRole('status')).toHaveTextContent(warning)
+  expect(screen.getByLabelText('Riot API token')).toHaveValue('')
+  expect(saved).toHaveBeenCalledOnce()
   expect(screen.queryByText('Riot token saved and verified.')).not.toBeInTheDocument()
 })

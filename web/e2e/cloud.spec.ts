@@ -73,6 +73,12 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
       })
       result = { ok: true }
     }
+    if (name === 'stream' && args.action === 'owner')
+      result = {
+        url: 'https://customer-test.cloudflarestream.com/keyboard-review.wav',
+        expiresAt: new Date(Date.now() + 300000).toISOString(),
+        sessionExpiresAt: null,
+      }
     if (name === 'stream' && (args.action === 'start' || args.action === 'renew')) {
       await route.fulfill({
         status: 410,
@@ -335,4 +341,98 @@ test('library recovers completed uploads after the upload dialog was closed', as
   await page.clock.fastForward(15000)
   await expect(page.getByRole('link', { name: 'Recovered upload', exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('uploaded video uses precise keyboard seek steps without the native default jump', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'MediaSource', { value: undefined, configurable: true })
+    Object.defineProperty(window, 'ManagedMediaSource', { value: undefined, configurable: true })
+    const original = HTMLMediaElement.prototype.canPlayType
+    HTMLMediaElement.prototype.canPlayType = function (type) {
+      return type === 'application/vnd.apple.mpegurl' ? 'maybe' : original.call(this, type)
+    }
+  })
+  // A disposable silent WAV gives the real HTML video element a seekable timeline.
+  const samples = 120 * 8000,
+    wav = Buffer.alloc(44 + samples, 128)
+  wav.write('RIFF', 0)
+  wav.writeUInt32LE(36 + samples, 4)
+  wav.write('WAVEfmt ', 8)
+  wav.writeUInt32LE(16, 16)
+  wav.writeUInt16LE(1, 20)
+  wav.writeUInt16LE(1, 22)
+  wav.writeUInt32LE(8000, 24)
+  wav.writeUInt32LE(8000, 28)
+  wav.writeUInt16LE(1, 32)
+  wav.writeUInt16LE(8, 34)
+  wav.write('data', 36)
+  wav.writeUInt32LE(samples, 40)
+  await page.route('https://customer-test.cloudflarestream.com/keyboard-review.wav', (route) => {
+    const range = route
+      .request()
+      .headers()
+      .range?.match(/^bytes=(\d+)-(\d*)$/)
+    const start = range ? Number(range[1]) : 0
+    const end = range && range[2] ? Math.min(Number(range[2]), wav.length - 1) : wav.length - 1
+    return route.fulfill({
+      status: range ? 206 : 200,
+      contentType: 'audio/wav',
+      body: wav.subarray(start, end + 1),
+      headers: {
+        'Accept-Ranges': 'bytes',
+        ...(range ? { 'Content-Range': `bytes ${start}-${end}/${wav.length}` } : {}),
+      },
+    })
+  })
+  await mockBackend(page.context(), {
+    rows: [
+      {
+        id: recordingId,
+        title: 'Keyboard review',
+        provider: 'stream',
+        stream_video_id: 'd'.repeat(32),
+        youtube_video_id: null,
+        recorded_on: null,
+        created_at: new Date().toISOString(),
+        has_share: false,
+      },
+    ],
+    member: true,
+    shared: false,
+  })
+  await setOwnerSession(page.context())
+  await page.goto(`/#/video/${recordingId}`)
+  const video = page.getByLabel('Keyboard review', { exact: true })
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.duration)).toBe(120)
+  await expect
+    .poll(() =>
+      video.evaluate((element: HTMLVideoElement) =>
+        element.seekable.length ? element.seekable.end(0) : 0,
+      ),
+    )
+    .toBe(120)
+  await video.evaluate((element: HTMLVideoElement) => {
+    element.currentTime = 50
+    element.playbackRate = 2
+  })
+  await video.focus()
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+    .toBe(50)
+  for (const [key, position] of [
+    ['ArrowRight', 51],
+    ['ArrowLeft', 50],
+    ['Shift+ArrowRight', 60],
+    ['Shift+ArrowLeft', 50],
+    ['Control+ArrowRight', 80],
+    ['Control+ArrowLeft', 50],
+  ] as const) {
+    await page.keyboard.press(key)
+    await expect
+      .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+      .toBe(position)
+  }
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true)
 })
