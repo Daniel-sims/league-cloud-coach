@@ -1,3 +1,4 @@
+import { Pause, Play } from 'lucide-react'
 import type { KeyboardEvent } from 'react'
 
 type Modifiers = { ctrlKey: boolean; shiftKey: boolean }
@@ -31,27 +32,44 @@ const steps = [-30, -15, -1, 1, 15, 30]
 export function SeekControls({
   seek,
   disabled,
+  playing,
+  onTogglePlay,
 }: {
   seek: (delta: number) => boolean
   disabled: boolean
+  playing?: boolean
+  onTogglePlay?: () => void
 }) {
+  const button = (step: number) => {
+    const seconds = Math.abs(step)
+    return (
+      <button
+        key={step}
+        className="button secondary button-small"
+        disabled={disabled}
+        onClick={() => seek(step)}
+        aria-label={`${step < 0 ? 'Back' : 'Forward'} ${seconds} ${seconds === 1 ? 'second' : 'seconds'}`}
+      >
+        {step < 0 ? '−' : '+'}
+        {seconds}s
+      </button>
+    )
+  }
   return (
     <div className="seek-controls" role="group" aria-label="Video seek controls">
-      {steps.map((step) => {
-        const seconds = Math.abs(step)
-        return (
-          <button
-            key={step}
-            className="button secondary button-small"
-            disabled={disabled}
-            onClick={() => seek(step)}
-            aria-label={`${step < 0 ? 'Back' : 'Forward'} ${seconds} ${seconds === 1 ? 'second' : 'seconds'}`}
-          >
-            {step < 0 ? '−' : '+'}
-            {seconds}s
-          </button>
-        )
-      })}
+      {steps.filter((step) => step < 0).map(button)}
+      {onTogglePlay && (
+        <button
+          className="button button-small seek-play"
+          disabled={disabled}
+          onClick={onTogglePlay}
+          aria-label={playing ? 'Pause' : 'Play'}
+          title={playing ? 'Pause' : 'Play'}
+        >
+          {playing ? <Pause size={16} /> : <Play size={16} />}
+        </button>
+      )}
+      {steps.filter((step) => step > 0).map(button)}
     </div>
   )
 }

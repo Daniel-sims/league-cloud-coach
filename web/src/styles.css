@@ -2081,6 +2081,10 @@ strong {
   min-width: 56px;
   font-variant-numeric: tabular-nums;
 }
+.seek-controls .seek-play {
+  min-width: 52px;
+  margin: 0 6px;
+}
 /* Collapsible sidebar: hidden entirely so content can use the full window. */
 .sidebar-toggle {
   margin-left: -8px;

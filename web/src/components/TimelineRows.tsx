@@ -212,12 +212,14 @@ function Fight({
   )
 }
 
+/// You on the left, your lane opponent mirrored on the right; each stat's
+/// name and difference sit between the two values.
 function Matchup({ card }: { card: MatchupCard }) {
   const { player: me, opponent: them } = card
   const number = (value: number) => value.toLocaleString('en-GB')
   const signed = (value: number) =>
-    value > 0 ? `+${number(value)}` : value < 0 ? `−${number(-value)}` : '0'
-  const tone = (value: number) => (value > 0 ? 'ahead' : value < 0 ? 'behind' : '')
+    value > 0 ? `+${number(value)}` : value < 0 ? `−${number(-value)}` : 'Even'
+  const tone = (value: number) => (value > 0 ? 'ahead' : value < 0 ? 'behind' : 'even')
   const rows: [string, number, number][] = [
     ['Gold', me.gold, them.gold],
     ['CS', me.cs, them.cs],
@@ -225,44 +227,40 @@ function Matchup({ card }: { card: MatchupCard }) {
       ? [['XP', me.xp, them.xp] as [string, number, number]]
       : []),
   ]
-  const heading = (side: typeof me) => (
-    <th scope="col">
-      <span className="matchup-champion">
-        {side.championId && <img src={championIcon(side.championId)} alt="" loading="lazy" />}
-        <span>
-          {side.name}
-          <small>
-            {side.kda.join('/')}
-            {side.level ? ` · Lv ${side.level}` : ''}
-          </small>
-        </span>
+  const side = (who: typeof me, mirrored: boolean) => (
+    <div className={`vs-side ${mirrored ? 'mirrored' : ''}`}>
+      {who.championId && <img src={championIcon(who.championId)} alt="" loading="lazy" />}
+      <span>
+        <strong>{who.name}</strong>
+        <small>
+          {who.kda.join(' / ')}
+          {who.level ? ` · Lv ${who.level}` : ''}
+        </small>
       </span>
-    </th>
+    </div>
   )
   return (
     <div className="timeline-card matchup-card">
-      <table>
-        <thead>
-          <tr>
-            <td />
-            {heading(me)}
-            {heading(them)}
-            <th scope="col" className="matchup-diff">
-              Diff
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([label, mine, theirs]) => (
-            <tr key={label}>
-              <th scope="row">{label}</th>
-              <td>{number(mine)}</td>
-              <td>{number(theirs)}</td>
-              <td className={`matchup-diff ${tone(mine - theirs)}`}>{signed(mine - theirs)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="vs-heading">
+        {side(me, false)}
+        <span className="vs-word">vs</span>
+        {side(them, true)}
+      </div>
+      <dl className="vs-stats">
+        {rows.map(([label, mine, theirs]) => {
+          const diff = mine - theirs
+          return (
+            <div key={label} className="vs-row">
+              <dd className={`vs-value ${diff > 0 ? 'leads' : ''}`}>{number(mine)}</dd>
+              <dt>
+                <span>{label}</span>
+                <b className={tone(diff)}>{signed(diff)}</b>
+              </dt>
+              <dd className={`vs-value theirs ${diff < 0 ? 'leads' : ''}`}>{number(theirs)}</dd>
+            </div>
+          )
+        })}
+      </dl>
     </div>
   )
 }

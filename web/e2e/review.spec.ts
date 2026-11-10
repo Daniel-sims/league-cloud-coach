@@ -269,6 +269,10 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     .poll(() => inList(timeline.getByRole('listitem').filter({ hasText: 'Should I have backed' })))
     .toBe(true)
   await page.screenshot({ path: testInfo.outputPath('review-owner-desktop.png'), fullPage: true })
+  await timeline
+    .locator('.matchup-card')
+    .last()
+    .screenshot({ path: testInfo.outputPath('matchup-light.png') })
   // Collapsing the sidebar gives the video the width; the choice survives reload.
   const before = await video.evaluate((v) => v.getBoundingClientRect().width)
   await page.getByRole('button', { name: 'Hide sidebar' }).click()
@@ -301,6 +305,13 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     await page.evaluate(() => Number(localStorage.getItem('league-cloud-coach-timeline-width'))),
   ).toBeGreaterThan(panel!.width + 140)
   await page.getByRole('button', { name: 'Back 30 seconds' }).click()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(false)
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+  await page
+    .getByRole('group', { name: 'Video seek controls' })
+    .screenshot({ path: testInfo.outputPath('seek-controls.png') })
   await page.getByRole('button', { name: 'Hide timeline' }).click()
   await expect(timeline).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('review-timeline-hidden.png') })
@@ -348,5 +359,10 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await expect(coachRow.getByRole('button', { name: 'Delete comment' })).toBeVisible()
   await expect(coachRow.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('review-owner-dark.png'), fullPage: true })
+  await page
+    .getByRole('region', { name: 'Review timeline' })
+    .locator('.matchup-card')
+    .first()
+    .screenshot({ path: testInfo.outputPath('matchup-dark.png') })
   await guestContext.close()
 })

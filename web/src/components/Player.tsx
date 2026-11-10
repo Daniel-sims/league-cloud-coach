@@ -9,6 +9,8 @@ type PlayerInstance = {
   getCurrentTime(): number
   getDuration(): number
   seekTo(seconds: number, allowSeekAhead: boolean): void
+  playVideo(): void
+  pauseVideo(): void
 }
 type YouTubeAPI = {
   Player: new (element: HTMLElement, options: Record<string, unknown>) => PlayerInstance
@@ -63,6 +65,7 @@ export function Player({
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const [playing, setPlaying] = useState(false)
   function seek(delta: number) {
     const player = instance.current
     if (state !== 'ready' || !player) return false
@@ -109,6 +112,10 @@ export function Player({
                 duration: () => player!.getDuration(),
                 seekTo: (seconds) => player!.seekTo(Math.max(0, seconds), true),
               })
+            },
+            // 1 playing, 3 buffering (still intends to play); anything else is stopped.
+            onStateChange: (event: { data: number }) => {
+              if (!disposed) setPlaying(event.data === 1 || event.data === 3)
             },
             onError: (event: { data: number }) => {
               if (disposed) return
@@ -161,7 +168,17 @@ export function Player({
           </div>
         )}
       </div>
-      <SeekControls seek={seek} disabled={state !== 'ready'} />
+      <SeekControls
+        seek={seek}
+        disabled={state !== 'ready'}
+        playing={playing}
+        onTogglePlay={() => {
+          const player = instance.current
+          if (state !== 'ready' || !player) return
+          if (playing) player.pauseVideo()
+          else player.playVideo()
+        }}
+      />
       <a
         className="text-link player-external"
         href={youtubeURL(videoId)}

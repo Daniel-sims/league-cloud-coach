@@ -29,6 +29,7 @@ export function StreamPlayer({
   const [remaining, setRemaining] = useState<number | null>(null)
   const [stopped, setStopped] = useState(false)
   const [canSeek, setCanSeek] = useState(false)
+  const [playing, setPlaying] = useState(false)
   useEffect(() => {
     const media = video.current
     if (!onController) return
@@ -214,7 +215,13 @@ export function StreamPlayer({
                   Number.isFinite(event.currentTarget.duration) && event.currentTarget.duration > 0,
                 )
               }
-              onEmptied={() => setCanSeek(false)}
+              onEmptied={() => {
+                setCanSeek(false)
+                setPlaying(false)
+              }}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onEnded={() => setPlaying(false)}
               onCanPlay={() => setLoading(false)}
               onPlaying={() => setLoading(false)}
               onWaiting={() => {
@@ -235,7 +242,19 @@ export function StreamPlayer({
               </div>
             )}
           </div>
-          {!stopped && <SeekControls seek={seek} disabled={!canSeek} />}
+          {!stopped && (
+            <SeekControls
+              seek={seek}
+              disabled={!canSeek}
+              playing={playing}
+              onTogglePlay={() => {
+                const media = video.current
+                if (!media) return
+                if (media.paused) void media.play().catch(() => {})
+                else media.pause()
+              }}
+            />
+          )}
           {!stopped && remaining !== null && (
             <p className="field-hint" role="status">
               {remaining} {remaining === 1 ? 'minute' : 'minutes'} remaining

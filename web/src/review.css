@@ -562,60 +562,105 @@
   color: var(--muted);
   text-align: left;
 }
-.matchup-card table {
-  width: 100%;
-  border-collapse: collapse;
+.matchup-card {
+  gap: 8px;
+  padding: 10px 12px;
+}
+.vs-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.vs-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.vs-side.mirrored {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.vs-side img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.vs-side span {
+  min-width: 0;
+  display: grid;
+}
+.vs-side strong {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-side small {
+  font-size: 10px;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.matchup-card th,
-.matchup-card td {
-  padding: 3px 4px;
+.vs-word {
+  font-size: 10px;
+  color: var(--muted);
+}
+.vs-stats {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.vs-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px minmax(0, 1fr);
+  align-items: baseline;
+}
+.vs-value {
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.vs-value.theirs {
   text-align: right;
-  font-weight: 400;
 }
-.matchup-card thead th {
-  vertical-align: bottom;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
-}
-.matchup-card tbody th {
-  text-align: left;
-  font-size: 10px;
-  color: var(--muted);
-}
-.matchup-champion {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 550;
-}
-.matchup-champion img {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-}
-.matchup-champion small {
-  display: block;
-  font-weight: 400;
-  font-size: 10px;
-  color: var(--muted);
-}
-.matchup-card .matchup-diff {
+.vs-value.leads {
+  color: var(--ink);
   font-weight: 600;
-  width: 64px;
 }
-.matchup-card thead .matchup-diff {
-  font-size: 10px;
-  font-weight: 400;
+.vs-row dt {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.vs-row dt span {
+  text-align: right;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
   color: var(--muted);
 }
-.matchup-diff.ahead {
+.vs-row dt b {
+  font-size: 12px;
+  font-weight: 600;
+}
+.vs-row dt b.ahead {
   color: var(--ahead);
 }
-.matchup-diff.behind {
+.vs-row dt b.behind {
   color: var(--behind);
+}
+.vs-row dt b.even {
+  font-weight: 400;
+  color: var(--muted);
 }
 
 /* Comments */

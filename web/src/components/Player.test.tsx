@@ -12,12 +12,18 @@ it('uses the same jumps for YouTube controls, bounds seeks, and cleans up the pl
     position = seconds
   })
   const destroy = vi.fn()
+  const playVideo = vi.fn()
+  const pauseVideo = vi.fn()
+  let events: { onStateChange: (event: { data: number }) => void } | undefined
   window.YT = {
     Player: class {
       constructor(_element: HTMLElement, options: Record<string, unknown>) {
+        events = options.events as typeof events
         queueMicrotask(() => (options.events as { onReady: () => void }).onReady())
       }
       destroy = destroy
+      playVideo = playVideo
+      pauseVideo = pauseVideo
       getCurrentTime = () => position
       getDuration = () => 120
       seekTo = seekTo
@@ -38,6 +44,11 @@ it('uses the same jumps for YouTube controls, bounds seeks, and cleans up the pl
   position = 119
   fireEvent.keyDown(forward, { key: 'ArrowRight', shiftKey: true })
   expect(seekTo).toHaveBeenLastCalledWith(120, true)
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  expect(playVideo).toHaveBeenCalledOnce()
+  await act(async () => events!.onStateChange({ data: 1 }))
+  fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
+  expect(pauseVideo).toHaveBeenCalledOnce()
   view.unmount()
   expect(destroy).toHaveBeenCalledOnce()
 })
