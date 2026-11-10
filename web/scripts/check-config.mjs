@@ -2,7 +2,7 @@ const project = process.env.VITE_SUPABASE_URL
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
 if (!project || !key || project.includes('your-project')) {
   throw new Error(
-    'Set the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY repository variables before deploying. See web/README.md.',
+    'Set the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY repository variables before deploying. See README.md.',
   )
 }
 const url = new URL(project)

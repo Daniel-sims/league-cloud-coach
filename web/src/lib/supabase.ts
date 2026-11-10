@@ -26,7 +26,7 @@ export async function rpc<T>(name: string, args?: Record<string, unknown>): Prom
     if (error.code === '42501')
       throw new AccessDeniedError('This account does not have permission to manage this library.')
     if (error.code === 'PGRST202')
-      throw new Error('The database setup needs to be completed. See web/README.md.')
+      throw new Error('The database setup needs to be completed. See README.md.')
     throw new Error(error.message || 'Could not reach your library. Please try again.')
   }
   return data as T

@@ -1,10 +1,10 @@
 # Agent guide: League Cloud Coach
 
-All paths and commands below are relative to the repository root, even when this guide is read from `web/AGENTS.md`. In the standalone repository this same guide is exported as root `AGENTS.md`.
+All paths and commands below are relative to this independent web repository root, `~/Documents/Dev/league-cloud-coach/`. This root guide is canonical and maintained directly.
 
 ## Start of session
 
-1. Read the product README (`web/README.md`, also exported as root `README.md` in the standalone repository).
+1. Read the root product `README.md`.
 2. Read `docs/PROJECT_STATE.md` for the current deployment, verified state, and outstanding acceptance work.
 3. Read `docs/league-cloud-coach-web-plan.md` for design decisions and native integration findings. Its implementation-order sections explain the original plan; they are not evidence that completed work is still pending.
 4. Inspect Git status, branch, and remotes. Do not overwrite unrelated edits. Read the files relevant to the task before changing architecture or recreating services.
@@ -71,7 +71,7 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 
 - Keep hash routing (`/#/library`, `/#/watch/<token>`) for Pages deep links. Respect the repository base path in Vite builds and OAuth callbacks.
 - The Google authorised redirect URI is the **Supabase** `/auth/v1/callback` URL. The Pages origin belongs in Google's separate authorised JavaScript origins field.
-- Google client ID and secret must belong to the same OAuth client. A masked secret is unusable. See `web/README.md` for the tested setup and failure diagnosis.
+- Google client ID and secret must belong to the same OAuth client. A masked secret is unusable. See `README.md` for the tested setup and failure diagnosis.
 - PKCE must start and finish in the same browser. Remove response codes/errors from history, and never echo provider descriptions that can contain one-time codes.
 - Keep the YouTube iframe origin/referrer behaviour; suppressing the referrer can cause error 153.
 - Build configuration may contain a publishable Supabase key or legacy anon key. Never bundle `service_role`, `sb_secret_…`, Google secrets, management tokens, or refresh tokens.
@@ -92,9 +92,9 @@ npm run build
 npm run test:browser
 ```
 
-`npm run test:browser` uses installed Chrome on macOS, otherwise Playwright Chromium (`npx playwright install chromium`). Its backend is simulated; never describe those tests as real Google login or live Supabase authorization checks. CI independently runs real SQL permission tests against PostgreSQL 17. Setup, database-test commands, and browser limitations are in `web/README.md`.
+`npm run test:browser` uses installed Chrome on macOS, otherwise Playwright Chromium (`npx playwright install chromium`). Its backend is simulated; never describe those tests as real Google login or live Supabase authorization checks. CI independently runs real SQL permission tests against PostgreSQL 17. Setup, database-test commands, and browser limitations are in `README.md`.
 
-Use appropriate checks for the change. Prose-only changes need link/path and export checks, not native builds or repeated full browser runs. Database permission changes require security tests, including cross-owner and anonymous access. Keep fixture tests disposable. Report verification limits honestly.
+Use appropriate checks for the change. Prose-only changes need link/path checks, not native builds or repeated full browser runs. Database permission changes require security tests, including cross-owner and anonymous access. Keep fixture tests disposable. Report verification limits honestly.
 
 ## Design and working style
 
@@ -102,12 +102,20 @@ Keep the UI quiet and video-focused: system fonts, neutral surfaces, restrained 
 
 ## Handoff and repository boundaries
 
-The standalone repo is `Daniel-sims/league-cloud-coach`. Native League Helper source is intentionally absent. If working from the original native workspace, `scripts/export-cloud-coach.py <destination>` copies web-only source, this guide as root `AGENTS.md`, the full product README, and shared handoff docs. Check destination edits before exporting. Never publish native history or local recordings as part of the web repository.
+This is the canonical repository `Daniel-sims/league-cloud-coach`, with a permanent
+checkout at `~/Documents/Dev/league-cloud-coach/` and its own Git history and
+`origin`. The native desktop app is in the independent sibling `../league-helper/`.
+Develop and commit web/backend/deployment changes here. There is no export helper,
+source synchronization or generated root README. Keep root `AGENTS.md` and
+`README.md` current directly. Do not recreate web source in the native workspace,
+attach the web remote there, or publish native history, local databases or
+personal recordings into this public repository. Frontend source stays under
+`web/`, which is a regular directory, not a nested repository.
 
 Do not depend on a previous session's temporary checkout, browser, CLI login, or running server. In a new session, inspect the repository and service status again. Update `docs/PROJECT_STATE.md` when behaviour, deployment, or remaining work materially changes; keep product scope in the README and architectural decisions in the plan. Store no personal account identifiers or secrets in these public documents.
 
-Companion capabilities: only SHA-256 hashes are stored in private `companion_devices`; browser approval/revocation requires an enabled owner. Only the service role may authorize raw tokens or publish review data. Never accept raw Riot identity payloads in the companion review schema or add browser JWTs to native pairing links. `companion` uses its own authorization and must deploy with `verify_jwt = false`. Retain imported ultimate video timestamps when refreshing the same match timeline. Native app changes remain in the original workspace only.
+Companion capabilities: only SHA-256 hashes are stored in private `companion_devices`; browser approval/revocation requires an enabled owner. Only the service role may authorize raw tokens or publish review data. Never accept raw Riot identity payloads in the companion review schema or add browser JWTs to native pairing links. `companion` uses its own authorization and must deploy with `verify_jwt = false`. Retain imported ultimate video timestamps when refreshing the same match timeline. Native app changes belong in `../league-helper/` only. Update both repositories when their companion API contract changes.
 
-Drawing captures: `DrawingCapture.tsx` and `lib/drawing.ts` implement frozen-frame editing. Stream uses decoded video pixels; YouTube uses an explicit one-frame tab share. Never silently request display capture. `recording_captures` stores bounded private JPEG bytes (256 KiB each, 50 per recording); list metadata separately and fetch images only through capability/owner RPCs. Preserve coach author-key deletion rules and reject revoked/expired links. Saved captures are flattened stills; originals are unchanged. Include `capture-security.sql` in disposable permission checks. The generated base64 test video in `web/e2e/fixtures/` contains no personal recording and must survive the web-only export.
+Drawing captures: `DrawingCapture.tsx` and `lib/drawing.ts` implement frozen-frame editing. Stream uses decoded video pixels; YouTube uses an explicit one-frame tab share. Never silently request display capture. `recording_captures` stores bounded private JPEG bytes (256 KiB each, 50 per recording); list metadata separately and fetch images only through capability/owner RPCs. Preserve coach author-key deletion rules and reject revoked/expired links. Saved captures are flattened stills; originals are unchanged. Include `capture-security.sql` in disposable permission checks. The generated base64 test video in `web/e2e/fixtures/` contains no personal recording and belongs to this web repository.
 
 Library browser cache: `web/src/lib/library-cache.ts` holds only explicitly allowlisted recording display metadata and bounded image blobs, scoped to project/account. Keep normal session/membership checks before reading it. Never persist signed image/playback URLs, share capabilities or credentials here. Clear on sign-out/account switch/explicit access denial; reject stale in-flight metadata writes after mutations/logout and prune removed recording previews. Library list metadata must render independently of upload reconciliation.

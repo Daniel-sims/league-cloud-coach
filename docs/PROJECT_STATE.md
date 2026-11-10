@@ -2,6 +2,40 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Independent desktop and web workspaces
+
+The source repositories were separated on 10 November 2026. The permanent web
+checkout is `~/Documents/Dev/league-cloud-coach/`, connected to the existing
+`https://github.com/Daniel-sims/league-cloud-coach.git` remote and its independent
+history. The desktop checkout is `../league-helper/`, with its original local
+history and no configured remote at the split. The temporary drawing-release
+checkout is no longer the development workspace.
+
+This repository now owns web/backend/deployment source directly: `web/`,
+`supabase/`, web docs and the Pages workflow. The native repository's duplicate
+web folders, workflow, web handoff/plan and export helper were removed after
+all 117 current web/backend/workflow/document files were verified byte-for-byte
+against the published checkout. Ignored local web environment, dependencies
+and linked Supabase state moved into this permanent web checkout and remain
+ignored. No cloud project, database or hosting resource was recreated.
+
+Root `README.md` and `AGENTS.md` are canonical and maintained directly; their
+former `web/` duplicates were removed. There is no export/synchronization step.
+Frontend source remains under `web/` to preserve existing build/CI paths. Native
+companion upload code and research stay in the desktop repository; update both
+repositories when their HTTP contract changes. Old release sections below
+record the export workflow as historical context, not current instructions.
+
+Verification from the permanent checkout: all 132 web unit/component/handler
+tests and the production build pass. The native package builds independently
+and all five CloudCoachClient tests pass with the web folders absent. Current
+README/agent/integration document links resolve across the sibling layout.
+Source checks confirm unchanged native implementation and unchanged transferred
+web/backend application files, apart from updating missing README references.
+Local `.env.local` and Supabase link state remain ignored. The repository-boundary
+update is being committed to the existing web remote; no cloud migration or
+resource changes are required.
+
 ## Capture timeline row layout correction
 
 Capture buttons now span all three timeline grid columns, with the text
@@ -280,14 +314,27 @@ No ordering or implementation beyond the current release should be inferred as a
 
 ## Native integration and source ownership
 
-The original workspace is League Helper, an implemented local SwiftUI/GRDB app. Cloud Coach's initial source is also kept under its `web/` and `supabase/` directories. `scripts/export-cloud-coach.py` exports only the web application and documentation into a separate checkout for `Daniel-sims/league-cloud-coach`; it is a copy operation, not automatic bidirectional sync. Inspect both checkouts before exporting so unrelated edits are not overwritten. The exporter also supplies the standalone root README and `AGENTS.md` from canonical web documents.
+League Cloud Coach is developed directly in its independent repository at
+`~/Documents/Dev/league-cloud-coach/`. The desktop app is the sibling
+`../league-helper/`. Neither repository is nested inside the other. Each has
+its own root README, agent guide and Git history. Web changes are committed
+here and published through the existing GitHub Pages workflow; no export helper
+or copy operation is part of development. Do not use an old temporary release
+checkout as the canonical source.
 
-Temporary export directories used during development are disposable. In a fresh environment, clone the standalone repository or work from the original workspace; do not assume a prior `/private/tmp` checkout or server still exists. Native code and history must not be published into the public web repo.
+`web/` and `supabase/` belong here. The root guides and this web project state
+are maintained here directly. The native repository owns `LeagueHelper/`,
+`LeagueHelperKit/`, native research and `docs/cloud-coach-companion.md` for its
+upload client. Companion HTTP APIs connect the apps; they do not need shared
+source folders to build.
 
-Agent entry points are maintained explicitly: root `AGENTS.md` in the native workspace covers repository boundaries and native conventions; `web/AGENTS.md` is the canonical web/backend guide and is also exported as the standalone root `AGENTS.md`. The standalone root README is the full `web/README.md` with links rebased. Export includes this state file and the implementation plan, so future agents need no access to the original chat or native checkout to understand the web project.
-
-Native capture writes HEVC/AAC MOV originals under `~/Movies/League Helper/`. Capture implementation is currently app-target code. The silent, low-frame-rate AI proxy is unsuitable for coaching playback. Preserve game/video clock anchors for later timelines. See the original workspace's `CLAUDE.md` and capture/review research before changing native behaviour; those native files are intentionally absent from the standalone web repository.
+Native capture writes HEVC/AAC MOV originals under `~/Movies/League Helper/`.
+The silent, low-frame-rate AI proxy is unsuitable for coaching playback.
+Preserve game/video clock anchors. Read the sibling desktop repository's
+`CLAUDE.md` and capture/review research before native changes. Native history,
+source, local databases, recordings and private job files must stay out of this
+public web repository. Existing history here is already web-only and is kept.
 
 ## Updating this handoff
 
-After meaningful work, update the date, implemented behaviour, verification, remaining acceptance work, and deployment pointers as needed. Keep credentials and personal account data out. Keep architectural rationale in `docs/league-cloud-coach-web-plan.md` and repeatable operational steps in `web/README.md`. Check current Git/CI/service state instead of treating historical test counts or a previous deployment as a new verification.
+After meaningful work, update the date, implemented behaviour, verification, remaining acceptance work, and deployment pointers as needed. Keep credentials and personal account data out. Keep architectural rationale in `docs/league-cloud-coach-web-plan.md` and repeatable operational steps in the root `README.md`. Check current Git/CI/service state instead of treating historical test counts or a previous deployment as a new verification.

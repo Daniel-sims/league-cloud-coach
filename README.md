@@ -42,7 +42,7 @@ Other Google users may authenticate, but signing in does not automatically grant
 
 ### Outside the current release
 
-There is no automatic YouTube/channel integration, Mac companion, match-level notes or AI analysis in this web release.
+There is no automatic YouTube/channel integration, match-level notes or AI analysis in this web release. The existing League Helper desktop app supplies Push to web from its separate repository.
 
 ### Review timeline
 
@@ -86,9 +86,17 @@ YouTube recordings use unlisted sharing. Anyone with a YouTube URL can watch or 
 | `supabase/tests/` | Disposable-database permission/security checks |
 | `.github/workflows/cloud-coach-web.yml` | Verification and deployment pipeline |
 
-For agents, read `web/AGENTS.md` (also the standalone root `AGENTS.md`), then [current project state](docs/PROJECT_STATE.md) and the [implementation decisions](docs/league-cloud-coach-web-plan.md). The state file records completed setup and remaining acceptance work so a fresh session does not recreate resources. These are durable project documents; previous chat history, a temporary checkout, or an existing login should not be assumed.
+For agents, read the root `AGENTS.md`, then [current project state](docs/PROJECT_STATE.md) and the [implementation decisions](docs/league-cloud-coach-web-plan.md). The state file records completed setup and remaining acceptance work so a fresh session does not recreate resources. These are durable project documents; previous chat history, a temporary checkout, or an existing login should not be assumed.
 
-In the original native workspace, `scripts/export-cloud-coach.py` copies web-only source to the standalone repo. The exported root README is generated from this complete document with relative links rebased, and root `AGENTS.md` comes from `web/AGENTS.md`. Native source, history, database files, and recordings must not be published in the public web repository.
+This is the canonical web/backend repository, with its permanent local checkout at
+`~/Documents/Dev/league-cloud-coach/` and `origin` set to
+`https://github.com/Daniel-sims/league-cloud-coach.git`. The desktop app is the
+independent sibling `../league-helper/`. Develop and commit web, Supabase and
+hosting changes here directly; there is no export or source-copying step.
+The root README and `AGENTS.md` are maintained directly. Frontend source remains
+under `web/` to preserve the existing build/deployment layout; that folder is
+not another Git repository. Native source, native history, local databases and
+personal recordings must not be published in this public web repository.
 
 ## Home and League account setup
 
