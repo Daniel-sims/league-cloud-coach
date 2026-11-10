@@ -8,7 +8,7 @@ export interface LeagueRepository {
   refreshProfile(id: string): Promise<void>
   sync(id: string, start: number): Promise<{ nextStart: number; hasMore: boolean }>
 }
-async function riotRequest<T>(body: object): Promise<T> {
+export async function riotRequest<T>(body: object): Promise<T> {
   if (!supabase) throw new Error('Sign in to connect your League account.')
   const {
     data: { session },

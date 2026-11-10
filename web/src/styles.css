@@ -1545,17 +1545,21 @@ strong {
     display: block;
   }
   .sidebar {
-    height: 62px;
+    height: auto;
+    min-height: 62px;
     width: 100%;
     position: relative;
     flex-direction: row;
     border-right: 0;
     border-bottom: 1px solid #dfe3d4;
-    padding: 0 20px;
+    padding: 12px 20px;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .sidebar .brand {
     gap: 8px;
+    flex-shrink: 0;
   }
   .sidebar .brand > span:last-child {
     display: block;
@@ -1582,6 +1586,9 @@ strong {
     width: auto;
     display: flex;
     gap: 5px;
+    flex: 1 1 240px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
   .nav-item {
     font-size: 9px;

@@ -64,7 +64,9 @@ async function setup(context: BrowserContext, empty = false) {
         match('3', { championId: 222, championName: 'Jinx', teamPosition: 'BOTTOM' }),
       ]
     if (name === 'riot') {
-      if (args.action === 'connect') {
+      if (args.action === 'token-status') result = { configured: false, sharedDefault: false }
+      else if (args.action === 'save-token' || args.action === 'remove-token') result = { ok: true }
+      else if (args.action === 'connect') {
         profiles = [profile]
         result = { id: profile.id }
       } else if (args.action === 'refresh-profile') result = { ok: true }
@@ -99,6 +101,39 @@ test('home loads stats, champion and result filters, scoreboard, and keeps the v
   await expect(page.getByRole('button', { name: 'Upload your first video' })).toBeVisible()
   await page.getByRole('link', { name: 'Home', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Recent games' })).toBeVisible()
+})
+test('settings lets the owner save a masked Riot token and sign-out requires confirmation', async ({
+  page,
+}) => {
+  await setup(page.context())
+  let signOutCalls = 0
+  await page.route('**/auth/v1/logout*', async (route) => {
+    signOutCalls++
+    await route.fulfill({ status: 204 })
+  })
+  await page.goto('/#/home')
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
+  await expect(settings.getByText('No Riot token saved yet.')).toBeVisible()
+  const input = settings.getByLabel('Riot API token')
+  await expect(input).toHaveAttribute('type', 'password')
+  await input.fill('RGAPI-' + 'a'.repeat(36))
+  await settings.getByRole('button', { name: 'Save token' }).click()
+  await expect(settings.getByText('Riot token saved and verified.')).toBeVisible()
+  await expect(input).toHaveValue('')
+  await settings.getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  const confirmation = page.getByRole('dialog', { name: 'Sign out?', exact: true })
+  await expect(confirmation).toBeVisible()
+  expect(signOutCalls).toBe(0)
+  await confirmation.getByRole('button', { name: 'Cancel' }).click()
+  await expect(confirmation).not.toBeVisible()
+  expect(signOutCalls).toBe(0)
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await confirmation.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await expect(confirmation).not.toBeVisible()
+  expect(signOutCalls).toBe(1)
+  await expect(page.getByRole('button', { name: 'Settings', exact: true })).not.toBeVisible()
 })
 test('mobile home connects an account with keyboard access and fits the viewport', async ({
   page,

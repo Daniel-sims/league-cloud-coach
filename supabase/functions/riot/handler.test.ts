@@ -1,6 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createRiotHandler } from "./handler";
+import { webcrypto } from "node:crypto";
+import { decryptToken } from "./tokens";
+const encryptionSecret = Buffer.alloc(32, 7).toString("base64");
+let credential: { encrypted_token: string; updated_at: string } | null = null;
 
 const id = "11111111-1111-4111-8111-111111111111";
 const getUser = vi.fn(),
@@ -19,6 +23,11 @@ const profile = {
 function table(name: string) {
   let operation = "select";
   const query = {
+    delete: vi.fn(() => {
+      writes(name, { deleted: true });
+      operation = "write";
+      return query;
+    }),
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
     upsert: vi.fn((data: unknown) => {
@@ -42,9 +51,11 @@ function table(name: string) {
             ? available
               ? profile
               : null
-            : cached
-              ? { match_id: "EUW1_1" }
-              : null,
+            : name === "riot_credentials"
+              ? credential
+              : cached
+                ? { match_id: "EUW1_1" }
+                : null,
       error: null,
     })),
     then: (resolve: (value: unknown) => unknown) =>
@@ -56,11 +67,17 @@ function table(name: string) {
   return query;
 }
 const handler = createRiotHandler({
-  env: (key) => (key === "RIOT_API_KEY" ? "private-riot-key" : "backend"),
+  env: (key) =>
+    key === "RIOT_TOKEN_ENCRYPTION_KEY"
+      ? encryptionSecret
+      : key === "RIOT_API_KEY"
+        ? "private-riot-key"
+        : "backend",
   createClient: () =>
     ({ auth: { getUser }, from: table, rpc }) as unknown as SupabaseClient,
   fetch: provider,
   sleep: async () => {},
+  crypto: webcrypto as unknown as Crypto,
 });
 const request = (body: unknown, jwt = "owner-jwt") =>
   handler(
@@ -72,6 +89,7 @@ const request = (body: unknown, jwt = "owner-jwt") =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  credential = null;
   member = true;
   available = true;
   cached = false;
@@ -232,4 +250,61 @@ it("returns a safe key-expiry message and respects profile sync exclusion", asyn
   expect(
     (await request({ action: "sync", profileId: id, start: 0 })).status,
   ).toBe(409);
+});
+
+it("verifies a personal token before saving only encrypted data under the verified owner", async () => {
+  const token = "RGAPI-" + "a".repeat(36);
+  const response = await request({
+    action: "save-token",
+    token,
+    platform: "euw1",
+    ownerId: "attacker",
+  });
+  expect(response.status).toBe(200);
+  expect(provider.mock.calls[0][0]).toBe(
+    "https://euw1.api.riotgames.com/lol/status/v4/platform-data",
+  );
+  expect(provider.mock.calls[0][1].headers["X-Riot-Token"]).toBe(token);
+  const stored = writes.mock.calls.find((c) => c[0] === "riot_credentials")![1];
+  expect(stored.owner_id).toBe("owner");
+  expect(JSON.stringify(stored)).not.toContain(token);
+  expect(
+    await decryptToken(
+      stored.encrypted_token,
+      encryptionSecret,
+      webcrypto as unknown as Crypto,
+    ),
+  ).toBe(token);
+  expect(await response.text()).not.toContain(token);
+  credential = {
+    encrypted_token: stored.encrypted_token,
+    updated_at: "2026-11-10",
+  };
+  const status = await request({ action: "token-status" });
+  expect(await status.json()).toEqual({
+    configured: true,
+    sharedDefault: true,
+    updatedAt: "2026-11-10",
+  });
+  const sync = await request({ action: "sync", profileId: id, start: 0 });
+  expect(sync.status).toBe(200);
+  expect(provider.mock.calls.at(-1)![1].headers["X-Riot-Token"]).toBe(token);
+});
+it("does not replace the saved token when Riot rejects a replacement", async () => {
+  provider.mockResolvedValueOnce(new Response("do-not-echo", { status: 403 }));
+  const response = await request({
+    action: "save-token",
+    token: "RGAPI-" + "b".repeat(36),
+    platform: "euw1",
+  });
+  expect(response.status).toBe(503);
+  expect(writes).not.toHaveBeenCalled();
+  expect(await response.text()).not.toContain("do-not-echo");
+});
+it("removes only the verified owner token and never calls Riot for status or removal", async () => {
+  expect(
+    (await request({ action: "remove-token", ownerId: "attacker" })).status,
+  ).toBe(200);
+  expect(writes).toHaveBeenCalledWith("riot_credentials", { deleted: true });
+  expect(provider).not.toHaveBeenCalled();
 });

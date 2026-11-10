@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { decryptToken, encryptToken } from "./tokens.ts";
 
 type Dependencies = {
   env(key: string): string | undefined;
   createClient(url: string, key: string, options?: object): SupabaseClient;
   fetch: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
+  crypto?: Crypto;
 };
 class Failure extends Error {
   constructor(
@@ -68,14 +70,86 @@ export function createRiotHandler(deps: Dependencies) {
       if (
         !body ||
         typeof body !== "object" ||
-        !["connect", "sync", "refresh-profile"].includes(body.action)
+        ![
+          "connect",
+          "sync",
+          "refresh-profile",
+          "token-status",
+          "save-token",
+          "remove-token",
+        ].includes(body.action)
       )
         throw new Failure(400, "Choose a League action.");
-      const key = deps.env("RIOT_API_KEY");
+      const { data: credential, error: credentialError } = await admin
+        .from("riot_credentials")
+        .select("encrypted_token,updated_at")
+        .eq("owner_id", ownerId)
+        .maybeSingle();
+      if (credentialError)
+        throw new Failure(
+          503,
+          "Could not open Riot settings. Please try again.",
+        );
+      if (body.action === "token-status")
+        return reply({
+          configured: Boolean(credential),
+          sharedDefault: Boolean(deps.env("RIOT_API_KEY")),
+          updatedAt: credential?.updated_at ?? null,
+        });
+      if (body.action === "remove-token") {
+        const { error } = await admin
+          .from("riot_credentials")
+          .delete()
+          .eq("owner_id", ownerId);
+        if (error)
+          throw new Failure(
+            503,
+            "Could not remove your Riot token. Please retry.",
+          );
+        return reply({ ok: true });
+      }
+      const encryptionSecret = deps.env("RIOT_TOKEN_ENCRYPTION_KEY");
+      let key: string | undefined;
+      if (body.action === "save-token") {
+        if (
+          typeof body.token !== "string" ||
+          !/^RGAPI-[A-Za-z0-9-]{20,100}$/.test(body.token.trim()) ||
+          typeof body.platform !== "string" ||
+          !regions[body.platform]
+        )
+          throw new Failure(
+            400,
+            "Enter a Riot API token and supported region.",
+          );
+        if (!encryptionSecret)
+          throw new Failure(
+            503,
+            "Token storage is temporarily unavailable. Please try again later.",
+          );
+        key = body.token.trim();
+      } else if (credential) {
+        if (!encryptionSecret)
+          throw new Failure(
+            503,
+            "Token storage is temporarily unavailable. Please try again later.",
+          );
+        try {
+          key = await decryptToken(
+            credential.encrypted_token,
+            encryptionSecret,
+            deps.crypto,
+          );
+        } catch {
+          throw new Failure(
+            503,
+            "Could not open your saved Riot token. Save it again in Settings.",
+          );
+        }
+      } else key = deps.env("RIOT_API_KEY");
       if (!key)
         throw new Failure(
           503,
-          "League sync is not configured yet. The workspace administrator needs to connect Riot.",
+          "Add your Riot API token in Settings to sync your League account.",
         );
       const sleep =
         deps.sleep ??
@@ -101,7 +175,7 @@ export function createRiotHandler(deps: Dependencies) {
         if (response.status === 401 || response.status === 403)
           throw new Failure(
             503,
-            "The Riot connection has expired. Ask the workspace administrator to renew it, then retry.",
+            "Riot rejected this token. Replace it in Settings with a current API token, then retry.",
           );
         if (response.status === 404)
           throw new Failure(
@@ -152,6 +226,31 @@ export function createRiotHandler(deps: Dependencies) {
             losses: r.losses,
           })),
         };
+      }
+      if (body.action === "save-token") {
+        await riot(body.platform, "/lol/status/v4/platform-data");
+        let encrypted: string;
+        try {
+          encrypted = await encryptToken(key!, encryptionSecret!, deps.crypto);
+        } catch {
+          throw new Failure(
+            503,
+            "Could not securely save your Riot token. Please retry.",
+          );
+        }
+        const { error } = await admin
+          .from("riot_credentials")
+          .upsert({
+            owner_id: ownerId,
+            encrypted_token: encrypted,
+            updated_at: new Date().toISOString(),
+          });
+        if (error)
+          throw new Failure(
+            503,
+            "Could not save your Riot token. Please retry.",
+          );
+        return reply({ ok: true });
       }
       if (body.action === "connect") {
         if (
@@ -334,14 +433,12 @@ export function createRiotHandler(deps: Dependencies) {
               ),
             ),
           };
-          const { error } = await admin
-            .from("league_matches")
-            .upsert({
-              profile_id: profile.id,
-              match_id: id,
-              game_creation: info.gameCreation,
-              match: data,
-            });
+          const { error } = await admin.from("league_matches").upsert({
+            profile_id: profile.id,
+            match_id: id,
+            game_creation: info.gameCreation,
+            match: data,
+          });
           if (error)
             throw new Failure(
               503,

@@ -17,7 +17,6 @@ import {
   House,
   Link2,
   LoaderCircle,
-  LogOut,
   MoreHorizontal,
   Play,
   Plus,
@@ -32,6 +31,7 @@ import { Player } from './components/Player'
 import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
+import { Settings } from './components/Settings'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
@@ -114,6 +114,11 @@ export function App({ authError = null }: { authError?: string | null }) {
   const [signingIn, setSigningIn] = useState(false)
   const [help, setHelp] = useState(false)
   const [setup, setSetup] = useState(false)
+  const [settings, setSettings] = useState(false)
+  const [settingsVersion, setSettingsVersion] = useState(0)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
   const local = isDev && route.startsWith('/preview')
   const home = route === '/home'
 
@@ -188,13 +193,19 @@ export function App({ authError = null }: { authError?: string | null }) {
     }
   }
   async function signOut() {
-    const { error } = await supabase!.auth.signOut()
-    if (error) {
-      setAuthMessage('Could not sign out. Please try again.')
-      return
+    setSigningOut(true)
+    setSignOutError('')
+    try {
+      const { error } = await supabase!.auth.signOut()
+      if (error) throw error
+      setConfirmSignOut(false)
+      setMember(false)
+      window.location.hash = '/home'
+    } catch {
+      setSignOutError('Could not sign out. Please try again.')
+    } finally {
+      setSigningOut(false)
     }
-    setMember(false)
-    window.location.hash = '/library'
   }
   const watchToken = route.startsWith('/watch/') ? route.slice('/watch/'.length) : null
   if (watchToken !== null) return <Watch key={watchToken} token={watchToken} />
@@ -213,7 +224,10 @@ export function App({ authError = null }: { authError?: string | null }) {
             Home
             {home && <ChevronRight size={14} className="nav-chevron" />}
           </a>
-          <a className={`nav-item ${!home ? 'active' : ''}`} href={local ? '#/preview' : '#/library'}>
+          <a
+            className={`nav-item ${!home ? 'active' : ''}`}
+            href={local ? '#/preview' : '#/library'}
+          >
             <FileVideo size={18} />
             Video library
             <ChevronRight size={14} className="nav-chevron" />
@@ -222,6 +236,12 @@ export function App({ authError = null }: { authError?: string | null }) {
             <CircleHelp size={18} />
             How it works
           </button>
+          {session && member && (
+            <button className="nav-item" onClick={() => setSettings(true)}>
+              <Settings2 size={18} />
+              Settings
+            </button>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <span className="status-dot" />
@@ -249,8 +269,14 @@ export function App({ authError = null }: { authError?: string | null }) {
               <>
                 <span className="account-avatar">{String(userName).slice(0, 1).toUpperCase()}</span>
                 <span className="account-name">{userName}</span>
-                <button className="icon-button" aria-label="Sign out" onClick={signOut}>
-                  <LogOut size={16} />
+                <button
+                  className="button button-small secondary"
+                  onClick={() => {
+                    setSignOutError('')
+                    setConfirmSignOut(true)
+                  }}
+                >
+                  Sign out
                 </button>
               </>
             ) : (
@@ -287,7 +313,7 @@ export function App({ authError = null }: { authError?: string | null }) {
                 local={local}
               />
             ) : home && session ? (
-              <Home key={session.user.id} ownerId={session.user.id} />
+              <Home key={`${session.user.id}:${settingsVersion}`} ownerId={session.user.id} />
             ) : (
               <Library
                 key={local ? 'local' : session!.user.id}
@@ -305,7 +331,13 @@ export function App({ authError = null }: { authError?: string | null }) {
                 This library is currently open to its owner only. Your account hasn’t been given
                 access yet.
               </p>
-              <button className="button secondary" onClick={signOut}>
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setSignOutError('')
+                  setConfirmSignOut(true)
+                }}
+              >
                 Use a different Google account
               </button>
             </div>
@@ -318,6 +350,36 @@ export function App({ authError = null }: { authError?: string | null }) {
           <span>A little reflection. A better next game.</span>
         </footer>
       </div>
+      {settings && session && member && (
+        <Settings
+          key={session.user.id}
+          onClose={() => setSettings(false)}
+          onSaved={() => setSettingsVersion((old) => old + 1)}
+        />
+      )}
+      {confirmSignOut && (
+        <Dialog
+          title="Sign out?"
+          onClose={() => {
+            if (!signingOut) setConfirmSignOut(false)
+          }}
+        >
+          <p className="dialog-intro">You’ll need to sign in again to open your workspace.</p>
+          {signOutError && <ErrorNotice message={signOutError} />}
+          <div className="dialog-actions">
+            <button
+              className="button secondary"
+              onClick={() => setConfirmSignOut(false)}
+              disabled={signingOut}
+            >
+              Cancel
+            </button>
+            <button className="button" onClick={() => void signOut()} disabled={signingOut}>
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </button>
+          </div>
+        </Dialog>
+      )}
       {help && (
         <Dialog title="From your game to your coach" onClose={() => setHelp(false)}>
           <p className="dialog-intro">Three simple steps. Your coach doesn’t need an account.</p>

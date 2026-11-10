@@ -27,7 +27,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/App.tsx` | Account state, library, forms/dialogs, owner video pages, public watch routes |
 | `web/src/components/Home.tsx`, `Loadout.tsx`, `web/src/league.css` | Owner Home, profile/champion selection, stats, history and scoreboard UI |
 | `web/src/lib/league.ts`, `league-repository.ts` | Native-matched stats/filter rules and private profile/match repository |
-| `supabase/functions/riot/` | Verified owner-only Riot requests; backend-only RIOT_API_KEY, shared request budget and persisted match cache |
+| `supabase/functions/riot/` | Verified owner-only Riot requests, encrypted per-owner tokens, request budget and persisted match cache |
 | `web/src/main.tsx` | Completes the OAuth callback before rendering the app |
 | `web/src/lib/supabase.ts` | Browser Supabase client, RPC repository, PKCE handoff, app URLs |
 | `web/src/lib/auth-errors.ts` | Safe classification of provider errors without echoing codes/secrets |
@@ -59,7 +59,7 @@ This is a static React/TypeScript/Vite client, not a Next.js application. GitHub
 - `stream_imports` is private service-only import history, maintained atomically by a recordings insert trigger. It survives library removal so reconciliation does not intentionally restore removed entries. Never let anonymous/authenticated clients enumerate or erase this history.
 - A pasted URL cannot prove channel ownership or Unlisted visibility. Do not imply either is verified by the basic embed preview.
 - Migrations are append-only once applied. Do not reset the live project or run `supabase/tests/bootstrap-local.sql` there.
-- League profiles/matches have RLS and no anonymous/authenticated direct table grants. Enabled owners list only their own data through RPCs; only the verified Riot backend writes API-derived data. Keep Riot keys backend-only. Match payloads must never be added to public watch resolution. Preserve native remake, role-scoping, ratio, opponent and patch/split semantics in `league.ts`; tests and the README record the parity limits.
+- League profiles/matches have RLS and no anonymous/authenticated direct table grants. Enabled owners list only their own data through RPCs; only the verified Riot backend writes API-derived data. Settings submits user-entered Riot tokens once for validation and encrypted backend storage; never store them in browser persistence or return them from an API. Preserve `RIOT_TOKEN_ENCRYPTION_KEY` across deploys. Credential table access is service-only, with owner identity derived from verified JWTs. Match payloads/tokens must never be added to public watch resolution. Preserve native remake, role-scoping, ratio, opponent and patch/split semantics in `league.ts`; tests and the README record the parity limits.
 
 ## Authentication and deployment constraints
 
