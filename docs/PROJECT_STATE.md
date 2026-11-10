@@ -2,7 +2,7 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
-## Drawing captures (migration deployed; frontend publication in progress)
+## Drawing captures (deployed)
 
 Owner and watch pages now have **Draw** (D): pause/freeze a video frame, annotate
 with pen/highlighter/arrow/eraser, colour/width, undo/redo/clear, then **Capture
@@ -30,8 +30,15 @@ flattened stills, editable before saving. Recording removal cascades their
 metadata/images and leaves video originals alone.
 
 Deployment: migration `202611100005_drawing_captures.sql` is applied to the
-existing hosted project; the migration list confirms local/remote parity. The
-web-only frontend is being published through the standalone repository. No backend function/native rebuild is needed. The
+existing hosted project; the migration list confirms local/remote parity.
+Frontend release `4dd89bdda814dc7b8813658a07f0d9cdf2277bea` is deployed through
+[successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42884663848).
+CI passed all 132 tests, 22 Chrome workflows, runtime/build checks and eight
+PostgreSQL 17 permission suites. The public site returns HTTP 200 and its
+`index-CJG2q-LH.js` bundle contains the drawing editor and capture RPC integration.
+Live negative checks confirmed capture list/image/save/delete endpoints and
+direct-table reads reject anonymous/invalid-capability requests with 401/42501;
+no personal data or test capture was created. No backend function/native rebuild is needed. The
 native workspace has a clean starting `main` branch with no configured remote;
 no native source was changed or published. Generated test video is stored as
 base64 text so the export's movie-file exclusion does not drop it.
@@ -48,8 +55,9 @@ size validation, quotas, moderation, revocation, expired Stream sessions and
 disabled membership. Browser backend/auth/provider media are simulated; these
 checks do not prove a real YouTube picker or hosted Cloudflare capture. The
 web-only export includes the new migration, tests, synthetic fixture, canonical
-agent guide and rebased README. Frontend publication and live acceptance remain
-pending.
+agent guide and rebased README. Hosted migration and frontend publication are
+complete. Manual acceptance of the real YouTube tab picker and authenticated
+capture on a personal Cloudflare recording remains outstanding.
 
 ## Timeline uses available window height
 
