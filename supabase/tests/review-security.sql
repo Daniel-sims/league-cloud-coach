@@ -130,4 +130,4 @@ do $$ begin
     raise exception 'Revoked link commented'; exception when insufficient_privilege then null; end;
 end $$;
 rollback;
-cho 'PASS: review timelines, anchors, owner and coach comments, author keys, cross-owner and revoked-link denial'
+\echo 'PASS: review timelines, anchors, owner and coach comments, author keys, cross-owner and revoked-link denial'
