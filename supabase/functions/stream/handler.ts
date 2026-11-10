@@ -94,7 +94,7 @@ export function createStreamHandler(deps: Dependencies) {
         id = data[0].stream_video_id
         sessionExpires = data[0].session_expires_at
       } else if (
-        ['owner', 'add', 'upload-create', 'upload-status', 'upload-sync'].includes(body.action)
+        ['owner', 'thumbnail', 'add', 'upload-create', 'upload-status', 'upload-sync'].includes(body.action)
       ) {
         const jwt = request.headers.get('Authorization')?.replace(/^Bearer /, '')
         if (!jwt) throw new Failure(401, 'Sign in to manage your library.')
@@ -254,6 +254,11 @@ export function createStreamHandler(deps: Dependencies) {
       const playback = new URL(video.playback.hls)
       if (!/^customer-[a-zA-Z0-9-]+\.cloudflarestream\.com$/.test(playback.hostname))
         throw new Failure(502, 'Unexpected video host.')
+      if (body.action === 'thumbnail') {
+        playback.pathname = `/${signed.token}/thumbnails/thumbnail.jpg`
+        playback.search = new URLSearchParams({ time: '0s', height: '180', fit: 'clip' }).toString()
+        return reply({ url: playback.href, expiresAt: new Date(exp * 1000).toISOString() })
+      }
       playback.pathname = `/${signed.token}/manifest/video.m3u8`
       playback.search = ''
       return reply({

@@ -73,6 +73,11 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
       })
       result = { ok: true }
     }
+    if (name === 'stream' && args.action === 'thumbnail')
+      result = {
+        url: 'https://customer-test.cloudflarestream.com/signed-thumbnail/thumbnails/thumbnail.jpg?time=0s&height=180&fit=clip',
+        expiresAt: new Date(Date.now() + 300000).toISOString(),
+      }
     if (name === 'stream' && args.action === 'owner')
       result = {
         url: 'https://customer-test.cloudflarestream.com/keyboard-review.wav',
@@ -189,7 +194,8 @@ test('owner adds a recording, shares to a signed-out visitor, and revokes its ap
   await guest.reload()
   await expect(guest.getByRole('heading', { name: 'This game isn’t shared here.' })).toBeVisible()
   await page.getByRole('button', { name: 'Close dialog' }).click()
-  await expect(page.getByText('In your library', { exact: true })).toBeVisible()
+  await expect(page.getByText('In your library', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('GAME RECORDING', { exact: true })).toHaveCount(0)
   await guestContext.close()
 })
 
@@ -435,4 +441,59 @@ test('uploaded video uses precise keyboard seek steps without the native default
       .toBe(position)
   }
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true)
+})
+
+test('library drops redundant labels and shows a signed first-frame Stream thumbnail', async ({
+  page,
+}, testInfo) => {
+  const state: Fixture = {
+    member: true,
+    shared: false,
+    rows: [
+      {
+        id: recordingId,
+        title: 'Mid lane review',
+        youtube_video_id: null,
+        provider: 'stream',
+        stream_video_id: 'd'.repeat(32),
+        recorded_on: '2026-11-10',
+        created_at: '2026-11-10T12:00:00Z',
+        has_share: false,
+      },
+    ],
+  }
+  await mockBackend(page.context(), state)
+  await setOwnerSession(page.context())
+  const images: string[] = []
+  await page.route(
+    'https://customer-test.cloudflarestream.com/**/thumbnails/thumbnail.jpg?**',
+    (route) => {
+      images.push(route.request().url())
+      return route.fulfill({
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#253b31"/><text x="520" y="40" fill="white" font-size="24">00:00</text></svg>',
+      })
+    },
+  )
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/#/library')
+  const row = page.locator('.recording-row')
+  const image = row.locator('.recording-thumbnail img')
+  await expect(image).toBeVisible()
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(640)
+  expect(new URL(images[0]).searchParams.get('time')).toBe('0s')
+  expect(images[0]).toContain('/signed-thumbnail/')
+  await expect(row.getByText('In your library', { exact: true })).toHaveCount(0)
+  await expect(row.getByText('GAME RECORDING', { exact: true })).toHaveCount(0)
+  await page.screenshot({
+    path: testInfo.outputPath('library-first-frame-desktop.png'),
+    fullPage: true,
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(image).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({
+    path: testInfo.outputPath('library-first-frame-mobile.png'),
+    fullPage: true,
+  })
 })

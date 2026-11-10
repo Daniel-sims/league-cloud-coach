@@ -302,3 +302,25 @@ it('requires a verified enabled owner before listing uploads for reconciliation'
   expect((await request({ action: 'upload-sync' }, 'valid-jwt')).status).toBe(403)
   expect(provider).not.toHaveBeenCalled()
 })
+
+it('returns a private first-frame thumbnail only for an owned library recording', async () => {
+  ownerRpc.mockImplementation(async (name) => ({
+    data: name === 'is_library_owner' ? true : [{ id: 'owned', provider: 'stream', stream_video_id: id }],
+    error: null,
+  }))
+  const response = await request({ action: 'thumbnail', recordingId: 'owned' }, 'valid-jwt')
+  expect(response.status).toBe(200)
+  const result = await response.json()
+  const image = new URL(result.url)
+  expect(image.pathname).toBe('/signed-playback/thumbnails/thumbnail.jpg')
+  expect(image.searchParams.get('time')).toBe('0s')
+  expect(image.searchParams.get('fit')).toBe('clip')
+  expect(result.url).not.toContain(id)
+  const claims = JSON.parse(provider.mock.calls[1][1].body)
+  expect(claims.downloadable).toBe(false)
+  expect(claims.exp).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 300)
+  provider.mockClear()
+  expect((await request({ action: 'thumbnail', recordingId: 'other-owner' }, 'valid-jwt')).status).toBe(404)
+  expect(provider).not.toHaveBeenCalled()
+  expect((await request({ action: 'thumbnail', recordingId: 'owned' })).status).toBe(401)
+})

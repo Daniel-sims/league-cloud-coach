@@ -12,6 +12,8 @@ League Helper already provides a local Mac workflow for recording games and revi
 
 League Helper remains the recorder and local preparation companion. Its Push to web action uploads completed recordings, an attached match timeline, clock sync and ultimate-cast markers to this web application. Watching, sharing and commenting work entirely in the browser. A separate companion application is not required.
 
+Library rows show the title, date and provider, with a Shared indicator only when a link exists. Private Cloudflare videos use a signed thumbnail sampled at `0s`; previews load near the viewport and renew once if the image URL expires. YouTube entries retain YouTube's supplied thumbnail, since its embed API does not expose arbitrary frames. Thumbnail failures keep the play placeholder without blocking the library.
+
 ## Push to web from League Helper
 
 In the native app, choose **Push to web…** from a recording's actions or its player toolbar (Command-Shift-U). Choose **Connect to web**, approve the matching eight-character code in the browser using your enabled owner account, then return to League Helper and choose **Check connection**. The web sidebar's **Connected apps** page lists connections and lets you disconnect them. A connection expires after 90 days; use **Replace expired or disconnected connection** in League Helper to connect again.

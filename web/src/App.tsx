@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { Dialog } from './components/Dialog'
 import { Player } from './components/Player'
+import { RecordingThumbnail } from './components/RecordingThumbnail'
 import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
@@ -969,22 +970,12 @@ function RecordingRow({
         href={`#/${local ? 'preview/' : ''}video/${record.id}`}
         aria-label={`Watch ${record.title}`}
       >
-        {record.provider !== 'stream' && (
-          <img
-            loading="lazy"
-            src={`https://i.ytimg.com/vi/${record.youtube_video_id}/mqdefault.jpg`}
-            alt=""
-            onError={(e) => {
-              e.currentTarget.style.visibility = 'hidden'
-            }}
-          />
-        )}
+        <RecordingThumbnail record={record} />
         <span className="thumbnail-play">
           <Play size={17} fill="currentColor" />
         </span>
       </a>
       <div className="recording-details">
-        <span className="recording-kicker">GAME RECORDING</span>
         <a className="recording-title" href={`#/${local ? 'preview/' : ''}video/${record.id}`}>
           {record.title}
         </a>
@@ -994,10 +985,12 @@ function RecordingRow({
           <span>{record.provider === 'stream' ? 'Cloudflare Stream' : 'YouTube'}</span>
         </div>
       </div>
-      <span className={`share-status ${record.has_share ? 'is-shared' : ''}`}>
-        {record.has_share ? <Link2 size={12} /> : <ShieldCheck size={12} />}
-        {record.has_share ? 'Shared' : 'In your library'}
-      </span>
+      {record.has_share && (
+        <span className="share-status is-shared">
+          <Link2 size={12} />
+          Shared
+        </span>
+      )}
       <button
         className="button secondary button-small share-row-button"
         onClick={() => onAction('share')}

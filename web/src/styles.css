@@ -812,6 +812,11 @@ strong {
   flex-shrink: 0;
   background: #e1e6d8;
 }
+.recording-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .recording-thumbnail img {
   width: 100%;
   height: 100%;
@@ -837,11 +842,6 @@ strong {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.recording-kicker {
-  font-size: 7px;
-  letter-spacing: 1.5px;
-  color: #9da58e;
 }
 .recording-title {
   font-size: 14px;
@@ -1828,35 +1828,38 @@ strong {
     font-size: 7px;
   }
   .recording-row {
+    display: grid;
+    grid-template-columns: 102px minmax(0, 1fr) auto;
     gap: 12px;
-    flex-wrap: wrap;
     padding: 18px 0;
   }
   .recording-thumbnail {
     width: 102px;
+    grid-column: 1;
   }
   .recording-details {
+    grid-column: 2 / -1;
     gap: 6px;
   }
   .recording-title {
     font-size: 11px;
-  }
-  .recording-kicker {
-    font-size: 6px;
-    letter-spacing: 1px;
   }
   .recording-meta {
     font-size: 8px;
     gap: 6px;
   }
   .recording-row > .share-row-button {
-    margin-left: 114px;
+    grid-column: 2;
+    justify-self: start;
+    margin-left: 0;
     font-size: 9px;
     min-height: 30px;
     padding: 6px 9px;
   }
   .row-menu {
-    margin-left: auto;
+    grid-column: 3;
+    justify-self: end;
+    margin-left: 0;
   }
   .recording-row > .row-menu:has(summary:only-child) {
     margin-left: 0;
