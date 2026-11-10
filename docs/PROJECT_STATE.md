@@ -2,6 +2,14 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Match-history days and selector spacing
+
+Home match history now groups visible games beneath full calendar-date headings with per-group game counts, using each game's start time and the viewer's local timezone. Groups preserve the selected newest/oldest order and follow filters and pagination; empty dates are omitted. Day grouping handles midnight and daylight-saving transitions without UTC-date truncation. Existing match rows and scoreboards keep their information and interactions.
+
+All single-choice selectors use a consistently inset chevron, 12px from the right edge with 36px text padding, in light and dark modes. They remain native select elements for keyboard/popup behavior.
+
+Verification: 95 unit/component/handler tests and production build passed locally. Focused browser verification and publication are in progress.
+
 ## Appearance and bottom Settings
 
 Settings is anchored at the bottom of the desktop sidebar, above the workspace footer; mobile retains accessible Settings after the main navigation. Settings has an Appearance section with a keyboard-accessible Dark mode switch. It applies immediately, defaults to light, and saves only the theme preference in browser local storage (`league-cloud-coach-theme`). Theme persists across reload and sign-out; no server preference or token-storage change is involved. Dark styling covers the workspace, Home statistics/history, library, forms/dialogs, notices, buttons and inputs while preserving video/images.

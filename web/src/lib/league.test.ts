@@ -4,6 +4,7 @@ import {
   emptyFilter,
   filterGames,
   gamesFor,
+  groupGamesByDay,
   seasonOf,
   splitOf,
   summary,
@@ -132,4 +133,37 @@ it('keeps champion farm across roles while dashboard farm follows the primary ro
   )
   expect(summary(games).csPerMinute).toBe(10)
   expect(championGroups(games)[0].summary.csPerMinute).toBeCloseTo(400 / 60)
+})
+it('groups by local calendar day across midnight and preserves both sort orders', () => {
+  const games = gamesFor(
+    [
+      match('1', {}, { gameCreation: Date.parse('2026-11-11T00:05:00Z') }),
+      match('2', {}, { gameCreation: Date.parse('2026-11-10T23:50:00Z') }),
+      match('3', {}, { gameCreation: Date.parse('2026-11-10T18:00:00Z') }),
+    ],
+    'me',
+  )
+  const days = groupGamesByDay(games, 'Europe/London')
+  expect(days.map((day) => [day.key, day.games.map((g) => g.id)])).toEqual([
+    ['2026-11-11', ['1']],
+    ['2026-11-10', ['2', '3']],
+  ])
+  expect(groupGamesByDay([...games].reverse(), 'Europe/London').map((day) => day.key)).toEqual([
+    '2026-11-10',
+    '2026-11-11',
+  ])
+  expect(groupGamesByDay(games, 'America/Los_Angeles')).toHaveLength(1)
+  expect(groupGamesByDay([])).toEqual([])
+})
+it('keeps both sides of a daylight-saving clock change in the same local day', () => {
+  const games = gamesFor(
+    [
+      match('1', {}, { gameCreation: Date.parse('2026-10-24T23:30:00Z') }),
+      match('2', {}, { gameCreation: Date.parse('2026-10-25T01:30:00Z') }),
+    ],
+    'me',
+  )
+  expect(groupGamesByDay(games, 'Europe/London').map((day) => [day.key, day.games.length])).toEqual(
+    [['2026-10-25', 2]],
+  )
 })

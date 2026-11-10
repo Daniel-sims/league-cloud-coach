@@ -67,6 +67,36 @@ export type Game = LeagueMatch & {
   allies: Participant[]
   opponent?: Participant
 }
+// Preserve the filtered list's order and group by the viewer's local calendar day.
+export function groupGamesByDay(games: Game[], timeZone?: string) {
+  const date = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone,
+  })
+  const label = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone,
+  })
+  const groups = new Map<string, { key: string; label: string; games: Game[] }>()
+  for (const game of games) {
+    const parts = Object.fromEntries(
+      date.formatToParts(game.gameCreation).map((part) => [part.type, part.value]),
+    )
+    const key = `${parts.year}-${parts.month}-${parts.day}`
+    let group = groups.get(key)
+    if (!group) {
+      group = { key, label: label.format(game.gameCreation), games: [] }
+      groups.set(key, group)
+    }
+    group.games.push(game)
+  }
+  return [...groups.values()]
+}
 export const roles = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
 export const roleNames: Record<string, string> = {
   TOP: 'Top',

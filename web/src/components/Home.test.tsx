@@ -82,3 +82,26 @@ it('connects a selected region and keeps an actionable error in the form', async
   )
   expect(repo.connect).toHaveBeenCalledWith('Name#TAG', 'na1')
 })
+it('shows dated game groups in the selected order and removes days with no filtered matches', async () => {
+  const repo = repository()
+  vi.mocked(repo.matches).mockResolvedValue([
+    match('1', {}, { gameCreation: Date.UTC(2026, 10, 11, 18) }),
+    match('2', {}, { gameCreation: Date.UTC(2026, 10, 11, 12) }),
+    match('3', { win: false }, { gameCreation: Date.UTC(2026, 10, 10, 12) }),
+  ])
+  render(<Home ownerId="owner" repository={repo} />)
+  const newer = await screen.findByRole('region', { name: 'Wednesday, 11 November 2026' })
+  expect(within(newer).getByText('2 games')).toBeVisible()
+  expect(
+    within(screen.getByRole('region', { name: 'Tuesday, 10 November 2026' })).getByText('1 game'),
+  ).toBeVisible()
+  await userEvent.selectOptions(screen.getByLabelText('Sort'), 'oldest')
+  expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+    'Tuesday, 10 November 2026',
+    'Wednesday, 11 November 2026',
+  ])
+  await userEvent.selectOptions(screen.getByLabelText('Result'), 'win')
+  expect(
+    screen.queryByRole('region', { name: 'Tuesday, 10 November 2026' }),
+  ).not.toBeInTheDocument()
+})

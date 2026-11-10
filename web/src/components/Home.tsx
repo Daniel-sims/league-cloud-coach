@@ -12,6 +12,7 @@ import {
   emptyFilter,
   filterGames,
   gamesFor,
+  groupGamesByDay,
   kda,
   number,
   percent,
@@ -625,8 +626,24 @@ export function Home({
                   changes the list
                 </span>
               </div>
-              {filtered.slice(0, limit).map((game) => (
-                <MatchRow key={`${selected}:${game.id}`} game={game} />
+              {groupGamesByDay(filtered.slice(0, limit)).map((day) => (
+                <section
+                  className="league-match-day"
+                  key={`${selected}:${day.key}`}
+                  aria-label={day.label}
+                >
+                  <div className="league-day-heading">
+                    <h3>
+                      <time dateTime={day.key}>{day.label}</time>
+                    </h3>
+                    <span>
+                      {day.games.length} {day.games.length === 1 ? 'game' : 'games'}
+                    </span>
+                  </div>
+                  {day.games.map((game) => (
+                    <MatchRow key={game.id} game={game} />
+                  ))}
+                </section>
               ))}
               {!filtered.length && (
                 <div className="league-empty">

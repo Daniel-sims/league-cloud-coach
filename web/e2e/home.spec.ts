@@ -1,6 +1,6 @@
 import { expect, test, type BrowserContext } from '@playwright/test'
 import { match } from '../src/test/league-fixture'
-import type { LeagueProfile } from '../src/lib/league'
+import type { LeagueProfile, LeagueMatch } from '../src/lib/league'
 
 const ownerId = '11111111-1111-4111-8111-111111111111'
 const profile: LeagueProfile = {
@@ -23,7 +23,12 @@ const profile: LeagueProfile = {
   ],
   syncedAt: '2026-11-10T00:00:00Z',
 }
-async function setup(context: BrowserContext, empty = false, tokenWarning = false) {
+async function setup(
+  context: BrowserContext,
+  empty = false,
+  tokenWarning = false,
+  games?: LeagueMatch[],
+) {
   const user = {
     id: ownerId,
     aud: 'authenticated',
@@ -58,7 +63,7 @@ async function setup(context: BrowserContext, empty = false, tokenWarning = fals
     if (name === 'is_library_owner') result = true
     if (name === 'list_league_profiles') result = profiles
     if (name === 'list_league_matches')
-      result = [
+      result = games ?? [
         match('1'),
         match('2', { win: false }),
         match('3', { championId: 222, championName: 'Jinx', teamPosition: 'BOTTOM' }),
@@ -217,4 +222,43 @@ test('Settings stays at the bottom and appearance switches immediately and survi
   await expect(toggle).not.toBeChecked()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await expect(page.getByRole('dialog')).toHaveCSS('background-color', 'rgb(251, 250, 246)')
+})
+
+test('match history groups local play dates and selector arrows stay inset in both themes', async ({
+  page,
+}, testInfo) => {
+  await setup(page.context(), false, false, [
+    match('1', {}, { gameCreation: Date.UTC(2026, 10, 11, 18) }),
+    match('2', {}, { gameCreation: Date.UTC(2026, 10, 11, 12) }),
+    match('3', { win: false }, { gameCreation: Date.UTC(2026, 10, 10, 12) }),
+  ])
+  await page.goto('/#/home')
+  const history = page.getByRole('region', { name: 'Match history', exact: true })
+  await expect(history.getByRole('heading', { level: 3 })).toHaveText([
+    'Wednesday, 11 November 2026',
+    'Tuesday, 10 November 2026',
+  ])
+  const champion = page.getByLabel('Your champion', { exact: true })
+  expect(await champion.evaluate((el) => getComputedStyle(el).backgroundPosition)).toContain('12px')
+  await expect(champion).toHaveCSS('padding-right', '36px')
+  await history.screenshot({ path: testInfo.outputPath('grouped-games-light.png') })
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('switch', { name: 'Dark mode', exact: true }).check()
+  await page.getByRole('button', { name: 'Done', exact: true }).click()
+  expect(await champion.evaluate((el) => getComputedStyle(el).backgroundPosition)).toContain('12px')
+  expect(await champion.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('a8b2a3')
+  await history.screenshot({ path: testInfo.outputPath('grouped-games-dark.png') })
+  await page.getByLabel('Sort', { exact: true }).selectOption('oldest')
+  await expect(history.getByRole('heading', { level: 3 })).toHaveText([
+    'Tuesday, 10 November 2026',
+    'Wednesday, 11 November 2026',
+  ])
+  await page.getByLabel('Result', { exact: true }).selectOption('win')
+  await expect(history.getByRole('heading', { level: 3 })).toHaveText([
+    'Wednesday, 11 November 2026',
+  ])
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true)
 })

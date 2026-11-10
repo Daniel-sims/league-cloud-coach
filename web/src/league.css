@@ -2,9 +2,14 @@ select {
   font: inherit;
   color: var(--ink);
   background: var(--paper);
+  appearance: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 9px 28px 9px 10px;
+  padding: 9px 36px 9px 10px;
   max-width: 100%;
   min-height: 38px;
 }
@@ -524,4 +529,24 @@ select:focus-visible {
 .league-match-stat .league-items > * {
   width: 16px;
   height: 16px;
+}
+
+.league-day-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface, var(--paper));
+}
+.league-day-heading h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.league-day-heading > span {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
