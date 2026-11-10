@@ -2,6 +2,12 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Reviewer playback loading
+
+The watch page no longer displays the No account needed badge, and the share dialog omits that repeated assurance. The session countdown shows only time remaining, without explaining refresh/deadline implementation rules. Stream playback uses the existing centered player overlay with an animated spinner and Loading video text. Loading persists through access authorization until the video can play, returns during buffering, and clears on playback readiness or an error. Authorized media preloads without autoplay; guest session claiming still requires Start session. Regression coverage checks readiness, buffering, and error transitions. This follow-up is prepared for the standalone web release; check the Pages workflow for its deployment status. The earlier interface cleanup is deployed in web commit `d5369dd` ([successful Pages run](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42780580668)).
+
+Verification: 63 frontend tests and production build passed. All eight browser regression checks passed, with the sharing check rerun after replacing its removed-badge assertion with a check that guests see no sign-in gate. Real recording playback and visual acceptance remain separate.
+
 ## Interface cleanup
 
 The library now keeps one How it works entry, removes the duplicate Start sharing promotion and permanent library marketing tip, and uses Upload your first video for the cloud empty state. Add existing video remains a separate import action; the development preview retains its link-only empty state. Help explains upload-or-import → create link → send to coach, including automatic library insertion after processing. Account access and production sign-in failures no longer expose Supabase setup or repository paths. Sharing copy describes access delays without playback-token terminology. Owner Stream playback loads the player directly without an extra Load video button; guest playback still requires explicit Start session before claiming the timed session, and video playback remains manual.

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type Hls from 'hls.js'
+import { LoaderCircle } from 'lucide-react'
 import {
   streamRequest,
   StreamAccessError,
@@ -20,7 +21,7 @@ export function StreamPlayer({
   const [started, setStarted] = useState(Boolean(recordingId))
   const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(Boolean(recordingId))
   const [remaining, setRemaining] = useState<number | null>(null)
   const [stopped, setStopped] = useState(false)
   useEffect(() => {
@@ -120,7 +121,6 @@ export function StreamPlayer({
         }
       } finally {
         renewing = false
-        if (!disposed) setLoading(false)
       }
     }
     setStopped(false)
@@ -170,18 +170,30 @@ export function StreamPlayer({
               ref={video}
               controls
               playsInline
-              preload="none"
+              preload="auto"
               aria-label={title}
-              onLoadedMetadata={() => setLoading(false)}
+              onCanPlay={() => setLoading(false)}
+              onPlaying={() => setLoading(false)}
+              onWaiting={() => {
+                if (!stopped) setLoading(true)
+              }}
               onError={() => {
-                if (!stopped) setError('Video playback failed. Try reconnecting below.')
+                if (!stopped) {
+                  setLoading(false)
+                  setError('Video playback failed. Try reconnecting below.')
+                }
               }}
             />
+            {loading && !stopped && (
+              <div className="player-loading" role="status">
+                <LoaderCircle className="spin" size={26} aria-hidden="true" />
+                <span>Loading video…</span>
+              </div>
+            )}
           </div>
-          {loading && <p role="status">Preparing private playback…</p>}
           {!stopped && remaining !== null && (
             <p className="field-hint" role="status">
-              {remaining} minutes left in this session. Refreshing keeps the same deadline.
+              {remaining} {remaining === 1 ? 'minute' : 'minutes'} remaining
             </p>
           )}
           {error && (

@@ -1165,9 +1165,7 @@ function ShareDialog({
         if (!busy) onClose()
       }}
     >
-      <p className="dialog-intro">
-        Share “{record.title}” with your coach. No account needed to watch.
-      </p>
+      <p className="dialog-intro">Share “{record.title}” with your coach.</p>
       <div className="share-illustration">
         <span>
           <Film size={23} />
@@ -1515,10 +1513,6 @@ function Watch({ token }: { token: string }) {
           <>
             <div className="watch-eyebrow">
               <span className="eyebrow">SHARED GAME RECORDING</span>
-              <span>
-                <ShieldCheck size={13} />
-                No account needed
-              </span>
             </div>
             {video.provider === 'stream' ? (
               <StreamPlayer key={token} shareToken={token} title={video.title} />

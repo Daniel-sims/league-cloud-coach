@@ -174,7 +174,7 @@ test('owner adds a recording, shares to a signed-out visitor, and revokes its ap
   await expect(
     guest.getByRole('heading', { name: 'Review with my coach', exact: true }),
   ).toBeVisible()
-  await expect(guest.getByText('No account needed', { exact: true })).toBeVisible()
+  await expect(guest.getByRole('button', { name: 'Sign in' })).toHaveCount(0)
   await expect(guest.getByRole('link', { name: 'Open on YouTube' })).toHaveAttribute(
     'href',
     'https://www.youtube.com/watch?v=aqz-KE-bpKQ',

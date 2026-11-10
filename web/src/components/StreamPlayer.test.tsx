@@ -65,6 +65,23 @@ it('loads owner playback without claiming a guest session or requiring an extra 
   expect(screen.getByLabelText('My recording')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Start session' })).not.toBeInTheDocument()
 })
+it('shows loading until media is ready and again when playback buffers', async () => {
+  await start()
+  const media = screen.getByLabelText('Private game')
+  expect(screen.getByText('Loading video…')).toBeInTheDocument()
+  fireEvent.loadedMetadata(media)
+  expect(screen.getByText('Loading video…')).toBeInTheDocument()
+  fireEvent.canPlay(media)
+  expect(screen.queryByText('Loading video…')).not.toBeInTheDocument()
+  fireEvent.waiting(media)
+  expect(screen.getByText('Loading video…')).toBeInTheDocument()
+  fireEvent.playing(media)
+  expect(screen.queryByText('Loading video…')).not.toBeInTheDocument()
+  fireEvent.waiting(media)
+  fireEvent.error(media)
+  expect(screen.queryByText('Loading video…')).not.toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent('Video playback failed')
+})
 it('reloads fresh segment signatures while preserving playback position on renewal', async () => {
   await start()
   const media = screen.getByLabelText('Private game') as HTMLVideoElement
