@@ -3,6 +3,8 @@ import { MapPin, Pencil, Shield, Trash2, UserX } from 'lucide-react'
 import { championIcon } from '../lib/league'
 import {
   clock,
+  seekLeadMs,
+  type FightMoment,
   type FightCard,
   type ItemStack,
   type MatchupCard,
@@ -82,7 +84,7 @@ export function EventRow({
   seekable: boolean
   dim: boolean
   onSeek(): void
-  onSeekTime(gameMs: number): void
+  onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
 }) {
   return (
     <li
@@ -101,7 +103,9 @@ export function EventRow({
           disabled={!seekable}
           title={
             seekable
-              ? 'Watch from 5 seconds before'
+              ? seekLeadMs(entry.kind)
+                ? 'Watch from 5 seconds before'
+                : 'Watch this moment'
               : dim
                 ? "The recording doesn't cover this moment"
                 : undefined
@@ -144,7 +148,7 @@ function Fight({
 }: {
   card: FightCard
   seekable: boolean
-  onSeekTime(gameMs: number): void
+  onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
 }) {
   const outcome = { won: 'Won', lost: 'Lost', traded: 'Traded' }[card.outcome]
   return (
@@ -195,7 +199,7 @@ function Fight({
         <ul className="fight-moments">
           {card.moments.map((m) => (
             <li key={`${m.t}-${m.label}`} className={m.kind}>
-              <button disabled={!seekable} onClick={() => onSeekTime(m.t)}>
+              <button disabled={!seekable} onClick={() => onSeekTime(m.t, m.kind)}>
                 <span>{clock(m.t)}</span>
                 {m.label}
               </button>
@@ -355,7 +359,7 @@ export function CommentRow({
             </button>
           </div>
         )}
-        <button className="comment-text" onClick={onSeek} title="Watch from 3 seconds before">
+        <button className="comment-text" onClick={onSeek} title="Watch this moment">
           {comment.body}
         </button>
       </div>

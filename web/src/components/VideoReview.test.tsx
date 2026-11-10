@@ -63,7 +63,7 @@ function repository(
   return repo as ReviewRepository & { data: ReviewData }
 }
 
-it('asks the owner to sync before the first jump, then makes whole rows seek with pre-roll', async () => {
+it('asks the owner to sync before the first jump, then makes whole rows seek exactly', async () => {
   const time = { seconds: 700 }
   const player = fakePlayer(time)
   const repo = repository('owner', {
@@ -83,8 +83,8 @@ it('asks the owner to sync before the first jump, then makes whole rows seek wit
   await userEvent.type(within(dialog).getByLabelText('In-game clock'), '10:00')
   await userEvent.click(within(dialog).getByRole('button', { name: 'Sync' }))
   expect(repo.setAnchor).toHaveBeenCalledWith({ gameTimeSeconds: 600, videoOffsetSeconds: 700 })
-  // The 3:00 kill sits at video 4:40; seeks land five seconds early.
-  await waitFor(() => expect(player.seekTo).toHaveBeenCalledWith(275))
+  // The 3:00 kill sits at video 4:40 and seeks exactly there.
+  await waitFor(() => expect(player.seekTo).toHaveBeenCalledWith(280))
   await userEvent.click(screen.getByLabelText('Timeline settings'))
   expect(screen.getByText('10:00 at 11:40 in the video')).toBeInTheDocument()
   // Lane checkpoints and purchases open exactly on their time: the 4:00
@@ -137,7 +137,7 @@ it('lets a coach add named comments at the playhead and only edit their own', as
   expect(within(ownerRow).queryByRole('button', { name: 'Edit comment' })).toBeNull()
   expect(within(ownerRow).queryByRole('button', { name: 'Delete comment' })).toBeNull()
   await userEvent.click(owners)
-  expect(player.seekTo).toHaveBeenCalledWith(757)
+  expect(player.seekTo).toHaveBeenCalledWith(760)
 
   await userEvent.click(screen.getByRole('button', { name: 'Comment' }))
   expect(screen.getByText('New at 11:05')).toBeVisible()
@@ -230,4 +230,45 @@ it('hides opponent purchases by default and remembers filter changes', async () 
   // A fight the player killed in still answers to the fight filter.
   expect(screen.getAllByRole('button', { name: 'Teamfight' })).toHaveLength(1)
   expect(JSON.parse(localStorage.getItem('league-cloud-coach-hidden-kinds')!)).toEqual(['kill'])
+})
+
+it('seeks comments and ordinary events exactly, with lead-in only for ultimates and deaths including fight moments', async () => {
+  const player = fakePlayer({ seconds: 700 })
+  const review = reviewPayload()
+  review.ultimates = { detectorVersion: 1, videoTimestampsMs: [650000] }
+  review.kills.push({
+    t: 800000,
+    killer: 8,
+    victim: 3,
+    assists: [],
+    x: 7400,
+    y: 7400,
+    turretDamage: 0,
+  })
+  const repo = repository('owner', {
+    matchId: review.matchId,
+    review,
+    syncedAt: null,
+    anchor: { gameTimeSeconds: 600, videoOffsetSeconds: 700 },
+    comments: [comment({ videoMs: 760400 })],
+  })
+  render(<VideoReview repository={repo} renderPlayer={player.render} />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Should I have backed here?' }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(760.4)
+  await userEvent.click(screen.getByRole('button', { name: 'Killed Ahri' }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(280)
+  await userEvent.click(screen.getByRole('button', { name: 'Teamfight' }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(700)
+  await userEvent.click(screen.getByRole('button', { name: /10:00\s*Killed Ahri/ }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(700)
+  await userEvent.click(screen.getByRole('button', { name: /10:02\s*Assisted killing LeeSin/ }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(702)
+  await userEvent.click(screen.getByRole('button', { name: /10:04\s*Died to Syndra/ }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(699)
+  await userEvent.click(screen.getByRole('button', { name: 'Died to Ahri' }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(895)
+  await userEvent.click(screen.getByRole('button', { name: 'Cast ultimate' }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(645)
+  await userEvent.click(screen.getByRole('button', { name: /Infernal Drake taken/ }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(820)
 })

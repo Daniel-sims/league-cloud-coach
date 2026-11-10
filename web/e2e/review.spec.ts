@@ -250,8 +250,8 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await sync.getByLabel('In-game clock').fill('10:00')
   await page.screenshot({ path: testInfo.outputPath('sync-inline.png') })
   await sync.getByRole('button', { name: 'Sync', exact: true }).click()
-  // 10:00 fight sits at video 1:00; the seek lands five seconds before it.
-  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(55)
+  // 10:00 fight sits at video 1:00; it seeks exactly there.
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(60)
   await timeline.getByLabel('Timeline settings', { exact: true }).click()
   await expect(timeline.getByText('10:00 at 1:00 in the video')).toBeVisible()
   await timeline.getByLabel('Timeline settings', { exact: true }).click()
@@ -272,6 +272,11 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await expect
     .poll(() => inList(timeline.getByRole('listitem').filter({ hasText: 'Should I have backed' })))
     .toBe(true)
+  await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 80))
+  await timeline
+    .getByRole('button', { name: 'Should I have backed before this fight?', exact: true })
+    .click()
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(70)
   await page.screenshot({ path: testInfo.outputPath('review-owner-desktop.png'), fullPage: true })
   await timeline
     .locator('.matchup-card')

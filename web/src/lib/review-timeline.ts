@@ -818,3 +818,8 @@ export function ultimateEntries(
       label: 'Cast ultimate',
     }))
 }
+
+/** Only deaths and ultimate casts seek early; every other moment uses its timestamp. */
+export function seekLeadMs(kind?: EntryKind | FightMoment['kind']): number {
+  return kind === 'death' || kind === 'ultimate' ? 5000 : 0
+}

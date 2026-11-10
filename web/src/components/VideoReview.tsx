@@ -29,6 +29,7 @@ import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
   ultimateEntries,
+  seekLeadMs,
   clock,
   context,
   entryKinds,
@@ -60,13 +61,6 @@ import {
 import type { LeagueRepository } from '../lib/league-repository'
 import '../review.css'
 
-/// Every event seek lands this far before the moment so it is watched
-/// arriving; comments use a shorter lead, as in the Mac app.
-const eventPreRollMs = 5000
-/// Checkpoints and shop visits are states, not moments to watch arrive:
-/// they open exactly on their timestamp.
-const exactKinds = new Set<EntryKind>(['matchup', 'recall', 'opponentItem'])
-const commentPreRollMs = 3000
 const hiddenStorage = 'league-cloud-coach-hidden-kinds'
 const commentsKey = 'comments'
 const widthStorage = 'league-cloud-coach-timeline-width'
@@ -124,7 +118,7 @@ export function VideoReview({
   const [composing, setComposing] = useState<number | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<number | null>(null)
-  const [pendingSeek, setPendingSeek] = useState<{ ms: number; preRoll: boolean } | null>(null)
+  const [pendingSeek, setPendingSeek] = useState<{ ms: number; leadMs: number } | null>(null)
   const [attaching, setAttaching] = useState(false)
   const [hidden, setHidden] = useState(loadHidden)
   const [follow, setFollow] = useState(true)
@@ -287,17 +281,17 @@ export function VideoReview({
   // Without a synced clock the owner is asked to sync first; the jump they
   // asked for happens as soon as the anchor lands.
   const canSync = owner && Boolean(repository.setAnchor)
-  const seekGame = (gameMs: number, preRoll = true) => {
+  const seekGame = (gameMs: number, leadMs = 0) => {
     if (!controller) return
     if (!anchor) {
       if (!canSync) return
-      setPendingSeek({ ms: gameMs, preRoll })
+      setPendingSeek({ ms: gameMs, leadMs })
       showPanel(true)
       setSyncing(Math.max(0, controller.currentTime()))
       return
     }
     if (!coverage || gameMs < coverage[0] || gameMs > coverage[1]) return
-    const target = preRoll ? Math.max(gameMs - eventPreRollMs, coverage[0]) : gameMs
+    const target = leadMs > 0 ? Math.max(gameMs - leadMs, coverage[0]) : gameMs
     controller.seekTo(videoOffset(anchor, target / 1000))
   }
   const seekable = (gameMs: number) =>
@@ -307,8 +301,8 @@ export function VideoReview({
   useEffect(() => {
     if (pendingSeek === null) return
     if (anchor && coverage && controller) {
-      const { ms, preRoll } = pendingSeek
-      const target = preRoll ? Math.max(ms - eventPreRollMs, coverage[0]) : ms
+      const { ms, leadMs } = pendingSeek
+      const target = leadMs > 0 ? Math.max(ms - leadMs, coverage[0]) : ms
       if (ms >= coverage[0] && ms <= coverage[1])
         controller.seekTo(videoOffset(anchor, target / 1000))
       setPendingSeek(null)
@@ -611,9 +605,9 @@ export function VideoReview({
                           seekable={seekable(item.entry.gameTimeMs)}
                           dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
                           onSeek={() =>
-                            seekGame(item.entry.gameTimeMs, !exactKinds.has(item.entry.kind))
+                            seekGame(item.entry.gameTimeMs, seekLeadMs(item.entry.kind))
                           }
-                          onSeekTime={(ms) => seekGame(ms)}
+                          onSeekTime={(ms, kind) => seekGame(ms, seekLeadMs(kind))}
                         />
                       ) : editing === item.id ? (
                         <li key={item.id} className="timeline-row composing">
@@ -641,9 +635,7 @@ export function VideoReview({
                           current={item.id === currentId}
                           viewer={repository.role}
                           onSeek={() =>
-                            controller?.seekTo(
-                              Math.max(0, item.comment.videoMs - commentPreRollMs) / 1000,
-                            )
+                            controller?.seekTo(Math.max(0, item.comment.videoMs) / 1000)
                           }
                           onEdit={
                             item.comment.mine
