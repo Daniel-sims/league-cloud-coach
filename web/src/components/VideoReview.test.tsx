@@ -76,7 +76,8 @@ it('asks the owner to sync before the first jump, then makes whole rows seek wit
   render(<VideoReview repository={repo} renderPlayer={player.render} />)
   // Clicking the row body, not just its title, of an unsynced event asks for the clock first.
   await userEvent.click(await screen.findByText('Solo kill'))
-  const dialog = screen.getByRole('dialog')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  const dialog = screen.getByRole('form', { name: 'Sync game clock' })
   expect(within(dialog).getByText('11:40')).toBeVisible()
   expect(within(dialog).getByText(/jumps to the 3:00 event/)).toBeVisible()
   await userEvent.type(within(dialog).getByLabelText('In-game clock'), '10:00')
@@ -86,9 +87,12 @@ it('asks the owner to sync before the first jump, then makes whole rows seek wit
   await waitFor(() => expect(player.seekTo).toHaveBeenCalledWith(275))
   await userEvent.click(screen.getByLabelText('Timeline settings'))
   expect(screen.getByText('10:00 at 11:40 in the video')).toBeInTheDocument()
-  // A matchup card's numbers seek too: the 4:00 checkpoint is video 5:40, minus pre-roll.
+  // Lane checkpoints and purchases open exactly on their time: the 4:00
+  // matchup is video 5:40 and the 0:10 opening buy is video 1:50.
   await userEvent.click(screen.getByText('+300'))
-  expect(player.seekTo).toHaveBeenLastCalledWith(335)
+  expect(player.seekTo).toHaveBeenLastCalledWith(340)
+  await userEvent.click(screen.getByRole('button', { name: 'Opening buy' }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(110)
 })
 
 it('does not open the sync dialog when an unsynced-event click is cancelled, and coaches cannot sync', async () => {
@@ -102,8 +106,12 @@ it('does not open the sync dialog when an unsynced-event click is cancelled, and
   const player = fakePlayer({ seconds: 10 })
   const view = render(<VideoReview repository={owner} renderPlayer={player.render} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Killed Ahri' }))
-  await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
-  expect(screen.queryByRole('dialog')).toBeNull()
+  await userEvent.click(
+    within(screen.getByRole('form', { name: 'Sync game clock' })).getByRole('button', {
+      name: 'Cancel',
+    }),
+  )
+  expect(screen.queryByRole('form', { name: 'Sync game clock' })).toBeNull()
   expect(player.seekTo).not.toHaveBeenCalled()
   view.unmount()
   const coach = repository('coach', { ...owner.data })

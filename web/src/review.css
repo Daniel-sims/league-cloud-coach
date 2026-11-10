@@ -838,23 +838,39 @@
 }
 
 /* Dialogs */
-.sync-facts {
-  display: flex;
-  gap: 32px;
-  margin: 18px 0;
-}
-.sync-facts dt {
+.sync-intro,
+.sync-hint {
   font-size: 11px;
+  line-height: 1.6;
   color: var(--muted);
 }
-.sync-facts dd {
-  margin: 4px 0 0;
+.sync-fields {
+  display: flex;
+  align-items: end;
+  gap: 20px;
+}
+.sync-fields > * {
+  display: grid;
+  gap: 4px;
+}
+.sync-fields small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.sync-fields strong {
   font-size: 20px;
+  font-weight: 500;
+  line-height: 38px;
   font-variant-numeric: tabular-nums;
 }
-.sync-form input {
-  max-width: 140px;
+.sync-fields input {
+  width: 110px;
+  padding: 8px 10px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
+}
+.sync-clear {
+  margin-right: auto;
 }
 .attach-form select {
   width: 100%;

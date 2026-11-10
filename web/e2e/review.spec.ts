@@ -242,9 +242,13 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const video = await seekVideo(page, 'Ranked mid review', 60)
   // Clicking an event before the clock is synced asks for the in-game time, then jumps there.
   await timeline.getByText('Mid lane', { exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('jumps to the 10:00 event')
-  await page.getByRole('dialog').getByLabel('In-game clock').fill('10:00')
-  await page.getByRole('dialog').getByRole('button', { name: 'Sync', exact: true }).click()
+  const sync = timeline.getByRole('form', { name: 'Sync game clock' })
+  await expect(sync).toContainText('jumps to the 10:00 event')
+  // Nothing covers the video while syncing: the frame's timer has to stay readable.
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await sync.getByLabel('In-game clock').fill('10:00')
+  await page.screenshot({ path: testInfo.outputPath('sync-inline.png') })
+  await sync.getByRole('button', { name: 'Sync', exact: true }).click()
   // 10:00 fight sits at video 1:00; the seek lands five seconds before it.
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(55)
   await timeline.getByLabel('Timeline settings', { exact: true }).click()

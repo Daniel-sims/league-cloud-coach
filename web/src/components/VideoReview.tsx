@@ -62,6 +62,9 @@ import '../review.css'
 /// Every event seek lands this far before the moment so it is watched
 /// arriving; comments use a shorter lead, as in the Mac app.
 const eventPreRollMs = 5000
+/// Checkpoints and shop visits are states, not moments to watch arrive:
+/// they open exactly on their timestamp.
+const exactKinds = new Set<EntryKind>(['matchup', 'recall', 'opponentItem'])
 const commentPreRollMs = 3000
 const hiddenStorage = 'league-cloud-coach-hidden-kinds'
 const commentsKey = 'comments'
@@ -120,7 +123,7 @@ export function VideoReview({
   const [composing, setComposing] = useState<number | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<number | null>(null)
-  const [pendingSeek, setPendingSeek] = useState<number | null>(null)
+  const [pendingSeek, setPendingSeek] = useState<{ ms: number; preRoll: boolean } | null>(null)
   const [attaching, setAttaching] = useState(false)
   const [hidden, setHidden] = useState(loadHidden)
   const [follow, setFollow] = useState(true)
@@ -279,7 +282,8 @@ export function VideoReview({
     if (!controller) return
     if (!anchor) {
       if (!canSync) return
-      setPendingSeek(gameMs)
+      setPendingSeek({ ms: gameMs, preRoll })
+      showPanel(true)
       setSyncing(Math.max(0, controller.currentTime()))
       return
     }
@@ -294,8 +298,9 @@ export function VideoReview({
   useEffect(() => {
     if (pendingSeek === null) return
     if (anchor && coverage && controller) {
-      const target = Math.max(pendingSeek - eventPreRollMs, coverage[0])
-      if (pendingSeek >= coverage[0] && pendingSeek <= coverage[1])
+      const { ms, preRoll } = pendingSeek
+      const target = preRoll ? Math.max(ms - eventPreRollMs, coverage[0]) : ms
+      if (ms >= coverage[0] && ms <= coverage[1])
         controller.seekTo(videoOffset(anchor, target / 1000))
       setPendingSeek(null)
     } else if (syncing === null && !anchor) setPendingSeek(null)
@@ -499,6 +504,18 @@ export function VideoReview({
                   {actionError}
                 </div>
               )}
+              {syncing !== null && repository.setAnchor && controller && (
+                <SyncClockPanel
+                  key={syncing}
+                  initialSeconds={syncing}
+                  liveSeconds={(playheadMs ?? syncing * 1000) / 1000}
+                  readSeconds={() => controller.currentTime()}
+                  anchor={anchor}
+                  target={pendingSeek?.ms}
+                  onClose={() => setSyncing(null)}
+                  onSave={(next) => act(() => repository.setAnchor!(next))}
+                />
+              )}
               {composing !== null && (
                 <Composer
                   role={repository.role}
@@ -584,7 +601,9 @@ export function VideoReview({
                           current={item.id === currentId}
                           seekable={seekable(item.entry.gameTimeMs)}
                           dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
-                          onSeek={() => seekGame(item.entry.gameTimeMs)}
+                          onSeek={() =>
+                            seekGame(item.entry.gameTimeMs, !exactKinds.has(item.entry.kind))
+                          }
                           onSeekTime={(ms) => seekGame(ms)}
                         />
                       ) : editing === item.id ? (
@@ -647,15 +666,6 @@ export function VideoReview({
               )}
             </section>
           </>
-        )}
-        {syncing !== null && repository.setAnchor && (
-          <SyncClockDialog
-            videoSeconds={syncing}
-            anchor={anchor}
-            target={pendingSeek}
-            onClose={() => setSyncing(null)}
-            onSave={(next) => act(() => repository.setAnchor!(next))}
-          />
         )}
         {attaching && league && repository.attachMatch && (
           <AttachMatchDialog
@@ -829,26 +839,37 @@ function Composer({
   )
 }
 
-function SyncClockDialog({
-  videoSeconds,
+/// Inline rather than a modal: the reader has to see the frame's timer, and
+/// may pause or step the video while typing. The position is read on save.
+function SyncClockPanel({
+  initialSeconds,
+  liveSeconds,
+  readSeconds,
   anchor,
   target,
   onClose,
   onSave,
 }: {
-  videoSeconds: number
+  initialSeconds: number
+  liveSeconds: number
+  readSeconds(): number
   anchor: ClockAnchor | null
   target?: number | null
   onClose(): void
   onSave(anchor: ClockAnchor | null): Promise<boolean>
 }) {
-  const mapped = anchor ? anchor.gameTimeSeconds + (videoSeconds - anchor.videoOffsetSeconds) : null
-  const [text, setText] = useState(mapped !== null && mapped >= 0 ? clock(mapped * 1000) : '')
+  const mappedAt = (seconds: number) =>
+    anchor ? anchor.gameTimeSeconds + (seconds - anchor.videoOffsetSeconds) : null
+  const [text, setText] = useState(() => {
+    const mapped = mappedAt(initialSeconds)
+    return mapped !== null && mapped >= 0 ? clock(mapped * 1000) : ''
+  })
   const [busy, setBusy] = useState(false)
+  const mapped = mappedAt(liveSeconds)
   const parsed = parseGameClock(text)
   const shift = parsed !== null && mapped !== null && mapped >= 0 ? parsed - mapped : null
   const hint = !text
-    ? ' '
+    ? 'Pause where the timer is readable, then type it.'
     : parsed === null
       ? 'Enter the clock as minutes:seconds, like 12:34.'
       : shift === null
@@ -860,65 +881,73 @@ function SyncClockDialog({
     event.preventDefault()
     if (parsed === null) return
     setBusy(true)
-    if (await onSave({ gameTimeSeconds: parsed, videoOffsetSeconds: videoSeconds })) onClose()
+    if (await onSave({ gameTimeSeconds: parsed, videoOffsetSeconds: Math.max(0, readSeconds()) }))
+      onClose()
     else setBusy(false)
   }
   return (
-    <Dialog title={anchor ? 'Resync game clock' : 'Sync game clock'} onClose={onClose}>
-      <form className="sync-form" onSubmit={submit}>
-        <p className="dialog-intro">
-          Read the in-game timer at the top right of the current frame and enter it here. Every
-          event seeks relative to this moment, for you and anyone you share the video with.
-          {target != null && ` Once synced, the video jumps to the ${clock(target)} event.`}
-        </p>
-        <dl className="sync-facts">
-          <div>
-            <dt>Video position</dt>
-            <dd>{clock(videoSeconds * 1000)}</dd>
-          </div>
-          {mapped !== null && mapped >= 0 && (
-            <div>
-              <dt>Currently synced to</dt>
-              <dd>{clock(mapped * 1000)}</dd>
-            </div>
-          )}
-        </dl>
-        <label className="form-label">
-          <span>In-game clock</span>
+    <form
+      className="review-composer sync-panel"
+      aria-label="Sync game clock"
+      onSubmit={submit}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          onClose()
+        }
+      }}
+    >
+      <div className="composer-heading">
+        <strong>{anchor ? 'Resync game clock' : 'Sync game clock'}</strong>
+      </div>
+      <p className="sync-intro">
+        Read the in-game timer at the top right of the video and type it here. Every event seeks
+        relative to this moment, for you and anyone you share the video with.
+        {target != null && ` Once synced, the video jumps to the ${clock(target)} event.`}
+      </p>
+      <div className="sync-fields">
+        <div>
+          <small>Video position</small>
+          <strong>{clock(liveSeconds * 1000)}</strong>
+        </div>
+        <label>
+          <small>In-game clock</small>
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="mm:ss"
             inputMode="decimal"
+            autoFocus
+            aria-label="In-game clock"
           />
         </label>
-        <p className="field-hint" aria-live="polite">
-          {hint}
-        </p>
-        <div className="form-footer">
-          {anchor && (
-            <button
-              type="button"
-              className="button secondary"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true)
-                if (await onSave(null)) onClose()
-                else setBusy(false)
-              }}
-            >
-              Clear sync
-            </button>
-          )}
-          <button type="button" className="button secondary" onClick={onClose}>
-            Cancel
+      </div>
+      <p className="sync-hint" aria-live="polite">
+        {hint}
+      </p>
+      <div className="composer-actions">
+        {anchor && (
+          <button
+            type="button"
+            className="button secondary button-small sync-clear"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              if (await onSave(null)) onClose()
+              else setBusy(false)
+            }}
+          >
+            Clear sync
           </button>
-          <button className="button" disabled={busy || parsed === null}>
-            {busy ? 'Saving…' : anchor ? 'Resync' : 'Sync'}
-          </button>
-        </div>
-      </form>
-    </Dialog>
+        )}
+        <button type="button" className="button secondary button-small" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="button button-small" disabled={busy || parsed === null}>
+          {busy ? 'Saving…' : anchor ? 'Resync' : 'Sync'}
+        </button>
+      </div>
+    </form>
   )
 }
 
