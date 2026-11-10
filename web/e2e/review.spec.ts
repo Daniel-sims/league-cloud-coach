@@ -296,7 +296,7 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const panel = await timeline.boundingBox()
   // The whole player, seek controls included, fits in the window.
   expect(wrap.bottom).toBeLessThanOrEqual(958)
-  expect(Math.abs(panel!.y + panel!.height - wrap.bottom)).toBeLessThan(2)
+  expect(Math.abs(panel!.y + panel!.height - (958 - 24))).toBeLessThan(2)
   expect(Math.round((stage.width / stage.height) * 9)).toBe(16)
   expect(panel!.x).toBeGreaterThan(stage.right)
   await page.screenshot({ path: testInfo.outputPath('review-owner-collapsed.png') })
@@ -412,4 +412,64 @@ test('companion approval is explicit and imported ultimate markers seek for a si
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(35, 0)
   await watch.screenshot({ path: testInfo.outputPath('ultimate-marker.png'), fullPage: true })
   await coach.close()
+})
+
+test('desktop timeline fills the available window independently of the video height', async ({
+  page,
+}, testInfo) => {
+  const state: State = {
+    review: reviewPayload(),
+    anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 10 },
+    comments: [],
+    calls: [],
+  }
+  await mock(page.context(), state, true)
+  await signIn(page.context())
+  await page.addInitScript(() => localStorage.setItem('league-cloud-coach-theme', 'dark'))
+  await page.setViewportSize({ width: 2048, height: 1126 })
+  await page.goto(`/#/video/${recordingId}`)
+  const timeline = page.getByRole('region', { name: 'Review timeline' })
+  const video = await seekVideo(page, 'Ranked mid review', 30)
+  const wrap = page.locator('.review-video .player-wrap')
+  await expect
+    .poll(async () => {
+      const box = (await timeline.boundingBox())!
+      return Math.abs(box.y + box.height - (1126 - 24))
+    })
+    .toBeLessThan(2)
+  const initial = (await timeline.boundingBox())!
+  expect(initial.height).toBeGreaterThan((await wrap.boundingBox())!.height + 100)
+  expect(
+    await video.evaluate((v) =>
+      Math.round(
+        (v.parentElement!.getBoundingClientRect().width /
+          v.parentElement!.getBoundingClientRect().height) *
+          9,
+      ),
+    ),
+  ).toBe(16)
+  await page.screenshot({
+    path: testInfo.outputPath('review-tall-timeline-desktop.png'),
+    fullPage: true,
+  })
+  await page.setViewportSize({ width: 2048, height: 820 })
+  await expect
+    .poll(async () => {
+      const box = (await timeline.boundingBox())!
+      return Math.abs(box.y + box.height - (820 - 24))
+    })
+    .toBeLessThan(2)
+  expect((await timeline.boundingBox())!.height).toBeLessThan(initial.height - 300)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect
+    .poll(async () => Math.abs((await timeline.boundingBox())!.height - 844 * 0.75))
+    .toBeLessThan(2)
+  expect((await timeline.boundingBox())!.y).toBeGreaterThan(
+    (await wrap.boundingBox())!.y + (await wrap.boundingBox())!.height,
+  )
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({
+    path: testInfo.outputPath('review-tall-timeline-mobile.png'),
+    fullPage: true,
+  })
 })

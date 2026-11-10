@@ -149,9 +149,11 @@
 .review-panel {
   display: flex;
   flex-direction: column;
-  /* Sized by the row (the video), never by its own list. */
+  /* Use the available window height independently of the video's width. */
   contain: size;
-  min-height: 420px;
+  align-self: start;
+  height: max(280px, calc(100dvh - var(--review-top, 220px) - 24px));
+  min-height: 0;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -944,7 +946,8 @@
   }
   .review-panel {
     contain: none;
-    max-height: 75vh;
+    height: 75dvh;
+    max-height: none;
   }
   .review-rail {
     flex-direction: row;

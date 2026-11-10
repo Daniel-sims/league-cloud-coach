@@ -2,11 +2,17 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Timeline uses available window height
+
+The desktop review panel is no longer sized by the video's grid row. It has an independent viewport-based height from its top edge to 24 px above the bottom of the window, with a small minimum for short windows. Width dragging and the original video aspect ratio are preserved; narrowing the video no longer shortens the timeline. On stacked mobile layouts, the timeline uses 75% of the dynamic viewport height and retains its internal scroll area. The page footer may sit below the fold instead of taking space from the review panel.
+
+Verification: production build and both affected owner/coach and tall-timeline browser workflows pass. Checks cover a dark 2048×1126 layout (timeline exceeds video/control height by over 100 px), shorter desktop windows, sidebar collapse, width resizing, hiding/restoring the panel and the 390 px stacked layout without horizontal overflow. Desktop and mobile screenshots were inspected. No backend or native change is included. Height release publication is pending verification.
+
 ## Exact comment and event seeking
 
 Comments now seek directly to their saved video timestamp, preserving millisecond precision. All timeline rows and embedded fight moments seek exactly, except ultimate casts and deaths, which retain a five-second lead-in. Embedded kills/assists and absence links are exact; embedded deaths retain the lead-in. The same rule applies when a click first prompts the owner to sync the clock, and row tooltips match the policy. Shared coach playback uses the same behavior. No stored timestamps, timeline judgments or backend contracts change.
 
-Verification: 128 unit/component/handler tests and production build pass. Component coverage exercises a fractional comment timestamp, a solo kill, teamfight row, embedded kill/assist/death, standalone death, ultimate cast and objective, plus exact seeking after clock sync. The affected owner/coach and ultimate browser workflows verify exact comments/fights and retained ultimate lead-in; the full browser suite is also checked by release CI. Frontend publication is pending verification. No backend or native change is needed.
+Verification: 128 unit/component/handler tests and production build pass. Component coverage exercises a fractional comment timestamp, a solo kill, teamfight row, embedded kill/assist/death, standalone death, ultimate cast and objective, plus exact seeking after clock sync. The affected owner/coach and ultimate browser workflows verify exact comments/fights and retained ultimate lead-in; the full browser suite is also checked by release CI. Frontend release `9fc79b121953b0cc985b334016d7edc70ab4c5bc` is deployed through [successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42839901822), including all 128 tests, 19 browser workflows, runtime/build checks and seven PostgreSQL 17 suites. The public bundle no longer contains the old three-second comment-seek tooltip. No backend or native change is needed.
 
 ## Browser library cache
 
@@ -44,7 +50,7 @@ Video and watch pages put back, title, date and Share/“Shared with you” on o
 
 ## Wider review layout and collapsible sidebar
 
-The top bar has a sidebar toggle (remembered per browser as `league-cloud-coach-sidebar`; not shown on phones, where navigation is a top bar). Owner video pages and watch pages now use the full content width. The video takes the largest 16:9 size that keeps the player and its seek controls on screen below the page heading (measured in `VideoReview`), the timeline takes the remaining width (at least 340px, at most 720px) at the same height, and below a 900px container width the timeline stacks under the video. Verified with 109 unit tests, build and all 16 Chrome checks, including a 1903×958 collapsed-sidebar check of aspect ratio, fit and panel alignment.
+The top bar has a sidebar toggle (remembered per browser as `league-cloud-coach-sidebar`; not shown on phones, where navigation is a top bar). Owner video pages and watch pages now use the full content width. The video takes the largest 16:9 size that keeps the player and its seek controls on screen below the page heading (measured in `VideoReview`), the timeline takes the remaining width and independently fills the available window height, and below a 900px container width the timeline stacks under the video. Verified with 109 unit tests, build and all 16 Chrome checks, including a 1903×958 collapsed-sidebar check of aspect ratio, fit and panel alignment.
 
 ## Review timeline and shared comments
 
