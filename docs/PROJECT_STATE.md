@@ -8,8 +8,8 @@ The source repositories were separated on 10 November 2026. The permanent web
 checkout is `~/Documents/Dev/league-cloud-coach/`, connected to the existing
 `https://github.com/Daniel-sims/league-cloud-coach.git` remote and its independent
 history. The desktop checkout is `../league-helper/`, with its original local
-history and no configured remote at the split. The temporary drawing-release
-checkout is no longer the development workspace.
+history and no configured remote at the split. The clean temporary drawing-release
+checkout was removed after verifying all its commits are preserved here.
 
 This repository now owns web/backend/deployment source directly: `web/`,
 `supabase/`, web docs and the Pages workflow. The native repository's duplicate
@@ -32,9 +32,14 @@ and all five CloudCoachClient tests pass with the web folders absent. Current
 README/agent/integration document links resolve across the sibling layout.
 Source checks confirm unchanged native implementation and unchanged transferred
 web/backend application files, apart from updating missing README references.
-Local `.env.local` and Supabase link state remain ignored. The repository-boundary
-update is being committed to the existing web remote; no cloud migration or
-resource changes are required.
+Local `.env.local` and Supabase link state remain ignored. Running the linked
+migration listing from this repository confirms local/remote parity without
+applying changes. Release `5e6fde6cae45257e9de2315e85bf8007f98fc38b` is committed
+and deployed through [successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42898031488),
+including 132 tests, 22 browser workflows, runtime/build checks and eight
+PostgreSQL 17 permission suites. The live app returns HTTP 200. The desktop
+split is recorded locally as commit `8b87981`; no native GitHub repository was
+created. No cloud migration or resource change was required.
 
 ## Capture timeline row layout correction
 
