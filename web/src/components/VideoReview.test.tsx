@@ -63,7 +63,7 @@ function repository(
   return repo as ReviewRepository & { data: ReviewData }
 }
 
-it('lets the owner sync the game clock, after which events seek with pre-roll', async () => {
+it('asks the owner to sync before the first jump, then makes whole rows seek with pre-roll', async () => {
   const time = { seconds: 700 }
   const player = fakePlayer(time)
   const repo = repository('owner', {
@@ -74,21 +74,41 @@ it('lets the owner sync the game clock, after which events seek with pre-roll', 
     comments: [],
   })
   render(<VideoReview repository={repo} renderPlayer={player.render} />)
-  const kill = await screen.findByRole('button', { name: 'Killed Ahri' })
-  expect(kill).toBeDisabled()
-  await userEvent.click(screen.getByLabelText('Timeline settings (setup needed)'))
-  expect(screen.getByText('Not synced')).toBeVisible()
-  await userEvent.click(screen.getByRole('button', { name: 'Sync clock' }))
+  // Clicking the row body, not just its title, of an unsynced event asks for the clock first.
+  await userEvent.click(await screen.findByText('Solo kill'))
   const dialog = screen.getByRole('dialog')
   expect(within(dialog).getByText('11:40')).toBeVisible()
+  expect(within(dialog).getByText(/jumps to the 3:00 event/)).toBeVisible()
   await userEvent.type(within(dialog).getByLabelText('In-game clock'), '10:00')
   await userEvent.click(within(dialog).getByRole('button', { name: 'Sync' }))
   expect(repo.setAnchor).toHaveBeenCalledWith({ gameTimeSeconds: 600, videoOffsetSeconds: 700 })
-  expect(await screen.findByText('10:00 at 11:40 in the video')).toBeInTheDocument()
-  expect(screen.getByLabelText('Timeline settings')).toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: 'Killed Ahri' }))
   // The 3:00 kill sits at video 4:40; seeks land five seconds early.
-  expect(player.seekTo).toHaveBeenCalledWith(275)
+  await waitFor(() => expect(player.seekTo).toHaveBeenCalledWith(275))
+  await userEvent.click(screen.getByLabelText('Timeline settings'))
+  expect(screen.getByText('10:00 at 11:40 in the video')).toBeInTheDocument()
+  // A matchup card's numbers seek too: the 4:00 checkpoint is video 5:40, minus pre-roll.
+  await userEvent.click(screen.getByText('+300'))
+  expect(player.seekTo).toHaveBeenLastCalledWith(335)
+})
+
+it('does not open the sync dialog when an unsynced-event click is cancelled, and coaches cannot sync', async () => {
+  const owner = repository('owner', {
+    matchId: 'EUW1_1',
+    review: reviewPayload(),
+    syncedAt: null,
+    anchor: null,
+    comments: [],
+  })
+  const player = fakePlayer({ seconds: 10 })
+  const view = render(<VideoReview repository={owner} renderPlayer={player.render} />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Killed Ahri' }))
+  await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(player.seekTo).not.toHaveBeenCalled()
+  view.unmount()
+  const coach = repository('coach', { ...owner.data })
+  render(<VideoReview repository={coach} renderPlayer={fakePlayer({ seconds: 10 }).render} />)
+  expect(await screen.findByRole('button', { name: 'Killed Ahri' })).toBeDisabled()
 })
 
 it('lets a coach add named comments at the playhead and only edit their own', async () => {

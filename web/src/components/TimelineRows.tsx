@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { MapPin, Pencil, Shield, Trash2, UserX } from 'lucide-react'
 import { championIcon } from '../lib/league'
 import {
@@ -34,6 +34,15 @@ function useItemNames(patch: string) {
     }
   }, [patch])
   return names
+}
+/// The whole row seeks; buttons inside it do their own thing, and a click
+/// that ends a text selection is reading, not seeking.
+function rowClick(action: () => void) {
+  return (event: MouseEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, label')) return
+    if (window.getSelection()?.toString()) return
+    action()
+  }
 }
 export const patchOf = (gameVersion: string) => gameVersion.split('.').slice(0, 2).join('.') + '.1'
 
@@ -77,8 +86,9 @@ export function EventRow({
 }) {
   return (
     <li
-      className={`timeline-row kind-${entry.kind} ${current ? 'current' : ''} ${dim ? 'dim' : ''}`}
+      className={`timeline-row kind-${entry.kind} ${current ? 'current' : ''} ${dim ? 'dim' : ''} ${seekable ? 'clickable' : ''}`}
       data-item={entry.id}
+      onClick={seekable ? rowClick(onSeek) : undefined}
     >
       <span className="timeline-time">{clock(entry.gameTimeMs)}</span>
       <span className="timeline-spine" aria-hidden="true">
@@ -293,7 +303,8 @@ export function CommentRow({
       : comment.author || 'Coach'
   return (
     <li
-      className={`timeline-row comment comment-${comment.kind} ${current ? 'current' : ''}`}
+      onClick={rowClick(onSeek)}
+      className={`timeline-row comment clickable comment-${comment.kind} ${current ? 'current' : ''}`}
       data-item={comment.id}
     >
       <span className="timeline-time" title={videoClock ? 'Video time' : 'Game time'}>

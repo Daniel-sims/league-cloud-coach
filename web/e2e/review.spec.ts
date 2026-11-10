@@ -238,19 +238,18 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     profileId: 'profile',
     matchId: 'EUW1_1',
   })
-  await expect(timeline.getByRole('button', { name: 'Teamfight', exact: true })).toBeDisabled()
 
   const video = await seekVideo(page, 'Ranked mid review', 60)
-  await timeline.getByLabel('Timeline settings (setup needed)').click()
-  await timeline.getByRole('button', { name: 'Sync clock' }).click()
+  // Clicking an event before the clock is synced asks for the in-game time, then jumps there.
+  await timeline.getByText('Mid lane', { exact: true }).click()
+  await expect(page.getByRole('dialog')).toContainText('jumps to the 10:00 event')
   await page.getByRole('dialog').getByLabel('In-game clock').fill('10:00')
   await page.getByRole('dialog').getByRole('button', { name: 'Sync', exact: true }).click()
+  // 10:00 fight sits at video 1:00; the seek lands five seconds before it.
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(55)
   await timeline.getByLabel('Timeline settings', { exact: true }).click()
   await expect(timeline.getByText('10:00 at 1:00 in the video')).toBeVisible()
   await timeline.getByLabel('Timeline settings', { exact: true }).click()
-  // 10:00 fight sits at video 1:00; the seek lands five seconds before it.
-  await timeline.getByRole('button', { name: 'Teamfight', exact: true }).click()
-  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(55)
   await expect(timeline.getByRole('button', { name: 'Killed Ahri', exact: true })).toBeDisabled()
 
   await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 70))

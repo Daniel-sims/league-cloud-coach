@@ -288,6 +288,14 @@
 .timeline-row.dim {
   opacity: 0.45;
 }
+.timeline-row.clickable {
+  cursor: pointer;
+  border-radius: 6px;
+}
+.timeline-row.clickable:hover .timeline-label,
+.timeline-row.clickable:hover .comment-text {
+  color: var(--gold);
+}
 .kind-flag {
   --dot: var(--event-flag);
 }

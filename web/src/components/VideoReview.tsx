@@ -120,6 +120,7 @@ export function VideoReview({
   const [composing, setComposing] = useState<number | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<number | null>(null)
+  const [pendingSeek, setPendingSeek] = useState<number | null>(null)
   const [attaching, setAttaching] = useState(false)
   const [hidden, setHidden] = useState(loadHidden)
   const [follow, setFollow] = useState(true)
@@ -271,13 +272,34 @@ export function VideoReview({
     box.scrollTo?.({ top: Math.max(0, target), behavior: smooth ? 'smooth' : 'auto' })
   }, [currentId, follow, editing])
 
+  // Without a synced clock the owner is asked to sync first; the jump they
+  // asked for happens as soon as the anchor lands.
+  const canSync = owner && Boolean(repository.setAnchor)
   const seekGame = (gameMs: number, preRoll = true) => {
-    if (!controller || !anchor || !coverage || gameMs < coverage[0] || gameMs > coverage[1]) return
+    if (!controller) return
+    if (!anchor) {
+      if (!canSync) return
+      setPendingSeek(gameMs)
+      setSyncing(Math.max(0, controller.currentTime()))
+      return
+    }
+    if (!coverage || gameMs < coverage[0] || gameMs > coverage[1]) return
     const target = preRoll ? Math.max(gameMs - eventPreRollMs, coverage[0]) : gameMs
     controller.seekTo(videoOffset(anchor, target / 1000))
   }
   const seekable = (gameMs: number) =>
-    Boolean(controller && coverage && gameMs >= coverage[0] && gameMs <= coverage[1])
+    Boolean(
+      controller && (anchor ? coverage && gameMs >= coverage[0] && gameMs <= coverage[1] : canSync),
+    )
+  useEffect(() => {
+    if (pendingSeek === null) return
+    if (anchor && coverage && controller) {
+      const target = Math.max(pendingSeek - eventPreRollMs, coverage[0])
+      if (pendingSeek >= coverage[0] && pendingSeek <= coverage[1])
+        controller.seekTo(videoOffset(anchor, target / 1000))
+      setPendingSeek(null)
+    } else if (syncing === null && !anchor) setPendingSeek(null)
+  }, [anchor, coverage, controller, pendingSeek, syncing])
   const commentTime = (videoMs: number) =>
     anchor ? clock(gameTimeMs(anchor, videoMs)) : clock(videoMs)
 
@@ -630,6 +652,7 @@ export function VideoReview({
           <SyncClockDialog
             videoSeconds={syncing}
             anchor={anchor}
+            target={pendingSeek}
             onClose={() => setSyncing(null)}
             onSave={(next) => act(() => repository.setAnchor!(next))}
           />
@@ -809,11 +832,13 @@ function Composer({
 function SyncClockDialog({
   videoSeconds,
   anchor,
+  target,
   onClose,
   onSave,
 }: {
   videoSeconds: number
   anchor: ClockAnchor | null
+  target?: number | null
   onClose(): void
   onSave(anchor: ClockAnchor | null): Promise<boolean>
 }) {
@@ -844,6 +869,7 @@ function SyncClockDialog({
         <p className="dialog-intro">
           Read the in-game timer at the top right of the current frame and enter it here. Every
           event seeks relative to this moment, for you and anyone you share the video with.
+          {target != null && ` Once synced, the video jumps to the ${clock(target)} event.`}
         </p>
         <dl className="sync-facts">
           <div>
