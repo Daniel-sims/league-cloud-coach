@@ -108,6 +108,7 @@ export function Player({
               host.current?.querySelector('iframe')?.setAttribute('title', title)
               setState('ready')
               onController?.({
+                pause: () => player!.pauseVideo(),
                 currentTime: () => player!.getCurrentTime(),
                 duration: () => player!.getDuration(),
                 seekTo: (seconds) => player!.seekTo(Math.max(0, seconds), true),

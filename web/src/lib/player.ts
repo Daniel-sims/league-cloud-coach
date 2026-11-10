@@ -5,4 +5,7 @@ export type PlayerController = {
   currentTime(): number
   duration(): number
   seekTo(seconds: number): void
+  pause?(): void
+  /** Present only when the browser can extract pixels from the video itself. */
+  captureFrame?(): Promise<string>
 }

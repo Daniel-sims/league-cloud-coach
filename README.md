@@ -108,6 +108,45 @@ Expanded scoreboards show the complete available roster, champion/level, KDA, da
 
 **Settings** is at the bottom of the desktop sidebar. Open **Settings → Appearance → Dark mode** to switch between light and dark. The choice applies immediately and is remembered in this browser, including after reload and sign-out. It is not stored on the server. Light remains the default.
 
+## Drawing and timeline captures
+
+On an owner video page or a shared watch page, choose **Draw** beneath the player
+(or press **D** outside a text field). Playback pauses and an editor opens on a
+frozen frame. Draw with the pen, highlighter, arrow or eraser; choose ink colour
+and width, undo/redo or clear. Add an optional note, then choose **Capture to
+timeline**. Coaches enter a display name, as they do for comments. Cancel
+returns to the paused video without saving.
+
+Captures appear chronologically with thumbnails. Open one to view the marked
+frame, **Jump to video** at its exact timestamp, or delete it. Owners can delete
+any capture on their recording; coaches can delete only captures created with
+their browser's author key. Reloading or using another browser can read saved
+captures through the same owner account or valid watch link. Revoked/expired
+watch links and disabled owners lose capture access through the same review
+checks. Downloaded image bytes cannot be recalled.
+
+Cloudflare uses the paused video's decoded frame (its media must allow CORS).
+YouTube's embed API does not expose video pixels: the browser asks you to share
+**this tab** for a one-frame screenshot, then immediately stops sharing. Keep
+the full player visible and check the frozen preview before drawing. Choosing
+a window/screen is rejected; selecting a different tab cannot be reliably
+detected, so cancel if the preview is wrong. Tab capture requires a supported
+desktop browser and HTTPS (localhost also works); mobile YouTube tab capture is
+not supported. Drawing on Cloudflare videos works with mouse, pen or touch.
+
+Saved captures are flattened JPEGs, up to a 1280-pixel long edge and 256 KiB,
+with at most 50 per recording. Drawing can be revised before capture; saved
+stills can be viewed or deleted. They are stored as private bounded binary
+rows in PostgreSQL, fetched separately from timeline metadata and loaded near
+the viewport. This avoids a public image URL or an additional storage service;
+a full 50-image recording uses at most 12.5 MiB of image bytes. Removing the
+recording's metadata cascades to its captures; video files remain unchanged.
+
+Deployment requires the append-only migration
+`supabase/migrations/202611100005_drawing_captures.sql` before publishing the
+frontend. No Edge Function or native app change is required. Run
+`supabase/tests/capture-security.sql` only against a disposable test database.
+
 ## Video keyboard controls
 
 While an uploaded video or its seek buttons are focused, use **Left/Right** to move 1 second, **Shift + Left/Right** for 10 seconds, and **Ctrl + Left/Right** for 30 seconds. Ctrl takes precedence if Shift is also held. Jumps use video time regardless of playback rate, stop at the video boundaries and preserve paused/playing state. The seek buttons support the same modifiers when clicked. For YouTube, focus the seek buttons below the embed to use these shortcuts; keyboard events inside the embedded YouTube player remain controlled by YouTube.
@@ -254,6 +293,7 @@ psql -v ON_ERROR_STOP=1 -f supabase/tests/security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/stream-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/review-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/companion-security.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/capture-security.sql
 ```
 
 Run those paths from the repository root. The tests check validation, private listings, unauthorized accounts, direct mutation denial, cross-owner operations, anonymous capability lookup, share rotation/revocation, disabled owners, and deletion. The fixture transaction rolls back. The CI workflow runs the same tests.

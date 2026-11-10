@@ -390,6 +390,7 @@ test('uploaded video uses precise keyboard seek steps without the native default
       contentType: 'audio/wav',
       body: wav.subarray(start, end + 1),
       headers: {
+        'Access-Control-Allow-Origin': '*',
         'Accept-Ranges': 'bytes',
         ...(range ? { 'Content-Range': `bytes ${start}-${end}/${wav.length}` } : {}),
       },

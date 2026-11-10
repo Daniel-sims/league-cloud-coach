@@ -1,6 +1,8 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 import { reviewPayload } from '../src/test/review-fixture'
 import { match } from '../src/test/league-fixture'
+import { readFileSync } from 'node:fs'
+import type { ReviewCapture } from '../src/lib/review'
 
 // Simulated-backend contract test for the review timeline. Real permissions are
 // covered by supabase/tests/review-security.sql; this is not a live login.
@@ -30,6 +32,8 @@ type State = {
   anchor: { gameTimeSeconds: number; videoOffsetSeconds: number } | null
   comments: Comment[]
   calls: { name: string; args: Record<string, unknown> }[]
+  captures?: (ReviewCapture & { image: string; key?: string })[]
+  failCaptureSave?: boolean
 }
 
 // A disposable silent WAV gives the real video element a 120-second timeline.
@@ -69,6 +73,7 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
       contentType: 'audio/wav',
       body: wav.subarray(start, end + 1),
       headers: {
+        'Access-Control-Allow-Origin': '*',
         'Accept-Ranges': 'bytes',
         ...(range ? { 'Content-Range': `bytes ${start}-${end}/${wav.length}` } : {}),
       },
@@ -93,6 +98,40 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
         .sort((a, b) => a.videoMs - b.videoMs),
     })
     let result: unknown = null
+    if (name === 'list_recording_captures')
+      result = (state.captures ?? []).map(({ image: _image, key, ...capture }) => ({
+        ...capture,
+        mine: args.p_token ? key === args.p_author_key : capture.role === 'owner',
+      }))
+    if (name === 'get_recording_capture')
+      result = state.captures?.find((capture) => capture.id === args.p_capture)?.image
+    if (name === 'add_recording_capture') {
+      if (state.failCaptureSave)
+        return route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: 'The capture could not save. Try again.',
+            code: '22023',
+          }),
+        })
+      const id = `capture-${(state.captures?.length ?? 0) + 1}`
+      state.captures ??= []
+      state.captures.push({
+        id,
+        videoMs: Number(args.p_video_ms),
+        image: String(args.p_image),
+        body: String(args.p_body),
+        role: args.p_token ? 'coach' : 'owner',
+        author: (args.p_author_name as string) ?? null,
+        key: args.p_author_key as string,
+        mine: true,
+        createdAt: new Date().toISOString(),
+      })
+      result = id
+    }
+    if (name === 'delete_recording_capture')
+      state.captures = state.captures?.filter((capture) => capture.id !== args.p_capture)
     if (name === 'user') result = owner ? user : null
     if (name === 'is_library_owner') result = owner
     if (name === 'list_companions') result = []
@@ -472,4 +511,167 @@ test('desktop timeline fills the available window independently of the video hei
     path: testInfo.outputPath('review-tall-timeline-mobile.png'),
     fullPage: true,
   })
+})
+
+async function drawingVideo(context: BrowserContext) {
+  const fixture = Buffer.from(
+    readFileSync(new URL('./fixtures/drawing.mp4.base64', import.meta.url), 'utf8').trim(),
+    'base64',
+  )
+  await context.route('https://customer-test.cloudflarestream.com/review.wav', (route) => {
+    const range = route
+      .request()
+      .headers()
+      .range?.match(/^bytes=(\d+)-(\d*)$/)
+    const start = range ? Number(range[1]) : 0
+    const end = range?.[2] ? Math.min(Number(range[2]), fixture.length - 1) : fixture.length - 1
+    return route.fulfill({
+      status: range ? 206 : 200,
+      contentType: 'video/mp4',
+      body: fixture.subarray(start, end + 1),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Accept-Ranges': 'bytes',
+        ...(range ? { 'Content-Range': `bytes ${start}-${end}/${fixture.length}` } : {}),
+      },
+    })
+  })
+}
+
+test('drawing freezes a real frame, keeps failed saves, and persists a capture on the exact timeline timestamp', async ({
+  page,
+}, testInfo) => {
+  const state: State = { review: null, anchor: null, comments: [], captures: [], calls: [] }
+  await mock(page.context(), state, true)
+  await drawingVideo(page.context())
+  await signIn(page.context())
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/#/video/${recordingId}`)
+  const video = page.getByLabel('Ranked mid review', { exact: true })
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBe(640)
+  await expect
+    .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState))
+    .toBeGreaterThanOrEqual(2)
+  await video.evaluate(async (v: HTMLVideoElement) => {
+    const seeked = new Promise<void>((resolve) =>
+      v.addEventListener('seeked', () => resolve(), { once: true }),
+    )
+    v.currentTime = 1.125
+    await seeked
+    await v.play()
+  })
+  await page.getByRole('button', { name: 'Draw', exact: true }).click()
+  const editor = page.getByRole('dialog', { name: /^Draw at/ })
+  await expect(editor.getByAltText('Frozen video frame')).toBeVisible()
+  expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+  const frozenTime = await video.evaluate((v: HTMLVideoElement) => v.currentTime)
+  const canvas = editor.locator('canvas')
+  const box = (await canvas.boundingBox())!
+  await editor.getByRole('button', { name: 'Red', exact: true }).click()
+  await editor.getByLabel('Width').selectOption('8')
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.35)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.35, { steps: 20 })
+  await page.mouse.up()
+  const hasInk = () =>
+    canvas.evaluate(
+      (c: HTMLCanvasElement) =>
+        c.getContext('2d')!.getImageData(c.width / 2, Math.floor(c.height * 0.35), 1, 1).data[3] >
+        0,
+    )
+  expect(await hasInk()).toBe(true)
+  await editor.getByRole('button', { name: 'Undo', exact: true }).click()
+  expect(await hasInk()).toBe(false)
+  await editor.getByRole('button', { name: 'Redo', exact: true }).click()
+  expect(await hasInk()).toBe(true)
+  await editor.getByRole('button', { name: 'Clear drawing', exact: true }).click()
+  expect(await hasInk()).toBe(false)
+  await editor.getByRole('button', { name: 'Undo', exact: true }).click()
+  expect(await hasInk()).toBe(true)
+  // Erasing removes ink without erasing the underlying video frame.
+  await editor.getByRole('button', { name: 'Eraser', exact: true }).click()
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.35)
+  expect(await hasInk()).toBe(false)
+  await editor.getByRole('button', { name: 'Undo', exact: true }).click()
+  await editor.getByLabel('Note (optional)').fill('Hold this position')
+  await page.screenshot({ path: testInfo.outputPath('drawing-editor.png') })
+  state.failCaptureSave = true
+  await editor.getByRole('button', { name: 'Capture to timeline' }).click()
+  await expect(editor.getByRole('alert')).toContainText('could not save')
+  await expect(editor.getByLabel('Note (optional)')).toHaveValue('Hold this position')
+  expect(await hasInk()).toBe(true)
+  state.failCaptureSave = false
+  await editor.getByRole('button', { name: 'Capture to timeline' }).click()
+  await expect(editor).toHaveCount(0)
+  expect(state.captures).toHaveLength(1)
+  expect(state.captures![0].videoMs).toBe(Math.round(frozenTime * 1000))
+  expect(Buffer.from(state.captures![0].image.split(',')[1], 'base64').length).toBeLessThanOrEqual(
+    262144,
+  )
+  expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+  await expect(page.getByAltText('Annotated frame thumbnail')).toBeVisible()
+  await page.getByRole('button', { name: /Drawing capture/ }).click()
+  const preview = page.getByRole('dialog', { name: /^Capture at/ })
+  await expect(preview.getByAltText('Hold this position')).toBeVisible()
+  // The persisted JPEG contains the red line, not just the original video.
+  const pixel = await preview.getByRole('img').evaluate(async (img: HTMLImageElement) => {
+    await img.decode()
+    const c = document.createElement('canvas')
+    c.width = img.naturalWidth
+    c.height = img.naturalHeight
+    const ctx = c.getContext('2d')!
+    ctx.drawImage(img, 0, 0)
+    return [...ctx.getImageData(c.width / 2, Math.floor(c.height * 0.35), 1, 1).data]
+  })
+  expect(pixel[0]).toBeGreaterThan(180)
+  expect(pixel[1]).toBeLessThan(110)
+  await preview.getByRole('button', { name: 'Jump to video' }).click()
+  await expect
+    .poll(() => video.evaluate((v: HTMLVideoElement) => Math.round(v.currentTime * 1000)))
+    .toBe(state.captures![0].videoMs)
+  await page.reload()
+  await expect(page.getByAltText('Annotated frame thumbnail')).toBeVisible()
+  await page.getByRole('button', { name: /Drawing capture/ }).click()
+  await page.getByRole('button', { name: 'Delete capture' }).click()
+  await expect(page.getByRole('button', { name: /Drawing capture/ })).toHaveCount(0)
+})
+
+test('signed-out coaches can draw, capture and delete their own stills while player captures remain read-only', async ({
+  page,
+}, testInfo) => {
+  const state: State = { review: null, anchor: null, comments: [], captures: [], calls: [] }
+  await mock(page.context(), state, false)
+  await drawingVideo(page.context())
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/#/watch/${token}`)
+  await page.getByRole('button', { name: 'Start session' }).click()
+  const video = page.getByLabel('Ranked mid review', { exact: true })
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBe(640)
+  await page.getByRole('button', { name: 'Draw', exact: true }).click()
+  const editor = page.getByRole('dialog', { name: /^Draw at/ })
+  await expect(editor.getByAltText('Frozen video frame')).toBeVisible()
+  await editor.getByLabel('Your name').fill('Coach')
+  await editor.getByRole('button', { name: 'Arrow', exact: true }).click()
+  await editor.getByRole('button', { name: 'Blue', exact: true }).click()
+  const canvas = (await editor.locator('canvas').boundingBox())!
+  await page.mouse.move(canvas.x + canvas.width * 0.2, canvas.y + canvas.height * 0.2)
+  await page.mouse.down()
+  await page.mouse.move(canvas.x + canvas.width * 0.8, canvas.y + canvas.height * 0.6)
+  await page.mouse.up()
+  await editor.getByLabel('Note (optional)').fill('Move toward the river')
+  await page.screenshot({ path: testInfo.outputPath('drawing-mobile.png') })
+  await editor.getByRole('button', { name: 'Capture to timeline' }).click()
+  await expect(editor).toHaveCount(0)
+  expect(state.captures![0].role).toBe('coach')
+  expect(state.captures![0].author).toBe('Coach')
+  await page.getByRole('button', { name: /Drawing capture/ }).click()
+  await expect(page.getByRole('button', { name: 'Delete capture' })).toBeVisible()
+  await page.getByRole('button', { name: 'Close dialog' }).click()
+  // Return the same persisted still as a player's capture to exercise guest moderation UI.
+  state.captures![0].role = 'owner'
+  state.captures![0].key = undefined
+  await page.reload()
+  await page.getByRole('button', { name: /Drawing capture/ }).click()
+  await expect(page.getByRole('button', { name: 'Delete capture' })).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })

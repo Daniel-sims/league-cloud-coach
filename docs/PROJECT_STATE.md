@@ -2,6 +2,55 @@
 
 Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Drawing captures (migration deployed; frontend publication in progress)
+
+Owner and watch pages now have **Draw** (D): pause/freeze a video frame, annotate
+with pen/highlighter/arrow/eraser, colour/width, undo/redo/clear, then **Capture
+to timeline** with an optional note and coach display name. Captures appear
+with lazy-loaded thumbnails, open as full stills and jump to the exact video
+timestamp. Cancel and successful capture leave playback paused. Failed saves
+keep the drawing and note for retry. Owners moderate all captures; coaches
+delete only their own browser-key-authored captures.
+
+Stream extracts its decoded frame with anonymous CORS. YouTube requires an
+explicit browser tab-share picker for one screenshot; sharing ends immediately
+after capture or failure. The full player must be visible. Screens/windows are
+rejected; the chosen tab cannot be verified, so the editor explicitly asks the
+user to check the frozen frame. YouTube tab capture needs a supported desktop
+browser; mobile YouTube capture is unavailable. Real provider CORS and the
+manual YouTube picker remain live acceptance checks.
+
+Migration `202611100005_drawing_captures.sql` adds a private RLS table and narrow
+metadata/image/save/delete RPCs. JPEG binary rows are capped at 256 KiB each and
+50 per recording (quota checks serialize concurrent saves); the frontend limits
+the long edge to 1280 px. Image bytes are omitted from ordinary review loads.
+The existing owner/watch validity and author-hash checks protect every image
+read/write; no public URLs or storage bucket are introduced. Captures are
+flattened stills, editable before saving. Recording removal cascades their
+metadata/images and leaves video originals alone.
+
+Deployment: migration `202611100005_drawing_captures.sql` is applied to the
+existing hosted project; the migration list confirms local/remote parity. The
+web-only frontend is being published through the standalone repository. No backend function/native rebuild is needed. The
+native workspace has a clean starting `main` branch with no configured remote;
+no native source was changed or published. Generated test video is stored as
+base64 text so the export's movie-file exclusion does not drop it.
+
+Verification: 132 unit/component/handler tests, production build and all 22
+Chrome workflows pass, including real canvas rendering over a generated video,
+paused-state preservation, undo/redo/clear/eraser, JPEG pixel verification,
+failed-save recovery, exact timestamp seeking, reload persistence, desktop and
+390px mobile layouts and coach moderation UI. Desktop/mobile screenshots were
+inspected. All eight permission suites pass on a disposable PostgreSQL 16
+instance; CI runs PostgreSQL 17 and now includes the capture suite. Capture SQL
+checks include cross-owner denial, private grants, guest authorship, JPEG/type/
+size validation, quotas, moderation, revocation, expired Stream sessions and
+disabled membership. Browser backend/auth/provider media are simulated; these
+checks do not prove a real YouTube picker or hosted Cloudflare capture. The
+web-only export includes the new migration, tests, synthetic fixture, canonical
+agent guide and rebased README. Frontend publication and live acceptance remain
+pending.
+
 ## Timeline uses available window height
 
 The desktop review panel is no longer sized by the video's grid row. It has an independent viewport-based height from its top edge to 24 px above the bottom of the window, with a small minimum for short windows. Width dragging and the original video aspect ratio are preserved; narrowing the video no longer shortens the timeline. On stacked mobile layouts, the timeline uses 75% of the dynamic viewport height and retains its internal scroll area. The page footer may sit below the fold instead of taking space from the review panel.

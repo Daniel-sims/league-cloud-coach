@@ -9,6 +9,7 @@ import {
   type PlaybackLease,
 } from '../lib/supabase'
 import type { PlayerController } from '../lib/player'
+import { canvasFor, encodeCapture } from '../lib/drawing'
 
 export function StreamPlayer({
   title,
@@ -38,6 +39,23 @@ export function StreamPlayer({
       return
     }
     onController({
+      pause: () => media.pause(),
+      captureFrame: async () => {
+        media.pause()
+        if (media.seeking)
+          await new Promise<void>((resolve, reject) => {
+            const done = () => {
+              clearTimeout(timer)
+              resolve()
+            }
+            const timer = window.setTimeout(() => {
+              media.removeEventListener('seeked', done)
+              reject(new Error('Wait for the video to finish seeking, then try again.'))
+            }, 5000)
+            media.addEventListener('seeked', done, { once: true })
+          })
+        return encodeCapture(canvasFor(media, media.videoWidth, media.videoHeight))
+      },
       currentTime: () => media.currentTime,
       duration: () => media.duration,
       seekTo: (seconds) => {
@@ -206,6 +224,7 @@ export function StreamPlayer({
           <div className="player-stage" hidden={stopped}>
             <video
               ref={video}
+              crossOrigin="anonymous"
               controls
               playsInline
               preload="auto"

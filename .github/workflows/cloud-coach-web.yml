@@ -70,6 +70,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/riot-token-security.sql
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/review-security.sql
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/companion-security.sql
+          psql -v ON_ERROR_STOP=1 -f ../supabase/tests/capture-security.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.VITE_SUPABASE_URL != '' && vars.VITE_SUPABASE_PUBLISHABLE_KEY != ''

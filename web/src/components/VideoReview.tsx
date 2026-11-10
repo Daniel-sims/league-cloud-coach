@@ -18,12 +18,15 @@ import {
   Link2,
   LoaderCircle,
   MessageSquarePlus,
+  Pencil,
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
   Settings,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
+import { DrawingCapture, CapturePreview, CaptureThumbnail } from './DrawingCapture'
+import { captureTabFrame } from '../lib/drawing'
 import { CommentRow, EventRow, patchOf } from './TimelineRows'
 import type { PlayerController } from '../lib/player'
 import {
@@ -49,6 +52,7 @@ import {
   type ReviewComment,
   type ReviewData,
   type ReviewRepository,
+  type ReviewCapture,
 } from '../lib/review'
 import {
   championIcon,
@@ -63,6 +67,7 @@ import '../review.css'
 
 const hiddenStorage = 'league-cloud-coach-hidden-kinds'
 const commentsKey = 'comments'
+const capturesKey = 'captures'
 const widthStorage = 'league-cloud-coach-timeline-width'
 const openStorage = 'league-cloud-coach-timeline'
 const minPanel = 300
@@ -85,6 +90,7 @@ function store(key: string, value: string) {
 type Item =
   | { id: string; type: 'event'; entry: TimelineEntry; sortMs: number }
   | { id: string; type: 'comment'; comment: ReviewComment; sortMs: number }
+  | { id: string; type: 'capture'; capture: ReviewCapture; sortMs: number }
 
 function loadHidden(): Set<string> {
   try {
@@ -120,6 +126,20 @@ export function VideoReview({
   const [syncing, setSyncing] = useState<number | null>(null)
   const [pendingSeek, setPendingSeek] = useState<{ ms: number; leadMs: number } | null>(null)
   const [attaching, setAttaching] = useState(false)
+  const [drawingFrame, setDrawingFrame] = useState<{ image: string; videoMs: number } | null>(null)
+  const [preparingDrawing, setPreparingDrawing] = useState(false)
+  const [viewingCapture, setViewingCapture] = useState<ReviewCapture | null>(null)
+  const captureBusy = useRef(false)
+  const captureGeneration = useRef(0)
+  useEffect(() => {
+    setDrawingFrame(null)
+    setViewingCapture(null)
+    setPreparingDrawing(false)
+    captureBusy.current = false
+    return () => {
+      captureGeneration.current++
+    }
+  }, [repository])
   const [hidden, setHidden] = useState(loadHidden)
   const [follow, setFollow] = useState(true)
   const list = useRef<HTMLOListElement>(null)
@@ -173,7 +193,11 @@ export function VideoReview({
       const top = box.getBoundingClientRect().top + window.scrollY
       const wrap = box.querySelector<HTMLElement>('.player-wrap')
       const stage = box.querySelector<HTMLElement>('.player-stage')
-      const chrome = wrap && stage && !stage.hidden ? wrap.offsetHeight - stage.offsetHeight : 64
+      const drawingControls =
+        box.querySelector<HTMLElement>('.review-draw-controls')?.offsetHeight ?? 0
+      const chrome =
+        (wrap && stage && !stage.hidden ? wrap.offsetHeight - stage.offsetHeight : 64) +
+        drawingControls
       box.style.setProperty('--review-top', `${Math.round(top)}px`)
       box.style.setProperty('--review-chrome', `${Math.max(0, chrome)}px`)
     }
@@ -246,6 +270,7 @@ export function VideoReview({
     [anchor, durationMs],
   )
   const comments = data?.comments ?? []
+  const captures = data?.captures ?? []
   const presentKinds = entryKinds.filter((k) => entries.some((e) => e.kind === k.kind))
   const items = useMemo(() => {
     const eventMs = (gameMs: number) =>
@@ -261,8 +286,18 @@ export function VideoReview({
           comment,
           sortMs: comment.videoMs,
         }))
-    return [...events, ...notes].sort((a, b) => a.sortMs - b.sortMs || (a.id < b.id ? -1 : 1))
-  }, [entries, comments, hidden, anchor])
+    const stills: Item[] = hidden.has(capturesKey)
+      ? []
+      : captures.map((capture) => ({
+          id: capture.id,
+          type: 'capture',
+          capture,
+          sortMs: capture.videoMs,
+        }))
+    return [...events, ...notes, ...stills].sort(
+      (a, b) => a.sortMs - b.sortMs || (a.id < b.id ? -1 : 1),
+    )
+  }, [entries, comments, captures, hidden, anchor])
   const currentId = useMemo(() => {
     if (playheadMs === null) return null
     return items.filter((i) => i.sortMs <= playheadMs).at(-1)?.id ?? null
@@ -317,6 +352,42 @@ export function VideoReview({
     setEditing(null)
     setComposing(Math.max(0, Math.round(controller.currentTime() * 1000)))
   }, [controller])
+  const startDrawing = useCallback(async () => {
+    if (!controller?.pause || !repository.addCapture || captureBusy.current) return
+    const generation = captureGeneration.current
+    captureBusy.current = true
+    controller.pause()
+    setPreparingDrawing(true)
+    setActionError('')
+    try {
+      const stage = container.current?.querySelector<HTMLElement>('.player-stage')
+      if (!stage) throw new Error('Wait for the video to load, then try again.')
+      const image = controller.captureFrame
+        ? await controller.captureFrame()
+        : await captureTabFrame(stage)
+      const seconds = controller.currentTime()
+      if (!Number.isFinite(seconds) || seconds < 0)
+        throw new Error('The video position is unavailable. Try again.')
+      if (generation === captureGeneration.current)
+        setDrawingFrame({ image, videoMs: Math.round(seconds * 1000) })
+    } catch (reason) {
+      if (generation === captureGeneration.current)
+        setActionError(
+          reason instanceof DOMException && reason.name === 'NotAllowedError'
+            ? 'Tab capture was cancelled. Choose Draw and share this tab to try again.'
+            : reason instanceof DOMException && reason.name === 'SecurityError'
+              ? 'This video does not allow frame capture in this browser. Check the video’s cross-origin access settings.'
+              : reason instanceof Error
+                ? reason.message
+                : 'Could not freeze the frame. Try again.',
+        )
+    } finally {
+      if (generation === captureGeneration.current) {
+        captureBusy.current = false
+        setPreparingDrawing(false)
+      }
+    }
+  }, [controller, repository])
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (
@@ -336,6 +407,29 @@ export function VideoReview({
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
   }, [controller, composing, startComment])
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== 'd' ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.defaultPrevented
+      )
+        return
+      if (
+        (event.target as HTMLElement | null)?.closest(
+          'input, textarea, select, [contenteditable], dialog[open]',
+        )
+      )
+        return
+      if (!controller?.pause || !repository.addCapture || drawingFrame) return
+      event.preventDefault()
+      void startDrawing()
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [controller, repository, drawingFrame, startDrawing])
 
   async function act(work: () => Promise<unknown>) {
     setActionError('')
@@ -362,9 +456,12 @@ export function VideoReview({
     }
   }
   const patch = review ? patchOf(review.gameVersion) : ''
-  const filtered = presentKinds.some((k) => hidden.has(k.kind)) || hidden.has(commentsKey)
+  const filtered =
+    presentKinds.some((k) => hidden.has(k.kind)) ||
+    hidden.has(commentsKey) ||
+    hidden.has(capturesKey)
   const eventCount = items.filter((i) => i.type === 'event').length
-  const commentCount = items.length - eventCount
+  const commentCount = items.filter((i) => i.type === 'comment').length
 
   const needsSetup = owner && (!review || !anchor)
   const closeSettings = () => settingsMenu.current?.removeAttribute('open')
@@ -374,7 +471,30 @@ export function VideoReview({
         className={`review-layout ${panelOpen ? '' : 'timeline-collapsed'}`}
         style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}
       >
-        <div className="review-video">{renderPlayer(setController)}</div>
+        <div className="review-video">
+          {renderPlayer(setController)}
+          {repository.addCapture && (
+            <div className="review-draw-controls">
+              <button
+                className="button secondary button-small"
+                disabled={!controller?.pause || preparingDrawing || !data}
+                onClick={() => void startDrawing()}
+                title="Pause and draw on this frame (D)"
+              >
+                <Pencil size={15} />
+                {preparingDrawing ? 'Freezing frame…' : 'Draw'}
+              </button>
+              {!controller?.captureFrame && controller?.pause && (
+                <span className="field-hint">For YouTube, share this tab when prompted.</span>
+              )}
+            </div>
+          )}
+          {!panelOpen && actionError && (
+            <p className="notice error" role="alert">
+              {actionError}
+            </p>
+          )}
+        </div>
         {!panelOpen ? (
           <button
             className="review-rail"
@@ -412,10 +532,12 @@ export function VideoReview({
                   <span>
                     {eventCount} {eventCount === 1 ? 'event' : 'events'} · {commentCount}{' '}
                     {commentCount === 1 ? 'comment' : 'comments'}
+                    {captures.length > 0 &&
+                      ` · ${items.filter((item) => item.type === 'capture').length} ${items.filter((item) => item.type === 'capture').length === 1 ? 'capture' : 'captures'}`}
                   </span>
                 </div>
                 <div className="review-tools">
-                  {(presentKinds.length > 0 || comments.length > 0) && (
+                  {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
                     <details className="review-filter">
                       <summary
                         className={`icon-button ${filtered ? 'active' : ''}`}
@@ -446,6 +568,16 @@ export function VideoReview({
                           <i className="kind-dot kind-comment" />
                           Comments
                           <small>{comments.length}</small>
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={!hidden.has(capturesKey)}
+                            onChange={() => toggle(capturesKey)}
+                          />
+                          <i className="kind-dot kind-comment" />
+                          Captures
+                          <small>{captures.length}</small>
                         </label>
                       </div>
                     </details>
@@ -549,7 +681,7 @@ export function VideoReview({
                 </div>
               ) : items.length === 0 ? (
                 <div className="review-empty">
-                  {entries.length || comments.length ? (
+                  {entries.length || comments.length || captures.length ? (
                     <>
                       <p>Everything on this timeline is hidden by the filter.</p>
                       <button
@@ -609,6 +741,31 @@ export function VideoReview({
                           }
                           onSeekTime={(ms, kind) => seekGame(ms, seekLeadMs(kind))}
                         />
+                      ) : item.type === 'capture' ? (
+                        <li
+                          key={item.id}
+                          data-item={item.id}
+                          className={`timeline-row capture-row ${item.id === currentId ? 'current' : ''}`}
+                        >
+                          <button
+                            className="capture-open"
+                            onClick={() => setViewingCapture(item.capture)}
+                          >
+                            <CaptureThumbnail capture={item.capture} repository={repository} />
+                            <span>
+                              <span className="capture-time">
+                                {commentTime(item.capture.videoMs)}
+                              </span>
+                              <strong>Drawing capture</strong>
+                              {item.capture.body && <span>{item.capture.body}</span>}
+                              <small>
+                                {item.capture.role === 'owner'
+                                  ? 'Player'
+                                  : item.capture.author || 'Coach'}
+                              </small>
+                            </span>
+                          </button>
+                        </li>
                       ) : editing === item.id ? (
                         <li key={item.id} className="timeline-row composing">
                           <Composer
@@ -679,6 +836,41 @@ export function VideoReview({
           />
         )}
       </div>
+      {drawingFrame && (
+        <DrawingCapture
+          frame={drawingFrame.image}
+          timeLabel={commentTime(drawingFrame.videoMs)}
+          role={repository.role}
+          onClose={() => setDrawingFrame(null)}
+          onSave={async (image, body, name) => {
+            const generation = captureGeneration.current
+            await repository.addCapture!({ videoMs: drawingFrame.videoMs, image, body }, name)
+            if (generation !== captureGeneration.current) return
+            setHidden((previous) => {
+              const next = new Set(previous)
+              next.delete(capturesKey)
+              return next
+            })
+            showPanel(true)
+            setDrawingFrame(null)
+            await reload()
+          }}
+        />
+      )}
+      {viewingCapture && repository.getCapture && (
+        <CapturePreview
+          capture={viewingCapture}
+          repository={repository}
+          timeLabel={commentTime(viewingCapture.videoMs)}
+          onClose={() => setViewingCapture(null)}
+          onSeek={controller ? () => controller.seekTo(viewingCapture.videoMs / 1000) : undefined}
+          onDelete={
+            repository.deleteCapture && (owner || viewingCapture.mine)
+              ? () => act(() => repository.deleteCapture!(viewingCapture.id))
+              : undefined
+          }
+        />
+      )}
     </div>
   )
 }

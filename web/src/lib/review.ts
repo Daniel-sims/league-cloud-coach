@@ -25,7 +25,18 @@ export type ReviewData = {
   syncedAt: string | null
   anchor: ClockAnchor | null
   comments: ReviewComment[]
+  captures?: ReviewCapture[]
 }
+export type ReviewCapture = {
+  id: string
+  videoMs: number
+  body: string
+  role: 'owner' | 'coach'
+  author: string | null
+  mine: boolean
+  createdAt: string
+}
+export type CaptureInput = { videoMs: number; image: string; body: string }
 export type CommentInput = { videoMs: number; kind: CommentKind; body: string }
 
 /// What the review panel can do. Owner-only capabilities are absent for guests.
@@ -38,12 +49,31 @@ export interface ReviewRepository {
   setAnchor?(anchor: ClockAnchor | null): Promise<void>
   attachMatch?(profileId: string, matchId: string): Promise<void>
   detachMatch?(): Promise<void>
+  addCapture?(input: CaptureInput, authorName?: string): Promise<void>
+  getCapture?(id: string): Promise<string>
+  deleteCapture?(id: string): Promise<void>
 }
 
 export function ownerReview(recordingId: string): ReviewRepository {
   return {
     role: 'owner',
-    load: () => rpc<ReviewData>('get_recording_review', { p_id: recordingId }),
+    load: async () => {
+      const [review, captures] = await Promise.all([
+        rpc<ReviewData>('get_recording_review', { p_id: recordingId }),
+        rpc<ReviewCapture[]>('list_recording_captures', { p_recording: recordingId }),
+      ])
+      return review ? { ...review, captures: captures ?? [] } : null
+    },
+    addCapture: async ({ videoMs, image, body }) => {
+      await rpc('add_recording_capture', {
+        p_recording: recordingId,
+        p_video_ms: videoMs,
+        p_image: image,
+        p_body: body,
+      })
+    },
+    getCapture: (id) => rpc<string>('get_recording_capture', { p_capture: id }),
+    deleteCapture: (id) => rpc('delete_recording_capture', { p_capture: id }),
     addComment: ({ videoMs, kind, body }) =>
       rpc('add_recording_comment', {
         p_id: recordingId,
@@ -70,7 +100,31 @@ export function sharedReview(token: string): ReviewRepository {
   const key = authorKey()
   return {
     role: 'coach',
-    load: () => rpc<ReviewData | null>('get_shared_review', { p_token: token, p_author_key: key }),
+    load: async () => {
+      const review = await rpc<ReviewData | null>('get_shared_review', {
+        p_token: token,
+        p_author_key: key,
+      })
+      if (!review) return null
+      const captures = await rpc<ReviewCapture[]>('list_recording_captures', {
+        p_token: token,
+        p_author_key: key,
+      })
+      return { ...review, captures: captures ?? [] }
+    },
+    addCapture: async ({ videoMs, image, body }, authorName) => {
+      await rpc('add_recording_capture', {
+        p_token: token,
+        p_author_key: key,
+        p_author_name: authorName,
+        p_video_ms: videoMs,
+        p_image: image,
+        p_body: body,
+      })
+    },
+    getCapture: (id) => rpc<string>('get_recording_capture', { p_capture: id, p_token: token }),
+    deleteCapture: (id) =>
+      rpc('delete_recording_capture', { p_capture: id, p_token: token, p_author_key: key }),
     addComment: ({ videoMs, kind, body }, authorName) =>
       rpc('add_shared_comment', {
         p_token: token,
