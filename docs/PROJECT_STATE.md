@@ -4,7 +4,7 @@ Last reviewed: 11 November 2026. This is the durable session handoff, not a repl
 
 ## Compact video review layout
 
-Local changes, not yet published: owner video pages use a 48px workspace header
+Owner video pages use a 48px workspace header
 and a tighter back/title/share row, with the player starting at 100px on desktop.
 The extra seek-button row is hidden on owner and shared review pages; provider
 playback controls and keyboard seeking/playback remain available. Draw lives in
@@ -16,7 +16,9 @@ footer is hidden while reviewing.
 
 Verification: 134 unit/component/handler tests, production build and all five
 review Chrome workflows pass against simulated backend contracts. Desktop and
-mobile screenshots inspected. No backend, native or deployment changes.
+mobile screenshots inspected. Release `1067be470f4363486e743366286fd1c6b1bbbb85`
+is pushed and deployed through the [successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42994269169),
+including the full browser and database permission suites. No backend or native changes.
 
 ## Independent desktop and web workspaces
 
