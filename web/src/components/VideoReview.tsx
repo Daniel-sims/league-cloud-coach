@@ -113,7 +113,28 @@ export function VideoReview({
   recordedOn?: string | null
   renderPlayer(onController: (controller: PlayerController | null) => void): ReactNode
 }) {
-  const menuGroup = useId()
+  const [openMenu, setOpenMenu] = useState<'settings' | 'filter' | null>(null)
+  useEffect(() => {
+    if (!openMenu) return
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Element && !event.target.closest('.review-menu')) {
+        setOpenMenu(null)
+      }
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setOpenMenu(null)
+      const label = openMenu === 'settings' ? 'Video settings' : 'Filter timeline'
+      container.current?.querySelector<HTMLButtonElement>(`button[aria-label^="${label}"]`)?.focus()
+    }
+    document.addEventListener('pointerdown', dismiss)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('pointerdown', dismiss)
+      document.removeEventListener('keydown', escape)
+    }
+  }, [openMenu])
   const owner = repository.role === 'owner'
   const [controller, setController] = useState<PlayerController | null>(null)
   const [data, setData] = useState<ReviewData | null>(null)
@@ -145,7 +166,6 @@ export function VideoReview({
   const [follow, setFollow] = useState(true)
   const list = useRef<HTMLOListElement>(null)
   const container = useRef<HTMLDivElement>(null)
-  const settingsMenu = useRef<HTMLDetailsElement>(null)
   const [panelWidth, setPanelWidth] = useState(() => {
     const saved = Number(stored(widthStorage))
     return Number.isFinite(saved) && saved >= minPanel ? saved : defaultPanel
@@ -459,52 +479,58 @@ export function VideoReview({
     hidden.has(capturesKey)
 
   const needsSetup = owner && (!review || !anchor)
-  const closeSettings = () => settingsMenu.current?.removeAttribute('open')
+  const closeSettings = () => setOpenMenu(null)
   const videoSettings = data && (
-    <details className="review-filter" name={menuGroup} ref={settingsMenu}>
-      <summary
-        className={`icon-button ${needsSetup ? 'attention' : ''}`}
+    <div className="review-video-settings review-menu">
+      <button
+        type="button"
+        aria-expanded={openMenu === 'settings'}
+        onClick={() => setOpenMenu(openMenu === 'settings' ? null : 'settings')}
+        className={`button secondary button-small ${needsSetup ? 'attention' : ''}`}
         aria-label={needsSetup ? 'Video settings (setup needed)' : 'Video settings'}
         title="Video settings"
       >
         <Settings size={15} />
-      </summary>
-      <div className="review-filter-menu review-settings-menu">
-        {repository.addCapture && (
-          <div className="review-draw-setting">
-            <button
-              className="button secondary button-small"
-              disabled={!controller?.pause || preparingDrawing}
-              onClick={() => {
+        Video tools
+      </button>
+      {openMenu === 'settings' && (
+        <div className="review-filter-menu review-settings-menu review-menu-panel">
+          {repository.addCapture && (
+            <div className="review-draw-setting">
+              <button
+                className="button secondary button-small"
+                disabled={!controller?.pause || preparingDrawing}
+                onClick={() => {
+                  closeSettings()
+                  void startDrawing()
+                }}
+                title="Pause and draw on this frame (D)"
+              >
+                <Pencil size={15} />
+                {preparingDrawing ? 'Freezing frame…' : 'Draw'}
+              </button>
+              {!controller?.captureFrame && controller?.pause && (
+                <p className="field-hint">For YouTube, share this tab when prompted.</p>
+              )}
+            </div>
+          )}
+          {owner && (
+            <ReviewSettings
+              data={data}
+              playerReady={Boolean(controller)}
+              onSync={() => {
                 closeSettings()
-                void startDrawing()
+                if (controller) setSyncing(Math.max(0, controller.currentTime()))
               }}
-              title="Pause and draw on this frame (D)"
-            >
-              <Pencil size={15} />
-              {preparingDrawing ? 'Freezing frame…' : 'Draw'}
-            </button>
-            {!controller?.captureFrame && controller?.pause && (
-              <p className="field-hint">For YouTube, share this tab when prompted.</p>
-            )}
-          </div>
-        )}
-        {owner && (
-          <ReviewSettings
-            data={data}
-            playerReady={Boolean(controller)}
-            onSync={() => {
-              closeSettings()
-              if (controller) setSyncing(Math.max(0, controller.currentTime()))
-            }}
-            onAttach={() => {
-              closeSettings()
-              setAttaching(true)
-            }}
-          />
-        )}
-      </div>
-    </details>
+              onAttach={() => {
+                closeSettings()
+                setAttaching(true)
+              }}
+            />
+          )}
+        </div>
+      )}
+    </div>
   )
   return (
     <div className="review-container" ref={container}>
@@ -514,6 +540,7 @@ export function VideoReview({
       >
         <div className="review-video">
           {renderPlayer(setController)}
+          {videoSettings}
           {!panelOpen && actionError && (
             <p className="notice error" role="alert">
               {actionError}
@@ -522,7 +549,6 @@ export function VideoReview({
         </div>
         {!panelOpen ? (
           <div className="review-collapsed-tools">
-            {videoSettings}
             <button
               className="review-rail"
               onClick={() => showPanel(true)}
@@ -560,51 +586,55 @@ export function VideoReview({
                 </div>
                 <div className="review-tools">
                   {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
-                    <details className="review-filter" name={menuGroup}>
-                      <summary
+                    <div className="review-filter review-menu">
+                      <button
+                        type="button"
+                        aria-expanded={openMenu === 'filter'}
+                        onClick={() => setOpenMenu(openMenu === 'filter' ? null : 'filter')}
                         className={`icon-button ${filtered ? 'active' : ''}`}
                         aria-label="Filter timeline"
                         title="Filter timeline"
                       >
                         <Filter size={15} />
-                      </summary>
-                      <div className="review-filter-menu">
-                        {presentKinds.map((k) => (
-                          <label key={k.kind}>
+                      </button>
+                      {openMenu === 'filter' && (
+                        <div className="review-filter-menu review-menu-panel">
+                          {presentKinds.map((k) => (
+                            <label key={k.kind}>
+                              <input
+                                type="checkbox"
+                                checked={!hidden.has(k.kind)}
+                                onChange={() => toggle(k.kind)}
+                              />
+                              <i className={`kind-dot kind-${k.kind}`} />
+                              {k.name}
+                              <small>{entries.filter((e) => e.kind === k.kind).length}</small>
+                            </label>
+                          ))}
+                          <label>
                             <input
                               type="checkbox"
-                              checked={!hidden.has(k.kind)}
-                              onChange={() => toggle(k.kind)}
+                              checked={!hidden.has(commentsKey)}
+                              onChange={() => toggle(commentsKey)}
                             />
-                            <i className={`kind-dot kind-${k.kind}`} />
-                            {k.name}
-                            <small>{entries.filter((e) => e.kind === k.kind).length}</small>
+                            <i className="kind-dot kind-comment" />
+                            Comments
+                            <small>{comments.length}</small>
                           </label>
-                        ))}
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={!hidden.has(commentsKey)}
-                            onChange={() => toggle(commentsKey)}
-                          />
-                          <i className="kind-dot kind-comment" />
-                          Comments
-                          <small>{comments.length}</small>
-                        </label>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={!hidden.has(capturesKey)}
-                            onChange={() => toggle(capturesKey)}
-                          />
-                          <i className="kind-dot kind-comment" />
-                          Captures
-                          <small>{captures.length}</small>
-                        </label>
-                      </div>
-                    </details>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={!hidden.has(capturesKey)}
+                              onChange={() => toggle(capturesKey)}
+                            />
+                            <i className="kind-dot kind-comment" />
+                            Captures
+                            <small>{captures.length}</small>
+                          </label>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  {videoSettings}
                   <button
                     className="icon-button"
                     onClick={() => showPanel(false)}

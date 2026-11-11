@@ -265,8 +265,8 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const timeline = page.getByRole('region', { name: 'Review timeline' })
   await expect(timeline.getByText('No comments yet')).toBeVisible()
 
-  await timeline.getByLabel('Video settings (setup needed)').click()
-  await timeline.getByRole('button', { name: 'Attach game' }).click()
+  await page.getByLabel('Video settings (setup needed)').click()
+  await page.getByRole('button', { name: 'Attach game' }).click()
   const attach = page.getByRole('dialog')
   // The only synced game on the recording date is preselected.
   await expect(attach.getByRole('radio', { checked: true })).toHaveValue('EUW1_1')
@@ -291,9 +291,9 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await sync.getByRole('button', { name: 'Sync', exact: true }).click()
   // 10:00 fight sits at video 1:00; it seeks exactly there.
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(60)
-  await timeline.getByLabel('Video settings', { exact: true }).click()
-  await expect(timeline.getByText('10:00 at 1:00 in the video')).toBeVisible()
-  await timeline.getByLabel('Video settings', { exact: true }).click()
+  await page.getByLabel('Video settings', { exact: true }).click()
+  await expect(page.getByText('10:00 at 1:00 in the video')).toBeVisible()
+  await page.getByLabel('Video settings', { exact: true }).click()
   await expect(timeline.getByRole('button', { name: 'Killed Ahri', exact: true })).toBeDisabled()
 
   await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 70))
@@ -381,10 +381,10 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const question = guestTimeline.getByRole('listitem').filter({ hasText: 'Should I have backed' })
   await expect(question.getByText('Player')).toBeVisible()
   await expect(question.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
-  await guestTimeline.getByLabel(/Video settings/).click()
+  await guest.getByLabel(/Video settings/).click()
   await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
-  await expect(guestTimeline.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
-  await guestTimeline.getByLabel(/Video settings/).click()
+  await expect(guest.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
+  await guest.getByLabel(/Video settings/).click()
   await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
   await seekVideo(guest, 'Ranked mid review', 72)
   await guestTimeline.getByRole('button', { name: 'Comment', exact: true }).click()
@@ -459,15 +459,17 @@ test('companion approval is explicit and imported ultimate markers seek for a si
 })
 
 async function expectHeaderMenuFits(page: Page, label: RegExp) {
-  const panel = page.getByRole('region', { name: 'Review timeline' })
-  const toggle = panel.getByLabel(label)
+  const toggle = page.getByLabel(label)
   await toggle.click()
-  const menu = panel.locator('details[open] > .review-filter-menu')
+  const menu = page.locator('.review-menu-panel')
   const bounds = (await menu.boundingBox())!
-  const panelBounds = (await panel.boundingBox())!
-  expect(bounds.x).toBeGreaterThanOrEqual(panelBounds.x)
-  expect(bounds.x + bounds.width).toBeLessThanOrEqual(panelBounds.x + panelBounds.width)
-  // Visibility alone misses overflow clipping: check both edges receive pointer hits.
+  const containerBounds = await menu.evaluate((element) => {
+    const parent = element.closest('.review-video, .review-panel')!
+    const box = parent.getBoundingClientRect()
+    return { left: box.left, right: box.right }
+  })
+  expect(bounds.x).toBeGreaterThanOrEqual(containerBounds.left)
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(containerBounds.right)
   expect(
     await menu.evaluate((element) => {
       const box = element.getBoundingClientRect()
@@ -480,17 +482,21 @@ async function expectHeaderMenuFits(page: Page, label: RegExp) {
 }
 
 async function expectOneHeaderMenu(page: Page) {
-  const panel = page.getByRole('region', { name: 'Review timeline' })
-  const settings = panel.getByLabel(/Video settings/)
-  const filter = panel.getByLabel(/Filter timeline/)
+  const settings = page.getByLabel(/Video settings/)
+  const filter = page.getByLabel(/Filter timeline/)
   await settings.click()
+  // On stacked mobile layouts the open tools menu can overlap the timeline.
+  await page.getByRole('heading', { name: 'Ranked mid review', exact: true }).click()
+  await expect(page.locator('.review-menu-panel')).toHaveCount(0)
   await filter.click()
-  await expect(panel.locator('details[open]')).toHaveCount(1)
-  await expect(panel.locator('.review-settings-menu')).toBeHidden()
+  await expect(page.locator('.review-menu-panel')).toHaveCount(1)
+  await expect(page.locator('.review-settings-menu')).toHaveCount(0)
   await settings.click()
-  await expect(panel.locator('details[open]')).toHaveCount(1)
-  await expect(panel.locator('.review-settings-menu')).toBeVisible()
-  await settings.click()
+  await expect(page.locator('.review-menu-panel')).toHaveCount(1)
+  await expect(page.locator('.review-settings-menu')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.review-menu-panel')).toHaveCount(0)
+  await expect(settings).toBeFocused()
 }
 
 test('desktop timeline fills the available window independently of the video height', async ({
@@ -537,9 +543,9 @@ test('desktop timeline fills the available window independently of the video hei
   await expectHeaderMenuFits(page, /Video settings/)
   await expectHeaderMenuFits(page, /Filter timeline/)
   await expectOneHeaderMenu(page)
-  await timeline.getByLabel(/Video settings/).click()
+  await page.getByLabel(/Video settings/).click()
   await page.screenshot({ path: testInfo.outputPath('settings-narrow-desktop.png') })
-  await timeline.getByLabel(/Video settings/).click()
+  await page.getByLabel(/Video settings/).click()
   await page.setViewportSize({ width: 2048, height: 820 })
   await expect
     .poll(async () => {
@@ -559,9 +565,9 @@ test('desktop timeline fills the available window independently of the video hei
   await expectHeaderMenuFits(page, /Filter timeline/)
   await expectOneHeaderMenu(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await timeline.getByLabel(/Video settings/).click()
+  await page.getByLabel(/Video settings/).click()
   await page.screenshot({ path: testInfo.outputPath('settings-mobile.png') })
-  await timeline.getByLabel(/Video settings/).click()
+  await page.getByLabel(/Video settings/).click()
   await page.screenshot({
     path: testInfo.outputPath('review-tall-timeline-mobile.png'),
     fullPage: true,

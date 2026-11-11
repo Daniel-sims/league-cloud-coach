@@ -118,7 +118,7 @@ Expanded scoreboards show the complete available roster, champion/level, KDA, da
 
 ## Drawing and timeline captures
 
-On an owner video page or a shared watch page, choose **Draw** beneath the player
+On an owner video page or a shared watch page, choose **Video tools → Draw** at the upper-right of the video
 (or press **D** outside a text field). Playback pauses and an editor opens on a
 frozen frame. Draw with the pen, highlighter, arrow or eraser; choose ink colour
 and width, undo/redo or clear. Add an optional note, then choose **Capture to

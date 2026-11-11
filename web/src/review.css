@@ -39,6 +39,7 @@
   --behind: #e7a99a;
 }
 .review-video {
+  position: relative;
   min-width: 0;
 }
 /* The largest 16:9 video that fits below the page heading with its controls
@@ -119,10 +120,10 @@
   margin-bottom: 4px;
   font-variant-numeric: tabular-nums;
 }
-.review-filter summary.attention {
+.review-video-settings .attention {
   position: relative;
 }
-.review-filter summary.attention::after {
+.review-video-settings .attention::after {
   content: '';
   position: absolute;
   top: 5px;
@@ -190,7 +191,7 @@
 .review-filter summary::-webkit-details-marker {
   display: none;
 }
-.review-filter summary.active {
+.review-filter button.active {
   color: var(--gold);
 }
 .review-filter-menu {
@@ -204,6 +205,23 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 8px 24px #0000001f;
+}
+/* Video tools sit on the video, outside the timeline's clipping boundary. */
+.review-video-settings {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+}
+.review-video-settings > button {
+  background: var(--paper);
+  box-shadow: 0 2px 8px #00000026;
+}
+.review-video-settings .review-settings-menu {
+  width: min(300px, calc(100vw - 56px));
+  max-height: min(440px, calc(100dvh - 180px));
+  overflow-y: auto;
+  overflow-wrap: anywhere;
 }
 /* Anchor header menus to the panel, not an individual toolbar icon. */
 .review-settings-menu {
@@ -1197,4 +1215,8 @@
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+.review-settings-menu .review-settings small {
+  margin-left: 0;
 }

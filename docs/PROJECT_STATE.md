@@ -2,6 +2,23 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Video tools location and dropdown behavior
+
+Current behavior supersedes the earlier menu placements below: **Video tools**
+is a labelled button at the upper-right of the video. It contains Draw first,
+then owner-only game and clock settings. This removes Settings from the narrow
+timeline header and its clipping boundary. The browser-provided video three-dot
+menu cannot contain app actions; it retains playback speed/Picture-in-Picture.
+Filter remains in the timeline header and fits its width. Both menus now use
+explicit shared React state instead of native details dropdowns: opening one
+closes the other, outside clicks dismiss, and Escape closes and restores focus.
+Draw remains available when the timeline is collapsed. The D shortcut remains.
+
+Verification: all 134 unit tests, production build and five review Chrome
+workflows pass. Narrow desktop/mobile menu bounds and pointer hits, outside
+clicks, Escape, owner/guest drawing and switching menus are covered. Screenshots
+inspected. Live browser-native menu customization is not implemented.
+
 ## Compact video review layout
 
 Owner video pages use a 48px workspace header
