@@ -13,14 +13,13 @@ const getUser = vi.fn(),
   writes = vi.fn();
 let member = true,
   available = true,
-  cached: boolean | "no-level" = false,
-  viewed = false;
+  cached: boolean | "no-level" = false;
 const profile = () => ({
   id,
   owner_id: "owner",
   puuid: "verified-player",
   platform: "euw1",
-  profile: viewed ? { viewed: true } : {},
+  profile: {},
 });
 function table(name: string) {
   let operation = "select";
@@ -107,7 +106,6 @@ beforeEach(() => {
   member = true;
   available = true;
   cached = false;
-  viewed = false;
   getUser.mockResolvedValue({ data: { user: { id: "owner" } }, error: null });
   rpc.mockImplementation(async (name) => ({
     data: name === "reserve_riot_request" ? 0 : true,
@@ -250,8 +248,7 @@ it("fetches a cached game once more when it was saved without account levels", a
   )![1];
   expect(stored.match.participants[0].summonerLevel).toBe(150);
 });
-it("opens another player by account id as a removable viewed profile", async () => {
-  available = false;
+it("opens another player by account id without saving anything", async () => {
   const puuid = "p".repeat(78);
   const response = await request({
     action: "view-player",
@@ -260,57 +257,73 @@ it("opens another player by account id as a removable viewed profile", async () 
     ownerId: "attacker",
   });
   expect(response.status).toBe(200);
+  expect((await response.json()).profile).toMatchObject({
+    gameName: "A Name",
+    summonerLevel: 10,
+  });
   expect(provider.mock.calls[0][0]).toBe(
     `https://europe.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}`,
   );
-  const saved = writes.mock.calls.find(
-    (call) => call[0] === "league_profiles",
-  )![1];
-  expect(saved).toMatchObject({ owner_id: "owner", puuid, platform: "euw1" });
-  expect(saved.profile.viewed).toBe(true);
+  expect(writes).not.toHaveBeenCalled();
 });
-it("returns an already saved player without asking Riot and rejects malformed account ids", async () => {
-  const puuid = "p".repeat(78);
-  expect(
-    await (
-      await request({ action: "view-player", platform: "euw1", puuid })
-    ).json(),
-  ).toEqual({ id });
-  expect(provider).not.toHaveBeenCalled();
+it("returns another player's games, skipping ones the browser already has, without saving", async () => {
+  const puuid = "verified-player".padEnd(30, "x");
+  provider.mockImplementation(async (url: string) =>
+    url.includes("/ids?")
+      ? new Response(JSON.stringify(["EUW1_1", "EUW1_2"]))
+      : new Response(
+          JSON.stringify({
+            metadata: { matchId: url.split("/matches/")[1] },
+            info: {
+              queueId: 420,
+              gameCreation: 1,
+              gameDuration: 1200,
+              gameVersion: "16.17",
+              participants: [{ puuid, summonerLevel: 77, secret: "omit" }],
+            },
+          }),
+        ),
+  );
+  const response = await request({
+    action: "view-matches",
+    platform: "euw1",
+    puuid,
+    start: 5,
+    known: ["EUW1_1"],
+  });
+  const body = await response.json();
+  expect(body.ids).toEqual(["EUW1_1", "EUW1_2"]);
+  expect(body.matches).toHaveLength(1);
+  expect(body.matches[0].id).toBe("EUW1_2");
+  expect(body.matches[0].participants[0]).toEqual({ puuid, summonerLevel: 77 });
+  expect(body).toMatchObject({ nextStart: 7, hasMore: false });
+  expect(provider.mock.calls[0][0]).toContain("/ids?start=5&count=5");
+  expect(writes).not.toHaveBeenCalled();
+});
+it("rejects malformed player lookups before asking Riot", async () => {
   for (const bad of ["short", "../etc/passwd", 7, undefined])
     expect(
       (await request({ action: "view-player", platform: "euw1", puuid: bad }))
         .status,
     ).toBe(400);
-});
-it("keeps a looked-up player marked as viewed when their profile is refreshed", async () => {
-  viewed = true;
-  expect(
-    (await request({ action: "refresh-profile", profileId: id })).status,
-  ).toBe(200);
-  const update = writes.mock.calls.find(
-    (call) => call[0] === "league_profiles" && call[1].profile,
-  )![1];
-  expect(update.profile.viewed).toBe(true);
-  viewed = false;
-  writes.mockClear();
-  await request({ action: "refresh-profile", profileId: id });
-  expect(
-    writes.mock.calls.find(
-      (call) => call[0] === "league_profiles" && call[1].profile,
-    )![1].profile.viewed,
-  ).toBeUndefined();
-});
-it("removes only players that were looked up, never your own accounts", async () => {
-  expect(
-    (await request({ action: "remove-profile", profileId: id })).status,
-  ).toBe(400);
-  expect(writes).not.toHaveBeenCalled();
-  viewed = true;
-  expect(
-    (await request({ action: "remove-profile", profileId: id })).status,
-  ).toBe(200);
-  expect(writes).toHaveBeenCalledWith("league_profiles", { deleted: true });
+  const puuid = "p".repeat(78);
+  for (const extra of [
+    { start: -1 },
+    { start: 1.5 },
+    { known: ["bad id"] },
+    { known: "EUW1_1" },
+  ])
+    expect(
+      (
+        await request({
+          action: "view-matches",
+          platform: "euw1",
+          puuid,
+          ...extra,
+        })
+      ).status,
+    ).toBe(400);
+  expect(provider).not.toHaveBeenCalled();
 });
 it("releases the sync lock on rate limits and does not advance the cursor or echo secrets", async () => {
   provider.mockResolvedValueOnce(

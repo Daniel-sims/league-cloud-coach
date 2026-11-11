@@ -25,6 +25,61 @@ const regions: Record<string, string> = {
 };
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
+// Keep only the post-game fields this product uses; never persist keys.
+const matchFields = [
+  "puuid",
+  "teamId",
+  "championId",
+  "championName",
+  "riotIdGameName",
+  "riotIdTagline",
+  "summonerName",
+  "teamPosition",
+  "win",
+  "gameEndedInEarlySurrender",
+  "kills",
+  "deaths",
+  "assists",
+  "champLevel",
+  "summonerLevel",
+  "totalMinionsKilled",
+  "neutralMinionsKilled",
+  "goldEarned",
+  "totalDamageDealtToChampions",
+  "totalDamageTaken",
+  "wardsPlaced",
+  "wardsKilled",
+  "visionWardsBoughtInGame",
+  "visionScore",
+  "summoner1Id",
+  "summoner2Id",
+  "item0",
+  "item1",
+  "item2",
+  "item3",
+  "item4",
+  "item5",
+  "item6",
+  "perks",
+];
+function reduceMatch(
+  id: string,
+  info: Record<string, unknown> & { participants: Record<string, unknown>[] },
+) {
+  return {
+    id,
+    queueId: info.queueId,
+    gameCreation: info.gameCreation,
+    gameDuration: info.gameDuration,
+    gameVersion: info.gameVersion,
+    participants: info.participants.map((p) =>
+      Object.fromEntries(
+        matchFields.filter((f) => p[f] !== undefined).map((f) => [f, p[f]]),
+      ),
+    ),
+  };
+}
+
 export function createRiotHandler(deps: Dependencies) {
   return async (request: Request): Promise<Response> => {
     const headers = {
@@ -74,7 +129,7 @@ export function createRiotHandler(deps: Dependencies) {
         ![
           "connect",
           "view-player",
-          "remove-profile",
+          "view-matches",
           "sync",
           "refresh-profile",
           "token-status",
@@ -264,8 +319,8 @@ export function createRiotHandler(deps: Dependencies) {
           ...(warning ? { warning } : {}),
         });
       }
-      if (body.action === "view-player") {
-        // Look up another player seen in a game; stored as a removable viewed profile.
+      if (body.action === "view-player" || body.action === "view-matches") {
+        // Look up another player seen in a game. Nothing is saved; the browser caches it.
         if (
           typeof body.platform !== "string" ||
           !regions[body.platform] ||
@@ -273,42 +328,75 @@ export function createRiotHandler(deps: Dependencies) {
           !/^[A-Za-z0-9_-]{20,100}$/.test(body.puuid)
         )
           throw new Failure(400, "Choose a player and supported region.");
-        const { data: existing, error: existingError } = await admin
-          .from("league_profiles")
-          .select("id")
-          .eq("owner_id", ownerId)
-          .eq("platform", body.platform)
-          .eq("puuid", body.puuid)
-          .maybeSingle();
-        if (existingError)
-          throw new Failure(503, "Could not open this player. Please retry.");
-        if (existing) return reply({ id: existing.id });
-        const account = await riot(
-          regions[body.platform],
-          `/riot/account/v1/accounts/by-puuid/${encodeURIComponent(body.puuid)}`,
+        const puuid: string = body.puuid;
+        const platform: string = body.platform;
+        if (body.action === "view-player") {
+          const account = await riot(
+            regions[platform],
+            `/riot/account/v1/accounts/by-puuid/${encodeURIComponent(puuid)}`,
+          );
+          if (
+            typeof account.gameName !== "string" ||
+            typeof account.tagLine !== "string"
+          )
+            throw new Failure(
+              404,
+              "This player has no public Riot ID, so their profile can't be opened.",
+            );
+          return reply({
+            profile: await profileData(platform, puuid, account),
+          });
+        }
+        const start = body.start ?? 0;
+        const known: unknown = body.known ?? [];
+        if (!Number.isInteger(start) || start < 0 || start > 200)
+          throw new Failure(400, "Invalid history page.");
+        if (
+          !Array.isArray(known) ||
+          known.length > 60 ||
+          known.some(
+            (id) => typeof id !== "string" || !/^[A-Z0-9]+_\d+$/.test(id),
+          )
+        )
+          throw new Failure(400, "Invalid saved games list.");
+        const ids = await riot(
+          regions[platform],
+          `/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=${start}&count=5`,
         );
         if (
-          typeof account.gameName !== "string" ||
-          typeof account.tagLine !== "string"
+          !Array.isArray(ids) ||
+          ids.length > 5 ||
+          ids.some(
+            (id) => typeof id !== "string" || !/^[A-Z0-9]+_\d+$/.test(id),
+          )
         )
-          throw new Failure(
-            404,
-            "This player has no public Riot ID, so their profile can't be opened.",
+          throw new Failure(502, "Riot returned an incomplete match list.");
+        const matches = [];
+        for (const id of ids) {
+          if ((known as string[]).includes(id)) continue;
+          const match = await riot(
+            regions[platform],
+            `/lol/match/v5/matches/${id}`,
           );
-        const data = await profileData(body.platform, body.puuid, account);
-        const { data: saved, error } = await admin
-          .from("league_profiles")
-          .insert({
-            owner_id: ownerId,
-            platform: body.platform,
-            puuid: body.puuid,
-            profile: { ...data, viewed: true },
-          })
-          .select("id")
-          .single();
-        if (error || !saved)
-          throw new Failure(503, "Could not open this player. Please retry.");
-        return reply({ id: saved.id });
+          const info = match.info;
+          if (
+            match.metadata?.matchId !== id ||
+            !info ||
+            !Array.isArray(info.participants) ||
+            !info.participants.some((p: { puuid: string }) => p.puuid === puuid)
+          )
+            throw new Failure(
+              502,
+              "Riot returned an incomplete game. Retry to continue.",
+            );
+          matches.push(reduceMatch(id, info));
+        }
+        return reply({
+          ids,
+          matches,
+          nextStart: start + ids.length,
+          hasMore: ids.length === 5,
+        });
       }
       if (body.action === "connect") {
         if (
@@ -372,21 +460,6 @@ export function createRiotHandler(deps: Dependencies) {
         .maybeSingle();
       if (profileError || !profile)
         throw new Failure(404, "League account unavailable.");
-      if (body.action === "remove-profile") {
-        if (profile.profile?.viewed !== true)
-          throw new Failure(
-            400,
-            "Only players you looked up can be removed here.",
-          );
-        const { error } = await admin
-          .from("league_profiles")
-          .delete()
-          .eq("id", profile.id)
-          .eq("owner_id", ownerId);
-        if (error)
-          throw new Failure(503, "Could not remove this player. Please retry.");
-        return reply({ ok: true });
-      }
       if (body.action === "review-timeline") {
         // One owner-initiated fetch per recording; guests then read the stored copy.
         if (
@@ -466,11 +539,7 @@ export function createRiotHandler(deps: Dependencies) {
           );
           const { error } = await admin
             .from("league_profiles")
-            .update({
-              profile: profile.profile?.viewed
-                ? { ...data, viewed: true }
-                : data,
-            })
+            .update({ profile: data })
             .eq("id", profile.id);
           if (error)
             throw new Failure(503, "Could not save your updated profile.");
@@ -533,55 +602,7 @@ export function createRiotHandler(deps: Dependencies) {
               502,
               "Riot returned an incomplete game. Retry to continue syncing.",
             );
-          // Keep only the post-game fields this product uses; never persist keys.
-          const fields = [
-            "puuid",
-            "teamId",
-            "championId",
-            "championName",
-            "riotIdGameName",
-            "riotIdTagline",
-            "summonerName",
-            "teamPosition",
-            "win",
-            "gameEndedInEarlySurrender",
-            "kills",
-            "deaths",
-            "assists",
-            "champLevel",
-            "summonerLevel",
-            "totalMinionsKilled",
-            "neutralMinionsKilled",
-            "goldEarned",
-            "totalDamageDealtToChampions",
-            "totalDamageTaken",
-            "wardsPlaced",
-            "wardsKilled",
-            "visionWardsBoughtInGame",
-            "visionScore",
-            "summoner1Id",
-            "summoner2Id",
-            "item0",
-            "item1",
-            "item2",
-            "item3",
-            "item4",
-            "item5",
-            "item6",
-            "perks",
-          ];
-          const data = {
-            id,
-            queueId: info.queueId,
-            gameCreation: info.gameCreation,
-            gameDuration: info.gameDuration,
-            gameVersion: info.gameVersion,
-            participants: info.participants.map((p: Record<string, unknown>) =>
-              Object.fromEntries(
-                fields.filter((f) => p[f] !== undefined).map((f) => [f, p[f]]),
-              ),
-            ),
-          };
+          const data = reduceMatch(id, info);
           const { error } = await admin.from("league_matches").upsert({
             profile_id: profile.id,
             match_id: id,

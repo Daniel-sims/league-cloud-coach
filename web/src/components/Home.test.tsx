@@ -37,8 +37,16 @@ function repository(): LeagueRepository {
     refreshProfile: vi.fn(async () => {}),
     sync: vi.fn(async () => ({ nextStart: 2, hasMore: false })),
     connect: vi.fn(async () => ({ id: 'one' })),
-    viewPlayer: vi.fn(async () => ({ id: 'viewed' })),
-    removeProfile: vi.fn(async () => {}),
+    viewPlayer: vi.fn(async () => ({
+      profile: {
+        gameName: 'Zed',
+        tagLine: 'EUW',
+        profileIconId: 3,
+        summonerLevel: 150,
+        ranks: [],
+      },
+    })),
+    viewMatches: vi.fn(async () => ({ ids: [], matches: [], nextStart: 5, hasMore: false })),
   }
 }
 afterEach(() => {
@@ -107,27 +115,13 @@ it('shows dated game groups in the selected order and removes days with no filte
     screen.queryByRole('region', { name: 'Tuesday, 10 November 2026' }),
   ).not.toBeInTheDocument()
 })
-it('shows each player’s account level and opens a clicked player as a removable profile', async () => {
+it('shows each player’s account level and opens a clicked player without saving them', async () => {
   const repo = repository()
-  const list = [...profiles]
-  vi.mocked(repo.profiles).mockImplementation(async () => list)
-  vi.mocked(repo.viewPlayer).mockImplementation(async () => {
-    list.push({
-      id: 'viewed',
-      platform: 'euw1',
-      puuid: 'enemy',
-      gameName: 'Zed',
-      tagLine: 'EUW',
-      profileIconId: 3,
-      summonerLevel: 150,
-      ranks: [],
-      syncedAt: null,
-      viewed: true,
-    })
-    return { id: 'viewed' }
-  })
-  vi.mocked(repo.removeProfile).mockImplementation(async () => {
-    list.pop()
+  vi.mocked(repo.viewMatches).mockResolvedValue({
+    ids: ['9'],
+    matches: [match('9', { puuid: 'enemy', championName: 'Zed', championId: 238 })],
+    nextStart: 5,
+    hasMore: false,
   })
   render(<Home ownerId="owner" repository={repo} />)
   await screen.findByText('50% win rate · 1W – 1L')
@@ -136,10 +130,23 @@ it('shows each player’s account level and opens a clicked player as a removabl
   await userEvent.click(screen.getAllByTitle("Open Zed's profile")[0])
   expect(repo.viewPlayer).toHaveBeenCalledWith('euw1', 'enemy')
   expect(await screen.findByRole('status', { name: '' })).toHaveTextContent('Viewing Zed')
+  expect(screen.queryByLabelText('League account')).not.toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: /Scoreboard for 9/ })).toBeVisible()
+  expect(repo.viewMatches).toHaveBeenCalledWith('euw1', 'enemy', 0, expect.any(Array))
+  expect(Object.keys(localStorage).some((k) => k.startsWith('league-viewed:'))).toBe(true)
   await userEvent.click(screen.getByRole('button', { name: 'Back to First' }))
   expect(screen.queryByText(/Viewing/)).not.toBeInTheDocument()
-  await userEvent.selectOptions(screen.getByLabelText('League account'), 'viewed')
-  await userEvent.click(await screen.findByRole('button', { name: 'Remove player' }))
-  expect(repo.removeProfile).toHaveBeenCalledWith('viewed')
-  await waitFor(() => expect(screen.queryByText(/Viewing/)).not.toBeInTheDocument())
+  expect(screen.getByLabelText('League account')).toHaveValue('one')
+  expect(repo.connect).not.toHaveBeenCalled()
+})
+it('lets you leave a looked-up player while their games are still loading', async () => {
+  const repo = repository()
+  vi.mocked(repo.viewMatches).mockImplementation(() => new Promise(() => {}))
+  render(<Home ownerId="owner" repository={repo} />)
+  await screen.findByText('50% win rate · 1W – 1L')
+  await userEvent.click(screen.getAllByRole('button', { name: /Scoreboard for 1/ })[0])
+  await userEvent.click(screen.getAllByTitle("Open Zed's profile")[0])
+  await screen.findByText(/Viewing/)
+  await userEvent.click(screen.getByRole('button', { name: 'Back to First' }))
+  expect(await screen.findByLabelText('League account')).toBeEnabled()
 })

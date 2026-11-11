@@ -1097,3 +1097,9 @@ select:focus-visible {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.league-viewing-name {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 8px;
+}

@@ -4,6 +4,7 @@ import { Dialog } from './Dialog'
 import { ItemBuild, Loadout } from './Loadout'
 import '../league.css'
 import { leagueRepository, type LeagueRepository } from '../lib/league-repository'
+import { loadViewed, maxViewedGames, saveViewed } from '../lib/viewed-cache'
 import {
   championGroups,
   championIcon,
@@ -100,7 +101,7 @@ export function Home({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
   const [connect, setConnect] = useState(false)
-  const [returnTo, setReturnTo] = useState('')
+  const [viewing, setViewing] = useState<LeagueProfile | null>(null)
   const [filter, setFilter] = useState<HistoryFilter>(emptyFilter)
   const [windowCount, setWindowCount] = useState(() => {
     const saved = preferences().windowCount
@@ -112,10 +113,11 @@ export function Home({
   const [exhausted, setExhausted] = useState<Record<string, boolean>>({})
   const mounted = useRef(true)
   const autoSynced = useRef(new Set<string>())
-  const profile = profiles.find((p) => p.id === selected)
-  const backTarget =
-    profile?.viewed &&
-    (profiles.find((p) => p.id === returnTo && !p.viewed) ?? profiles.find((p) => !p.viewed))
+  const viewToken = useRef(0)
+  const viewData = useRef<{ matches: LeagueMatch[]; cursor: number }>({ matches: [], cursor: 0 })
+  const ownProfile = profiles.find((p) => p.id === selected)
+  const profile = viewing ?? ownProfile
+  const isViewing = Boolean(viewing)
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -163,7 +165,7 @@ export function Home({
     }
   }, [selected, windowCount, soloOnly, preferenceKey])
   useEffect(() => {
-    if (!selected) return
+    if (!selected || isViewing) return
     let active = true
     setMatches([])
     setFilter(emptyFilter)
@@ -189,58 +191,117 @@ export function Home({
     return () => {
       active = false
     }
-  }, [selected, repository])
+  }, [selected, repository, isViewing])
 
-  async function openPlayer(player: Participant) {
-    if (!profile || busy) return
+  function leaveViewing() {
+    viewToken.current++
+    setViewing(null)
+    setBusy('')
     setError('')
-    const saved = profiles.find((p) => p.puuid === player.puuid && p.platform === profile.platform)
-    if (saved) {
-      if (saved.id !== selected) {
-        if (!profile.viewed) setReturnTo(profile.id)
-        setSelected(saved.id)
-      }
-      return
-    }
-    setBusy('Opening player…')
-    try {
-      const { id } = await repository.viewPlayer(profile.platform, player.puuid)
-      if (!profile.viewed) setReturnTo(profile.id)
-      await loadProfiles(id)
-      setSelected(id)
-    } catch (e) {
-      if (mounted.current)
-        setError(e instanceof Error ? e.message : 'Could not open this player. Please retry.')
-    } finally {
-      if (mounted.current) setBusy('')
+  }
+  async function loadViewedGames(
+    token: number,
+    player: LeagueProfile,
+    older: boolean,
+    count: number,
+  ) {
+    let start = older ? viewData.current.cursor : 0
+    let hasMore = true
+    for (let n = 0; n < count && hasMore; n += 5) {
+      if (viewToken.current !== token || !mounted.current) return
+      setBusy(`Loading games ${n + 1}–${n + 5}…`)
+      const page = await repository.viewMatches(
+        player.platform,
+        player.puuid,
+        start,
+        viewData.current.matches.map((m) => m.id).slice(0, 60),
+      )
+      if (viewToken.current !== token || !mounted.current) return
+      start = page.nextStart
+      hasMore = page.hasMore
+      const byId = new Map(viewData.current.matches.map((m) => [m.id, m]))
+      for (const m of page.matches) byId.set(m.id, m)
+      const merged = [...byId.values()]
+        .sort((a, b) => b.gameCreation - a.gameCreation)
+        .slice(0, maxViewedGames)
+      viewData.current = { matches: merged, cursor: Math.max(viewData.current.cursor, start) }
+      setMatches(merged)
+      setCursor((old) => ({ ...old, viewing: viewData.current.cursor }))
+      setExhausted((old) => ({ ...old, viewing: !hasMore || merged.length >= maxViewedGames }))
+      saveViewed(ownerId, player.platform, player.puuid, { profile: player, matches: merged })
     }
   }
-  async function removePlayer() {
-    if (!profile?.viewed || busy) return
+  async function openPlayer(player: Participant) {
+    if (!profile || (busy && !viewing)) return
     setError('')
-    setBusy('Removing player…')
+    const own = profiles.find((p) => p.puuid === player.puuid && p.platform === profile.platform)
+    if (own) {
+      leaveViewing()
+      setSelected(own.id)
+      return
+    }
+    const platform = profile.platform
+    const token = ++viewToken.current
+    const cached = loadViewed(ownerId, platform, player.puuid)
+    const opened: LeagueProfile = cached?.profile ?? {
+      id: 'viewing',
+      platform,
+      puuid: player.puuid,
+      gameName: player.riotIdGameName || player.summonerName || player.championName,
+      tagLine: player.riotIdTagline || '',
+      profileIconId: 0,
+      summonerLevel: player.summonerLevel ?? 0,
+      ranks: [],
+      syncedAt: null,
+    }
+    viewData.current = { matches: cached?.matches ?? [], cursor: 0 }
+    setViewing(opened)
+    setMatches(cached?.matches ?? [])
+    setFilter(emptyFilter)
+    setLimit(20)
+    setHistoryLoading(false)
+    setCursor((old) => ({ ...old, viewing: 0 }))
+    setExhausted((old) => ({ ...old, viewing: false }))
+    setBusy('Opening player…')
     try {
-      await repository.removeProfile(profile.id)
-      const rows = await repository.profiles()
-      if (!mounted.current) return
-      setProfiles(rows)
-      setSelected(
-        [returnTo, ...rows.filter((p) => !p.viewed).map((p) => p.id)].find((id) =>
-          rows.some((p) => p.id === id),
-        ) ||
-          rows[0]?.id ||
-          '',
-      )
+      const { profile: data } = await repository.viewPlayer(platform, player.puuid)
+      if (viewToken.current !== token || !mounted.current) return
+      const fresh = { ...opened, ...data, syncedAt: new Date().toISOString() }
+      setViewing(fresh)
+      await loadViewedGames(token, fresh, false, Math.max(20, windowCount))
     } catch (e) {
-      if (mounted.current)
-        setError(e instanceof Error ? e.message : 'Could not remove this player. Please retry.')
+      if (viewToken.current === token && mounted.current)
+        setError(e instanceof Error ? e.message : 'Could not open this player. Please retry.')
     } finally {
-      if (mounted.current) setBusy('')
+      if (viewToken.current === token && mounted.current) setBusy('')
+    }
+  }
+  async function refreshViewing(older: boolean, count: number) {
+    if (!viewing) return
+    const token = viewToken.current
+    setError('')
+    setBusy(older ? 'Loading older games…' : 'Refreshing player…')
+    try {
+      let current = viewing
+      if (!older) {
+        const { profile: data } = await repository.viewPlayer(viewing.platform, viewing.puuid)
+        if (viewToken.current !== token || !mounted.current) return
+        current = { ...viewing, ...data, syncedAt: new Date().toISOString() }
+        setViewing(current)
+      }
+      await loadViewedGames(token, current, older, count)
+      if (older && viewToken.current === token) setLimit((old) => old + count)
+    } catch (e) {
+      if (viewToken.current === token && mounted.current)
+        setError(e instanceof Error ? e.message : 'Could not refresh this player. Please retry.')
+    } finally {
+      if (viewToken.current === token && mounted.current) setBusy('')
     }
   }
 
   async function sync(older = false, count = Math.max(20, windowCount)) {
     if (!profile || busy) return
+    if (viewing) return refreshViewing(older, count)
     const id = profile.id
     setError('')
     setBusy(older ? 'Loading older games…' : 'Refreshing profile…')
@@ -359,28 +420,15 @@ export function Home({
       ) : (
         profile && (
           <>
-            {profile.viewed && (
+            {viewing && (
               <div className="league-viewing" role="status">
                 <span>
-                  Viewing <strong>{profile.gameName}</strong> — a player from your games. Their
-                  stats are for this account only.
+                  Viewing <strong>{viewing.gameName}</strong> — a player from your games. Nothing
+                  about them is saved to your account.
                 </span>
                 <span className="league-viewing-actions">
-                  {backTarget && (
-                    <button
-                      className="button secondary"
-                      disabled={Boolean(busy)}
-                      onClick={() => setSelected(backTarget.id)}
-                    >
-                      Back to {backTarget.gameName}
-                    </button>
-                  )}
-                  <button
-                    className="button secondary"
-                    disabled={Boolean(busy)}
-                    onClick={() => void removePlayer()}
-                  >
-                    Remove player
+                  <button className="button secondary" onClick={leaveViewing}>
+                    Back to {ownProfile?.gameName ?? 'your account'}
                   </button>
                 </span>
               </div>
@@ -392,43 +440,38 @@ export function Home({
                     className="champion-icon"
                     width={64}
                     height={64}
+                    hidden={!profile.profileIconId}
                     alt="Profile icon"
                     src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${profile.profileIconId}.jpg`}
                   />
                   <b>{profile.summonerLevel}</b>
                 </span>
                 <div>
-                  <Select
-                    label="League account"
-                    value={selected}
-                    onChange={(id) => {
-                      if (!busy) {
-                        setSelected(id)
-                        setError('')
-                      }
-                    }}
-                  >
-                    <optgroup label={busy ? 'Sync in progress' : 'Your accounts'}>
-                      {profiles
-                        .filter((p) => !p.viewed)
-                        .map((p) => (
+                  {viewing ? (
+                    <strong className="league-viewing-name">
+                      {viewing.gameName}
+                      {viewing.tagLine ? `#${viewing.tagLine}` : ''}
+                    </strong>
+                  ) : (
+                    <Select
+                      label="League account"
+                      value={selected}
+                      onChange={(id) => {
+                        if (!busy) {
+                          setSelected(id)
+                          setError('')
+                        }
+                      }}
+                    >
+                      <optgroup label={busy ? 'Sync in progress' : 'Your accounts'}>
+                        {profiles.map((p) => (
                           <option key={p.id} value={p.id} disabled={Boolean(busy)}>
                             {p.gameName}#{p.tagLine} · {platforms[p.platform]}
                           </option>
                         ))}
-                    </optgroup>
-                    {profiles.some((p) => p.viewed) && (
-                      <optgroup label="Players you looked up">
-                        {profiles
-                          .filter((p) => p.viewed)
-                          .map((p) => (
-                            <option key={p.id} value={p.id} disabled={Boolean(busy)}>
-                              {p.gameName}#{p.tagLine} · {platforms[p.platform]}
-                            </option>
-                          ))}
                       </optgroup>
-                    )}
-                  </Select>
+                    </Select>
+                  )}
                   <span className="muted">
                     Level {profile.summonerLevel} · {platforms[profile.platform]}
                   </span>
@@ -740,7 +783,7 @@ export function Home({
                           key={game.id}
                           game={game}
                           onOpenPlayer={openPlayer}
-                          busy={Boolean(busy)}
+                          busy={Boolean(busy) && !viewing}
                         />
                       ))}
                     </section>
@@ -765,11 +808,11 @@ export function Home({
                     )}
                     <button
                       className="button secondary"
-                      disabled={Boolean(busy) || exhausted[selected]}
+                      disabled={Boolean(busy) || exhausted[profile.id]}
                       onClick={() => void sync(true, 20)}
                     >
                       {busy ||
-                        (exhausted[selected]
+                        (exhausted[profile.id]
                           ? 'All available Riot history synced'
                           : 'Sync older games')}
                     </button>

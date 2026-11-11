@@ -62,7 +62,6 @@ export type LeagueProfile = {
   ranks: Rank[]
   syncedAt: string | null
   historyCursor?: number
-  viewed?: boolean
 }
 export type Game = LeagueMatch & {
   player: Participant
