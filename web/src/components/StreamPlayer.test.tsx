@@ -184,7 +184,12 @@ it('seeks from arrow keys pressed anywhere on the page and holds the frame while
   fireEvent.keyDown(document.body, { key: 'ArrowRight' })
   expect(media.currentTime).toBe(91)
   fireEvent.loadedData(media)
+  fireEvent.canPlay(media)
   fireEvent.waiting(media)
+  expect(screen.queryByRole('status')).toBeNull()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(500)
+  })
   const play = vi.spyOn(media, 'play').mockResolvedValue()
   fireEvent.keyDown(document.body, { key: ' ' })
   expect(play).toHaveBeenCalledOnce()

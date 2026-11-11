@@ -33,6 +33,13 @@ export function StreamPlayer({
   const [playing, setPlaying] = useState(false)
   // Once a frame has been shown, later buffering holds it under a spinner.
   const [hasFrame, setHasFrame] = useState(false)
+  // Every seek fires `waiting`, even ones that resolve in a few frames;
+  // showing the spinner at once makes each skip flash the screen.
+  const waitTimer = useRef<number | undefined>(undefined)
+  const stopWaiting = () => {
+    clearTimeout(waitTimer.current)
+    setLoading(false)
+  }
   useEffect(() => {
     const media = video.current
     if (!onController) return
@@ -139,8 +146,12 @@ export function StreamPlayer({
           if (disposed || terminated) return
           if (Hls.isSupported()) {
             hls = new Hls({
-              maxBufferLength: 30,
-              maxMaxBufferLength: 60,
+              // Buffer well ahead so most seeks land in video already held.
+              // The byte cap matters as much as the time: gameplay bitrates
+              // hit the 60 MB default well inside 3 minutes.
+              maxBufferLength: recordingId ? 300 : 180,
+              maxMaxBufferLength: recordingId ? 600 : 300,
+              maxBufferSize: recordingId ? 600 * 1000 * 1000 : 300 * 1000 * 1000,
             })
             hls.on(Hls.Events.ERROR, (_event, data) => {
               if (data.fatal && !disposed)
@@ -208,6 +219,7 @@ export function StreamPlayer({
     return () => {
       disposed = true
       clearInterval(timer)
+      clearTimeout(waitTimer.current)
       if (restorePosition) media.removeEventListener('loadedmetadata', restorePosition)
       hls?.destroy()
       media.pause()
@@ -252,10 +264,14 @@ export function StreamPlayer({
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
               onEnded={() => setPlaying(false)}
-              onCanPlay={() => setLoading(false)}
-              onPlaying={() => setLoading(false)}
+              onCanPlay={stopWaiting}
+              onPlaying={stopWaiting}
+              onSeeked={stopWaiting}
               onWaiting={() => {
-                if (!stopped) setLoading(true)
+                if (stopped) return
+                clearTimeout(waitTimer.current)
+                if (hasFrame) waitTimer.current = window.setTimeout(() => setLoading(true), 400)
+                else setLoading(true)
               }}
               onError={() => {
                 if (!stopped) {
