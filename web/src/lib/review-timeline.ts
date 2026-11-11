@@ -360,6 +360,28 @@ export function buildTimeline(payload: ReviewPayload): TimelineEntry[] {
   ].sort((a, b) => a.gameTimeMs - b.gameTimeMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
+/// The simple timeline: every one of the player's deaths (teamfight or not)
+/// and their ultimate casts, nothing else.
+export function simpleEntries(payload: ReviewPayload, anchor: ClockAnchor | null): TimelineEntry[] {
+  const c = context(payload)
+  const deaths = payload.kills.flatMap((kill): TimelineEntry[] => {
+    const moment = killMoment(kill, c)
+    if (moment?.kind !== 'death') return []
+    return [
+      {
+        id: `death-${kill.t}`,
+        gameTimeMs: kill.t,
+        kind: 'death',
+        label: moment.label,
+        detail: moment.detail,
+      },
+    ]
+  })
+  return [...deaths, ...ultimateEntries(payload, anchor)].sort(
+    (a, b) => a.gameTimeMs - b.gameTimeMs,
+  )
+}
+
 /// The kinds a row answers to: a fight the player killed or died in also
 /// answers to the kill and death filters.
 export function filterKinds(entry: TimelineEntry): EntryKind[] {

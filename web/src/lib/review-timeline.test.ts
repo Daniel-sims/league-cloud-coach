@@ -7,6 +7,7 @@ import {
   inventory,
   parseGameClock,
   region,
+  simpleEntries,
   videoOffset,
   type ReviewPayload,
 } from './review-timeline'
@@ -122,4 +123,13 @@ it('gives objectives an icon, taker and running count per team', () => {
   expect(entries[1].objective?.icon).toBe('dragon_infernal')
   expect(entries[1].objective?.tally).toMatch(/^2nd Dragon/)
   expect(entries[1].objective?.killer).toBeUndefined()
+})
+
+it('keeps the simple timeline to the player’s deaths and ultimate casts', () => {
+  const payload = reviewPayload()
+  const simple = simpleEntries(payload, null)
+  const deaths = payload.kills.filter((k) => k.victim === payload.playerId)
+  expect(simple.length).toBe(deaths.length)
+  expect(simple.every((e) => e.kind === 'death' || e.kind === 'ultimate')).toBe(true)
+  expect(simple.every((e) => !e.fight && !e.objective)).toBe(true)
 })

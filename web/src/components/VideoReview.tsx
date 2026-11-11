@@ -33,6 +33,7 @@ import { CaptureRow, CommentRow, EventRow, patchOf } from './TimelineRows'
 import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
+  simpleEntries,
   ultimateEntries,
   seekLeadMs,
   clock,
@@ -72,6 +73,7 @@ const commentsKey = 'comments'
 const capturesKey = 'captures'
 const widthStorage = 'league-cloud-coach-timeline-width'
 const openStorage = 'league-cloud-coach-timeline'
+const detailStorage = 'league-cloud-coach-timeline-detail'
 const minPanel = 300
 const defaultPanel = 420
 function stored(key: string) {
@@ -299,14 +301,21 @@ export function VideoReview({
 
   const review = data?.review ?? null
   const anchor = data?.anchor ?? null
+  const [simple, setSimple] = useState(() => stored(detailStorage) === 'simple')
+  const chooseDetail = (value: 'detailed' | 'simple') => {
+    setSimple(value === 'simple')
+    store(detailStorage, value)
+  }
   const entries = useMemo(
     () =>
       review
-        ? [...buildTimeline(review), ...ultimateEntries(review, anchor)].sort(
-            (a, b) => a.gameTimeMs - b.gameTimeMs,
-          )
+        ? simple
+          ? simpleEntries(review, anchor)
+          : [...buildTimeline(review), ...ultimateEntries(review, anchor)].sort(
+              (a, b) => a.gameTimeMs - b.gameTimeMs,
+            )
         : [],
-    [review, anchor],
+    [review, anchor, simple],
   )
   const coverage = useMemo(
     () => (anchor && durationMs ? [gameTimeMs(anchor, 0), gameTimeMs(anchor, durationMs)] : null),
@@ -537,6 +546,28 @@ export function VideoReview({
       </button>
       {openMenu === 'settings' && (
         <div className="review-filter-menu review-settings-menu review-menu-panel">
+          <div className="review-detail-setting" role="radiogroup" aria-label="Timeline detail">
+            <small>Timeline</small>
+            <div>
+              {(['detailed', 'simple'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={simple === (value === 'simple')}
+                  className={`button button-small ${simple === (value === 'simple') ? '' : 'secondary'}`}
+                  onClick={() => chooseDetail(value)}
+                  title={
+                    value === 'simple'
+                      ? 'Only your deaths and ultimate casts, as icons'
+                      : 'Fights, kills, objectives, matchups and more'
+                  }
+                >
+                  {value === 'simple' ? 'Simple' : 'Detailed'}
+                </button>
+              ))}
+            </div>
+          </div>
           {repository.addCapture && (
             <div className="review-draw-setting">
               <button
@@ -804,6 +835,7 @@ export function VideoReview({
                           current={item.id === currentId}
                           seekable={seekable(item.entry.gameTimeMs)}
                           dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
+                          compact={simple}
                           onSeek={() =>
                             seekGame(item.entry.gameTimeMs, seekLeadMs(item.entry.kind))
                           }

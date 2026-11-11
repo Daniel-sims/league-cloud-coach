@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react'
-import { MapPin, Pencil, Shield, Trash2, UserX } from 'lucide-react'
+import { MapPin, Pencil, Shield, Skull, Trash2, UserX, Zap } from 'lucide-react'
 import { championIcon } from '../lib/league'
 import {
   clock,
@@ -82,6 +82,7 @@ export function EventRow({
   current,
   seekable,
   dim,
+  compact,
   onSeek,
   onSeekTime,
 }: {
@@ -90,9 +91,36 @@ export function EventRow({
   current: boolean
   seekable: boolean
   dim: boolean
+  compact?: boolean
   onSeek(): void
   onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
 }) {
+  if (compact) {
+    const Icon = entry.kind === 'death' ? Skull : Zap
+    return (
+      <li
+        className={`timeline-row timeline-compact kind-${entry.kind} ${current ? 'current' : ''} ${dim ? 'dim' : ''} ${seekable ? 'clickable' : ''}`}
+        data-item={entry.id}
+        onClick={seekable ? rowClick(onSeek) : undefined}
+      >
+        <span className="timeline-time">{clock(entry.gameTimeMs)}</span>
+        <span className="timeline-spine" aria-hidden="true">
+          <i />
+        </span>
+        <div className="timeline-body">
+          <button
+            className="timeline-icon"
+            onClick={onSeek}
+            disabled={!seekable}
+            aria-label={`${entry.label} at ${clock(entry.gameTimeMs)}`}
+            title={entry.detail ? `${entry.label} · ${entry.detail}` : entry.label}
+          >
+            <Icon size={15} aria-hidden="true" />
+          </button>
+        </div>
+      </li>
+    )
+  }
   return (
     <li
       className={`timeline-row kind-${entry.kind} ${current ? 'current' : ''} ${dim ? 'dim' : ''} ${seekable ? 'clickable' : ''}`}

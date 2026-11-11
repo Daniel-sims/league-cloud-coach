@@ -1306,3 +1306,39 @@ body:has(.cinema-mode) .watch-main {
     gap: 5px;
   }
 }
+
+.review-detail-setting {
+  display: grid;
+  gap: 4px;
+  padding: 4px 10px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.review-detail-setting small {
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+}
+.review-detail-setting > div {
+  display: flex;
+  gap: 6px;
+}
+.timeline-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--dot);
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+.timeline-icon:disabled {
+  opacity: 0.5;
+}
+.timeline-compact.clickable:hover .timeline-icon,
+.timeline-compact.current .timeline-icon {
+  border-color: var(--dot);
+}
