@@ -29,7 +29,10 @@ versus playhead, save failure/retry, own-note editing, shared visibility and
 Simple mode. Desktop/mobile screenshots inspected. All nine database permission
 suites pass in an isolated local PostgreSQL 16 fixture, including the new event
 suite; CI also runs them under PostgreSQL 17. A remote dry-run listed only the
-new migration before it was applied.
+new migration before it was applied. Release
+`c0b25bf78908c1605779b1cc5ce8347471bdb532` is pushed and deployed through the
+[successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43007864996),
+including the full browser suite and all nine PostgreSQL 17 permission suites.
 
 ## Objectives in Simple timeline
 
