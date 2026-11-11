@@ -113,6 +113,9 @@ export function Home({
   const mounted = useRef(true)
   const autoSynced = useRef(new Set<string>())
   const profile = profiles.find((p) => p.id === selected)
+  const backTarget =
+    profile?.viewed &&
+    (profiles.find((p) => p.id === returnTo && !p.viewed) ?? profiles.find((p) => !p.viewed))
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -363,17 +366,15 @@ export function Home({
                   stats are for this account only.
                 </span>
                 <span className="league-viewing-actions">
-                  {returnTo &&
-                    returnTo !== profile.id &&
-                    profiles.some((p) => p.id === returnTo) && (
-                      <button
-                        className="button secondary"
-                        disabled={Boolean(busy)}
-                        onClick={() => setSelected(returnTo)}
-                      >
-                        Back to {profiles.find((p) => p.id === returnTo)?.gameName}
-                      </button>
-                    )}
+                  {backTarget && (
+                    <button
+                      className="button secondary"
+                      disabled={Boolean(busy)}
+                      onClick={() => setSelected(backTarget.id)}
+                    >
+                      Back to {backTarget.gameName}
+                    </button>
+                  )}
                   <button
                     className="button secondary"
                     disabled={Boolean(busy)}
