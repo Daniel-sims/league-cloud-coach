@@ -2,6 +2,35 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Event-linked discussions
+
+Each timeline event has a Comment action (Reply plus a count once discussed).
+It opens a composer beneath that event, naming its subject and exact timestamp.
+Player/coach notes render as a connected discussion with author labels and the
+existing editing/moderation rules. Notes attach to match + event identity, not
+nearby timestamps, including when two moments share a timestamp. Simple and
+Detailed reuse references where the same event is shown. Comments for an event
+hidden by mode/filter or belonging to an older attached game remain standalone
+with an explicit saved event caption; no old notes are automatically reassigned.
+The header comment action still adds a general playhead note, now styled as a
+separate card. Failed saves retain drafts. Starting an event note pauses playback
+and stops automatic timeline following while the user writes.
+
+Migration `202611110001_event_comments.sql` is applied remotely. It adds nullable
+bounded display-only event metadata and separate owner/shared event-comment
+RPCs; original RPC signatures keep working. References validate the recording's
+attached match, bounded event identity/label/time, and allowlisted fields. Old
+comments, RLS, guest author-key enforcement, owner moderation, revocation and
+comment limits remain intact. No companion/native API contract changed.
+
+Validation: 136 unit tests, production build and ten review Chrome workflows
+pass. The owner-to-coach browser flow covers grouping, exact event timestamp
+versus playhead, save failure/retry, own-note editing, shared visibility and
+Simple mode. Desktop/mobile screenshots inspected. All nine database permission
+suites pass in an isolated local PostgreSQL 16 fixture, including the new event
+suite; CI also runs them under PostgreSQL 17. A remote dry-run listed only the
+new migration before it was applied.
+
 ## Objectives in Simple timeline
 
 Simple now includes neutral-objective events alongside the player's deaths and
@@ -15,6 +44,8 @@ no jungle-CS inference or synthetic events are added. No backend/native changes.
 Validation: 135 unit tests, production build and nine review Chrome workflows
 pass, including objective icon assets, allied/enemy labels, exact objective seeking
 and filtering in Simple for both owner and shared-viewer routes. Screenshot inspected.
+Objectives are deployed in `f839394f5b16516c0d9d33000e6aba7155a7fa7f` through
+[successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43005556959).
 
 ## Timeline controls and larger drawing editor
 
@@ -443,7 +474,7 @@ Use the exact error and bounded auth logs to diagnose future failures. A success
 1. A multi-game upload queue or separate streamlined companion if needed; the current single-recording Push to web is implemented in League Helper.
 2. Automatic YouTube uploads after explicit channel authorization. Google identity login alone does not grant `youtube.upload`; recheck API/OAuth requirements when implementing it.
 3. Extend the implemented versioned timeline/anchor/ultimate export to local comments and richer review data.
-4. Beyond the review timeline above: match-level notes, comment replies/threads, native ultimate/death-review cards, and importing comments from the Mac app.
+4. Beyond the review timeline above: match-level notes, nested replies to individual comments, native ultimate/death-review cards, and importing comments from the Mac app.
 5. Broader user onboarding only when intentionally opening the product beyond its initial owner.
 
 No ordering or implementation beyond the current release should be inferred as already authorized by the roadmap.

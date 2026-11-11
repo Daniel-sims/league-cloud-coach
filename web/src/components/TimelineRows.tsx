@@ -1,5 +1,5 @@
-import { useEffect, useState, type MouseEvent } from 'react'
-import { MapPin, Pencil, Shield, Skull, Trash2, UserX, Zap } from 'lucide-react'
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { MapPin, MessageSquarePlus, Pencil, Shield, Skull, Trash2, UserX, Zap } from 'lucide-react'
 import { championIcon } from '../lib/league'
 import {
   clock,
@@ -85,6 +85,11 @@ export function EventRow({
   compact,
   onSeek,
   onSeekTime,
+  onComment,
+  commentCount = 0,
+  commentDisabled = false,
+  commentDisabledHint,
+  children,
 }: {
   entry: TimelineEntry
   patch: string
@@ -94,7 +99,29 @@ export function EventRow({
   compact?: boolean
   onSeek(): void
   onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
+  onComment?(): void
+  commentCount?: number
+  commentDisabled?: boolean
+  commentDisabledHint?: string
+  children?: ReactNode
 }) {
+  const commentAction = onComment && (
+    <button
+      className="event-comment-button"
+      onClick={onComment}
+      disabled={commentDisabled}
+      aria-label={`Comment on ${entry.label} at ${clock(entry.gameTimeMs)}`}
+      title={
+        commentDisabled
+          ? (commentDisabledHint ?? 'Event comments need a synced recording covering this moment')
+          : 'Add a comment linked to this event'
+      }
+    >
+      <MessageSquarePlus size={13} />
+      {commentCount ? 'Reply' : 'Comment'}
+      {commentCount > 0 && <span className="event-comment-count">{commentCount}</span>}
+    </button>
+  )
   if (compact) {
     const Icon = entry.kind === 'death' ? Skull : Zap
     return (
@@ -124,6 +151,8 @@ export function EventRow({
               <Icon size={15} aria-hidden="true" />
             )}
           </button>
+          {commentAction}
+          {children}
         </div>
       </li>
     )
@@ -180,6 +209,8 @@ export function EventRow({
             ))}
           </>
         )}
+        {commentAction}
+        {children}
       </div>
     </li>
   )
@@ -371,6 +402,7 @@ export function CommentRow({
   onSeek,
   onEdit,
   onDelete,
+  nested = false,
 }: {
   comment: ReviewComment
   timeLabel: string
@@ -380,6 +412,7 @@ export function CommentRow({
   onSeek(): void
   onEdit?(): void
   onDelete?(): void
+  nested?: boolean
 }) {
   const kind = commentKinds.find((k) => k.kind === comment.kind)!
   const [asking, setAsking] = useState(false)
@@ -391,17 +424,26 @@ export function CommentRow({
   return (
     <li
       onClick={rowClick(onSeek)}
-      className={`timeline-row comment clickable comment-${comment.kind} ${current ? 'current' : ''}`}
+      className={`${nested ? 'event-comment' : 'timeline-row'} comment clickable comment-${comment.kind} ${current ? 'current' : ''}`}
       data-item={comment.id}
     >
-      <span className="timeline-time" title={videoClock ? 'Video time' : 'Game time'}>
-        {timeLabel}
-        {videoClock && <small>video</small>}
-      </span>
-      <span className="timeline-spine" aria-hidden="true">
-        <i />
-      </span>
+      {!nested && (
+        <span className="timeline-time" title={videoClock ? 'Video time' : 'Game time'}>
+          {timeLabel}
+          {videoClock && <small>video</small>}
+        </span>
+      )}
+      {!nested && (
+        <span className="timeline-spine" aria-hidden="true">
+          <i />
+        </span>
+      )}
       <div className="timeline-body comment-body">
+        {!nested && comment.event && (
+          <p className="comment-event-context">
+            On {comment.event.label} · {clock(comment.event.gameMs)}
+          </p>
+        )}
         <div className="comment-meta">
           <span className="comment-kind">{kind.name}</span>
           <span className={`comment-author ${comment.role}`}>{author}</span>

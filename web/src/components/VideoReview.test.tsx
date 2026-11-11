@@ -271,6 +271,46 @@ it('seeks comments and ordinary events exactly, with lead-in only for ultimates 
   expect(player.seekTo).toHaveBeenLastCalledWith(895)
   await userEvent.click(screen.getByRole('button', { name: 'Cast ultimate' }))
   expect(player.seekTo).toHaveBeenLastCalledWith(645)
-  await userEvent.click(screen.getByRole('button', { name: /Infernal Drake taken/ }))
+  await userEvent.click(screen.getByRole('button', { name: /^Infernal Drake taken/ }))
   expect(player.seekTo).toHaveBeenLastCalledWith(820)
+})
+
+it('groups linked comments under an event and saves new notes at event time, not the playhead', async () => {
+  const event = {
+    id: 'objective-720000',
+    matchId: 'EUW1_1',
+    gameMs: 720000,
+    label: 'Infernal Drake taken by your team',
+  }
+  const repo = repository('owner', {
+    matchId: 'EUW1_1',
+    review: reviewPayload(),
+    syncedAt: null,
+    anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 10 },
+    comments: [
+      comment({ event, videoMs: 730000, body: 'Contest dragon?' }),
+      comment({ id: 'legacy', videoMs: 730000, body: 'A general playhead note' }),
+    ],
+  })
+  vi.mocked(repo.addComment).mockImplementationOnce(async (input) => {
+    repo.data = { ...repo.data, comments: [...repo.data.comments, comment({ ...input, id: 'c2' })] }
+  })
+  render(<VideoReview repository={repo} renderPlayer={fakePlayer({ seconds: 500 }).render} />)
+  const thread = await screen.findByRole('region', {
+    name: 'Comments on Infernal Drake taken by your team at 12:00',
+  })
+  expect(within(thread).getByText('Contest dragon?')).toBeInTheDocument()
+  expect(within(thread).queryByText('A general playhead note')).toBeNull()
+  expect(screen.getByText('A general playhead note')).toBeInTheDocument()
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Comment on Infernal Drake taken by your team at 12:00' }),
+  )
+  expect(screen.getByRole('button', { name: 'Comment on Killed Ahri at 3:00' })).toBeDisabled()
+  await userEvent.type(within(thread).getByLabelText('Comment text'), 'Move as five.')
+  await userEvent.click(within(thread).getByRole('button', { name: 'Add' }))
+  expect(repo.addComment).toHaveBeenCalledWith(
+    { videoMs: 730000, kind: 'comment', body: 'Move as five.', event },
+    undefined,
+  )
+  expect(await within(thread).findByText('Move as five.')).toBeInTheDocument()
 })

@@ -52,6 +52,7 @@ import {
   saveCoachName,
   savedCoachName,
   type CommentKind,
+  type CommentEvent,
   type ReviewComment,
   type ReviewData,
   type ReviewRepository,
@@ -172,6 +173,11 @@ export function VideoReview({
   const [playheadMs, setPlayheadMs] = useState<number | null>(null)
   const [durationMs, setDurationMs] = useState<number | null>(null)
   const [composing, setComposing] = useState<number | null>(null)
+  const [commentEvent, setCommentEvent] = useState<CommentEvent | null>(null)
+  function cancelComment() {
+    setComposing(null)
+    setCommentEvent(null)
+  }
   const [editing, setEditing] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<number | null>(null)
   const [pendingSeek, setPendingSeek] = useState<{ ms: number; leadMs: number } | null>(null)
@@ -332,12 +338,19 @@ export function VideoReview({
       .map((entry) => ({ id: entry.id, type: 'event', entry, sortMs: eventMs(entry.gameTimeMs) }))
     const notes: Item[] = hidden.has(commentsKey)
       ? []
-      : comments.map((comment) => ({
-          id: comment.id,
-          type: 'comment',
-          comment,
-          sortMs: comment.videoMs,
-        }))
+      : comments
+          .filter(
+            (comment) =>
+              !comment.event ||
+              comment.event.matchId !== review?.matchId ||
+              !events.some((event) => event.id === comment.event?.id),
+          )
+          .map((comment) => ({
+            id: comment.id,
+            type: 'comment',
+            comment,
+            sortMs: comment.videoMs,
+          }))
     const stills: Item[] = hidden.has(capturesKey)
       ? []
       : captures.map((capture) => ({
@@ -349,7 +362,20 @@ export function VideoReview({
     return [...events, ...notes, ...stills].sort(
       (a, b) => a.sortMs - b.sortMs || (a.id < b.id ? -1 : 1),
     )
-  }, [entries, comments, captures, hidden, anchor])
+  }, [entries, comments, captures, hidden, anchor, review?.matchId])
+  const eventComments = useMemo(() => {
+    const grouped = new Map<string, ReviewComment[]>()
+    if (hidden.has(commentsKey)) return grouped
+    for (const comment of comments) {
+      if (!comment.event || comment.event.matchId !== review?.matchId) continue
+      const group = grouped.get(comment.event.id) ?? []
+      group.push(comment)
+      grouped.set(comment.event.id, group)
+    }
+    for (const group of grouped.values())
+      group.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+    return grouped
+  }, [comments, review?.matchId, hidden])
   const currentId = useMemo(() => {
     if (playheadMs === null) return null
     return items.filter((i) => i.sortMs <= playheadMs).at(-1)?.id ?? null
@@ -402,8 +428,24 @@ export function VideoReview({
     if (!controller) return
     showPanel(true)
     setEditing(null)
+    setCommentEvent(null)
     setComposing(Math.max(0, Math.round(controller.currentTime() * 1000)))
   }, [controller])
+  const commentOnEvent = (entry: TimelineEntry) => {
+    if (!controller || !anchor || !review || !seekable(entry.gameTimeMs)) return
+    controller.pause?.()
+    if (hidden.has(commentsKey)) toggle(commentsKey)
+    setFollow(false)
+    setEditing(null)
+    setOpenMenu(null)
+    setCommentEvent({
+      id: entry.id,
+      matchId: review.matchId,
+      gameMs: entry.gameTimeMs,
+      label: entry.label,
+    })
+    setComposing(Math.round(videoOffset(anchor, entry.gameTimeMs / 1000) * 1000))
+  }
   const startDrawing = useCallback(async () => {
     if (!controller?.pause || !repository.addCapture || captureBusy.current) return
     const generation = captureGeneration.current
@@ -513,6 +555,73 @@ export function VideoReview({
     hidden.has(commentsKey) ||
     hidden.has(capturesKey)
 
+  const saveComment = async (kind: CommentKind, body: string, name?: string) => {
+    if (composing === null) return false
+    const ok = await act(() =>
+      repository.addComment(
+        { videoMs: composing, kind, body, ...(commentEvent ? { event: commentEvent } : {}) },
+        name,
+      ),
+    )
+    if (ok) cancelComment()
+    return ok
+  }
+  const compose = composing !== null && (
+    <Composer
+      key={`${commentEvent?.id ?? 'playhead'}-${composing}`}
+      role={repository.role}
+      timeLabel={commentTime(composing)}
+      videoClock={!anchor}
+      contextLabel={commentEvent?.label}
+      onCancel={cancelComment}
+      onSave={saveComment}
+    />
+  )
+  const renderComment = (comment: ReviewComment, nested = false) =>
+    editing === comment.id ? (
+      <li
+        key={comment.id}
+        className={nested ? 'event-comment composing' : 'timeline-row composing'}
+      >
+        <Composer
+          role={repository.role}
+          timeLabel={commentTime(comment.videoMs)}
+          videoClock={!anchor}
+          contextLabel={comment.event?.label}
+          initial={comment}
+          onCancel={() => setEditing(null)}
+          onSave={async (kind, body) => {
+            const ok = await act(() => repository.updateComment(comment.id, { kind, body }))
+            if (ok) setEditing(null)
+            return ok
+          }}
+        />
+      </li>
+    ) : (
+      <CommentRow
+        key={comment.id}
+        comment={comment}
+        nested={nested}
+        timeLabel={commentTime(comment.videoMs)}
+        videoClock={!anchor}
+        current={comment.id === currentId}
+        viewer={repository.role}
+        onSeek={() => controller?.seekTo(Math.max(0, comment.videoMs) / 1000)}
+        onEdit={
+          comment.mine
+            ? () => {
+                cancelComment()
+                setEditing(comment.id)
+              }
+            : undefined
+        }
+        onDelete={
+          comment.mine || owner
+            ? () => void act(() => repository.deleteComment(comment.id))
+            : undefined
+        }
+      />
+    )
   const needsSetup = owner && (!review || !anchor)
   const closeSettings = () => setOpenMenu(null)
   const cinemaToggle = (
@@ -719,7 +828,7 @@ export function VideoReview({
                   <button
                     className="button button-small"
                     onClick={startComment}
-                    disabled={!controller || composing !== null}
+                    disabled={!controller || composing !== null || editing !== null}
                     aria-label="Comment"
                     title={controller ? 'Comment at the playhead' : 'Wait for the video to load'}
                   >
@@ -751,21 +860,10 @@ export function VideoReview({
                   onSave={(next) => act(() => repository.setAnchor!(next))}
                 />
               )}
-              {composing !== null && (
-                <Composer
-                  role={repository.role}
-                  timeLabel={commentTime(composing)}
-                  videoClock={!anchor}
-                  onCancel={() => setComposing(null)}
-                  onSave={async (kind, body, name) => {
-                    const ok = await act(() =>
-                      repository.addComment({ videoMs: composing, kind, body }, name),
-                    )
-                    if (ok) setComposing(null)
-                    return ok
-                  }}
-                />
-              )}
+              {composing !== null &&
+                (!commentEvent ||
+                  !items.some((item) => item.type === 'event' && item.id === commentEvent.id)) &&
+                compose}
               {state === 'loading' ? (
                 <div className="review-empty" role="status">
                   <LoaderCircle className="spin" size={18} />
@@ -837,11 +935,41 @@ export function VideoReview({
                           seekable={seekable(item.entry.gameTimeMs)}
                           dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
                           compact={simple}
+                          commentCount={eventComments.get(item.id)?.length ?? 0}
+                          commentDisabled={
+                            !anchor ||
+                            !controller ||
+                            !seekable(item.entry.gameTimeMs) ||
+                            editing !== null ||
+                            (composing !== null && commentEvent?.id !== item.id)
+                          }
+                          commentDisabledHint={
+                            editing !== null || composing !== null
+                              ? 'Finish your current comment first'
+                              : undefined
+                          }
+                          onComment={() => commentOnEvent(item.entry)}
                           onSeek={() =>
                             seekGame(item.entry.gameTimeMs, seekLeadMs(item.entry.kind))
                           }
                           onSeekTime={(ms, kind) => seekGame(ms, seekLeadMs(kind))}
-                        />
+                        >
+                          {((eventComments.get(item.id)?.length ?? 0) > 0 ||
+                            commentEvent?.id === item.id) && (
+                            <section
+                              className="event-discussion"
+                              aria-label={`Comments on ${item.entry.label} at ${clock(item.entry.gameTimeMs)}`}
+                            >
+                              <strong>Discussion</strong>
+                              <ol>
+                                {eventComments
+                                  .get(item.id)
+                                  ?.map((comment) => renderComment(comment, true))}
+                              </ol>
+                              {commentEvent?.id === item.id && compose}
+                            </section>
+                          )}
+                        </EventRow>
                       ) : item.type === 'capture' ? (
                         <CaptureRow
                           key={item.id}
@@ -852,48 +980,8 @@ export function VideoReview({
                           current={item.id === currentId}
                           onOpen={() => setViewingCapture(item.capture)}
                         />
-                      ) : editing === item.id ? (
-                        <li key={item.id} className="timeline-row composing">
-                          <Composer
-                            role={repository.role}
-                            timeLabel={commentTime(item.comment.videoMs)}
-                            videoClock={!anchor}
-                            initial={item.comment}
-                            onCancel={() => setEditing(null)}
-                            onSave={async (kind, body) => {
-                              const ok = await act(() =>
-                                repository.updateComment(item.id, { kind, body }),
-                              )
-                              if (ok) setEditing(null)
-                              return ok
-                            }}
-                          />
-                        </li>
                       ) : (
-                        <CommentRow
-                          key={item.id}
-                          comment={item.comment}
-                          timeLabel={commentTime(item.comment.videoMs)}
-                          videoClock={!anchor}
-                          current={item.id === currentId}
-                          viewer={repository.role}
-                          onSeek={() =>
-                            controller?.seekTo(Math.max(0, item.comment.videoMs) / 1000)
-                          }
-                          onEdit={
-                            item.comment.mine
-                              ? () => {
-                                  setComposing(null)
-                                  setEditing(item.id)
-                                }
-                              : undefined
-                          }
-                          onDelete={
-                            item.comment.mine || owner
-                              ? () => void act(() => repository.deleteComment(item.id))
-                              : undefined
-                          }
-                        />
+                        renderComment(item.comment)
                       ),
                     )}
                   </ol>
@@ -1018,6 +1106,7 @@ function Composer({
   timeLabel,
   videoClock,
   initial,
+  contextLabel,
   onCancel,
   onSave,
 }: {
@@ -1025,6 +1114,7 @@ function Composer({
   timeLabel: string
   videoClock: boolean
   initial?: ReviewComment
+  contextLabel?: string
   onCancel(): void
   onSave(kind: CommentKind, body: string, name?: string): Promise<boolean>
 }) {
@@ -1056,6 +1146,7 @@ function Composer({
         } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit()
       }}
     >
+      {contextLabel && <p className="composer-event-context">On {contextLabel}</p>}
       <div className="composer-heading">
         <strong>
           {initial ? 'Edit' : 'New'} at {timeLabel}

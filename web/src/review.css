@@ -327,7 +327,7 @@
   border-radius: 6px;
 }
 .timeline-row.clickable:hover .timeline-label,
-.timeline-row.clickable:hover .comment-text {
+.timeline-row.comment.clickable:hover .comment-text {
   color: var(--gold);
 }
 .kind-ultimate {
@@ -746,7 +746,7 @@
   overflow-wrap: anywhere;
   color: var(--ink);
 }
-.timeline-row.current .comment-text {
+.timeline-row.comment.current .comment-text {
   font-weight: 550;
 }
 .comment-confirm {
@@ -1452,4 +1452,88 @@ body:has(.cinema-mode) .watch-main {
 }
 .timeline-icon.objective-theirs {
   border-color: var(--behind);
+}
+
+.event-comment-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  margin: 4px 0 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.event-comment-button:hover:not(:disabled) {
+  background: var(--surface-sunk);
+  color: var(--ink);
+}
+.event-comment-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.event-discussion {
+  margin-top: 8px;
+  border-left: 2px solid var(--line);
+  padding: 8px 0 0 8px;
+}
+.event-discussion > strong {
+  font-size: 10px;
+  color: var(--muted);
+}
+.event-discussion ol {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+}
+.event-comment {
+  margin: 6px 0;
+  min-width: 0;
+}
+.comment-body {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+}
+.comment-event-context,
+.composer-event-context {
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+.event-discussion .review-composer {
+  margin: 8px 0 0;
+  padding: 8px;
+}
+.event-discussion .comment-actions {
+  flex-shrink: 0;
+}
+
+.event-discussion {
+  width: 100%;
+}
+.event-comment-count {
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 8px;
+  background: var(--surface-sunk);
+  font-size: 10px;
+}
+.timeline-compact .timeline-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.timeline-compact .event-discussion {
+  flex-basis: 100%;
+}
+.event-comment .comment-body {
+  width: 100%;
 }

@@ -2,7 +2,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 import { reviewPayload } from '../src/test/review-fixture'
 import { match } from '../src/test/league-fixture'
 import { readFileSync } from 'node:fs'
-import type { ReviewCapture } from '../src/lib/review'
+import type { ReviewCapture, CommentEvent } from '../src/lib/review'
 
 // Simulated-backend contract test for the review timeline. Real permissions are
 // covered by supabase/tests/review-security.sql; this is not a live login.
@@ -19,6 +19,7 @@ const user = {
   created_at: '2026-11-09T00:00:00Z',
 }
 type Comment = {
+  event?: CommentEvent
   id: string
   videoMs: number
   kind: string
@@ -34,6 +35,7 @@ type State = {
   calls: { name: string; args: Record<string, unknown> }[]
   captures?: (ReviewCapture & { image: string; key?: string })[]
   failCaptureSave?: boolean
+  failCommentSave?: boolean
 }
 
 // A disposable silent WAV gives the real video element a 120-second timeline.
@@ -202,19 +204,45 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
               gameTimeSeconds: Number(args.p_game_time),
               videoOffsetSeconds: Number(args.p_video_offset),
             }
-    if (name === 'add_recording_comment' || name === 'add_shared_comment') {
+    if (
+      [
+        'add_recording_comment',
+        'add_shared_comment',
+        'add_recording_event_comment',
+        'add_shared_event_comment',
+      ].includes(name)
+    ) {
+      if (state.failCommentSave)
+        return route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: 'Could not save this comment. Try again.',
+            code: '22023',
+          }),
+        })
       const id = `c${state.comments.length + 1}`
       state.comments.push({
         id,
         videoMs: Number(args.p_video_ms),
         kind: String(args.p_kind),
         body: String(args.p_body),
-        role: name === 'add_recording_comment' ? 'owner' : 'coach',
-        author: name === 'add_shared_comment' ? String(args.p_author_name) : null,
+        role: name.startsWith('add_recording_') ? 'owner' : 'coach',
+        author: name.startsWith('add_shared_') ? String(args.p_author_name) : null,
+        event: args.p_event as CommentEvent | undefined,
         key: args.p_author_key as string | undefined,
       })
       result = id
     }
+    if (name === 'update_recording_comment' || name === 'update_shared_comment') {
+      const comment = state.comments.find((c) => c.id === args.p_comment)
+      if (comment) {
+        comment.body = String(args.p_body)
+        comment.kind = String(args.p_kind)
+      }
+    }
+    if (name === 'delete_recording_comment' || name === 'delete_shared_comment')
+      state.comments = state.comments.filter((c) => c.id !== args.p_comment)
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -898,9 +926,13 @@ for (const owner of [true, false]) {
     const panel = page.getByRole('region', { name: 'Review timeline' })
     await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(2)
     await expect(panel.locator('.objective-card, .matchup-card')).toHaveCount(0)
-    const dragon = panel.getByRole('button', { name: 'Infernal Drake taken by your team at 12:00' })
+    const dragon = panel.getByRole('button', {
+      name: 'Infernal Drake taken by your team at 12:00',
+      exact: true,
+    })
     const baron = panel.getByRole('button', {
       name: 'Baron Nashor taken by the enemy team at 12:30',
+      exact: true,
     })
     await expect(dragon.locator('img')).toHaveAttribute('src', /dragon_infernal.png$/)
     await expect(baron.locator('img')).toHaveAttribute('src', /baron.png$/)
@@ -917,3 +949,90 @@ for (const owner of [true, false]) {
     await page.screenshot({ path: testInfo.outputPath('simple-objectives.png') })
   })
 }
+
+test('event discussions group player and coach comments at the event timestamp', async ({
+  page,
+  browser,
+}, testInfo) => {
+  const state: State = {
+    review: reviewPayload(),
+    anchor: { gameTimeSeconds: 720, videoOffsetSeconds: 30 },
+    comments: [],
+    calls: [],
+  }
+  await mock(page.context(), state, true)
+  await signIn(page.context())
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.addInitScript(() => {
+    if (localStorage.getItem('league-cloud-coach-hidden-kinds') === null)
+      localStorage.setItem('league-cloud-coach-hidden-kinds', '["comments"]')
+  })
+  await page.goto(`/#/video/${recordingId}`)
+  await seekVideo(page, 'Ranked mid review', 90)
+  const eventAction = { name: 'Comment on Infernal Drake taken by your team at 12:00', exact: true }
+  await page.getByRole('button', eventAction).click()
+  const thread = page.getByRole('region', {
+    name: 'Comments on Infernal Drake taken by your team at 12:00',
+    exact: true,
+  })
+  await expect(thread.getByText('On Infernal Drake taken by your team')).toBeVisible()
+  await thread.getByLabel('Comment text').fill('Should we contest this dragon?')
+  state.failCommentSave = true
+  await thread.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Could not save')
+  await expect(thread.getByLabel('Comment text')).toHaveValue('Should we contest this dragon?')
+  state.failCommentSave = false
+  await thread.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(thread.getByText('Should we contest this dragon?', { exact: true })).toBeVisible()
+  expect(state.comments[0].videoMs).toBe(30000)
+  expect(state.comments[0].event).toEqual({
+    id: 'objective-720000',
+    matchId: 'EUW1_1',
+    gameMs: 720000,
+    label: 'Infernal Drake taken by your team',
+  })
+  const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  await mock(guestContext, state, false)
+  const guest = await guestContext.newPage()
+  await guest.goto(`/#/watch/${token}`)
+  await guest.getByRole('button', { name: 'Start session' }).click()
+  await seekVideo(guest, 'Ranked mid review', 80)
+  const guestThread = guest.getByRole('region', {
+    name: 'Comments on Infernal Drake taken by your team at 12:00',
+    exact: true,
+  })
+  await expect(
+    guestThread.getByText('Should we contest this dragon?', { exact: true }),
+  ).toBeVisible()
+  await expect(guestThread.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
+  await guest.getByRole('button', eventAction).click()
+  await guestThread.getByPlaceholder('Shown with your comments').fill('Coach')
+  await guestThread.getByLabel('Comment text').fill('Push mid first, then move together.')
+  await guestThread.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(
+    guestThread.getByText('Push mid first, then move together.', { exact: true }),
+  ).toBeVisible()
+  await expect(guestThread.getByRole('button', { name: 'Edit comment' })).toHaveCount(1)
+  expect(state.comments[1].event).toEqual(state.comments[0].event)
+  await guestThread.getByRole('button', { name: 'Edit comment' }).click()
+  await guestThread
+    .getByLabel('Comment text')
+    .fill('Push mid first, then move together. Bring vision.')
+  await guestThread.getByRole('button', { name: 'Save', exact: true }).click()
+  expect(state.comments[1].event).toEqual(state.comments[0].event)
+  await page.reload()
+  await expect(
+    thread.getByText('Push mid first, then move together. Bring vision.', { exact: true }),
+  ).toBeVisible()
+  await expect(thread.getByRole('button', { name: 'Delete comment' })).toHaveCount(2)
+  await page.getByLabel(/Video settings/).click()
+  await page.getByRole('radio', { name: 'Simple', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(thread.getByText('Should we contest this dragon?', { exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('event-discussion-desktop.png') })
+  await guest.screenshot({
+    path: testInfo.outputPath('event-discussion-mobile.png'),
+    fullPage: true,
+  })
+  await guestContext.close()
+})

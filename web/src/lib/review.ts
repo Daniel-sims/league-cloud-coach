@@ -8,7 +8,9 @@ export const commentKinds: { kind: CommentKind; name: string; prompt: string }[]
   { kind: 'question', name: 'Question', prompt: 'What would you like to ask about this moment?' },
   { kind: 'mindset', name: 'Mindset', prompt: 'What was going through your head at this point?' },
 ]
+export type CommentEvent = { id: string; matchId: string; gameMs: number; label: string }
 export type ReviewComment = {
+  event?: CommentEvent | null
   id: string
   videoMs: number
   kind: CommentKind
@@ -37,7 +39,12 @@ export type ReviewCapture = {
   createdAt: string
 }
 export type CaptureInput = { videoMs: number; image: string; body: string }
-export type CommentInput = { videoMs: number; kind: CommentKind; body: string }
+export type CommentInput = {
+  videoMs: number
+  kind: CommentKind
+  body: string
+  event?: CommentEvent
+}
 
 /// What the review panel can do. Owner-only capabilities are absent for guests.
 export interface ReviewRepository {
@@ -74,12 +81,13 @@ export function ownerReview(recordingId: string): ReviewRepository {
     },
     getCapture: (id) => rpc<string>('get_recording_capture', { p_capture: id }),
     deleteCapture: (id) => rpc('delete_recording_capture', { p_capture: id }),
-    addComment: ({ videoMs, kind, body }) =>
-      rpc('add_recording_comment', {
+    addComment: ({ videoMs, kind, body, event }) =>
+      rpc(event ? 'add_recording_event_comment' : 'add_recording_comment', {
         p_id: recordingId,
         p_video_ms: videoMs,
         p_kind: kind,
         p_body: body,
+        ...(event ? { p_event: event } : {}),
       }),
     updateComment: (id, { kind, body }) =>
       rpc('update_recording_comment', { p_comment: id, p_kind: kind, p_body: body }),
@@ -125,14 +133,15 @@ export function sharedReview(token: string): ReviewRepository {
     getCapture: (id) => rpc<string>('get_recording_capture', { p_capture: id, p_token: token }),
     deleteCapture: (id) =>
       rpc('delete_recording_capture', { p_capture: id, p_token: token, p_author_key: key }),
-    addComment: ({ videoMs, kind, body }, authorName) =>
-      rpc('add_shared_comment', {
+    addComment: ({ videoMs, kind, body, event }, authorName) =>
+      rpc(event ? 'add_shared_event_comment' : 'add_shared_comment', {
         p_token: token,
         p_author_key: key,
         p_author_name: authorName,
         p_video_ms: videoMs,
         p_kind: kind,
         p_body: body,
+        ...(event ? { p_event: event } : {}),
       }),
     updateComment: (id, { kind, body }) =>
       rpc('update_shared_comment', {
