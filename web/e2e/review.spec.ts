@@ -760,3 +760,67 @@ test('signed-out coaches can draw, capture and delete their own stills while pla
   await expect(page.getByRole('button', { name: 'Delete capture' })).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
+
+for (const owner of [true, false]) {
+  test(`cinema mode keeps video and timeline for ${owner ? 'owners' : 'shared viewers'}`, async ({
+    page,
+  }, testInfo) => {
+    const state: State = {
+      review: reviewPayload(),
+      anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 10 },
+      comments: [],
+      calls: [],
+    }
+    await mock(page.context(), state, owner)
+    if (owner) {
+      await signIn(page.context())
+      await page.addInitScript(() =>
+        localStorage.setItem('league-cloud-coach-sidebar', 'collapsed'),
+      )
+    }
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(owner ? `/#/video/${recordingId}` : `/#/watch/${token}`)
+    if (!owner) await page.getByRole('button', { name: 'Start session' }).click()
+    const video = await seekVideo(page, 'Ranked mid review', 30)
+    const originalVideo = await video.elementHandle()
+    await page.getByRole('button', { name: 'Enter cinema mode' }).click()
+    await expect(
+      page
+        .locator('.topbar, .sidebar, .watch-header, .video-bar, .watch-footer')
+        .filter({ visible: true }),
+    ).toHaveCount(0)
+    const timeline = page.getByRole('region', { name: 'Review timeline' })
+    await expect(timeline).toBeVisible()
+    const panel = (await timeline.boundingBox())!
+    expect(panel.y).toBe(12)
+    expect(panel.y + panel.height).toBe(888)
+    expect(await video.evaluate((v, original) => v === original, originalVideo)).toBe(true)
+    expect(await video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(30)
+    await page.getByLabel(/Video settings/).click()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('button', { name: 'Exit cinema mode' })).toBeVisible()
+    await expect(page.locator('.review-menu-panel')).toHaveCount(0)
+    if (owner) {
+      await page.getByLabel(/Video settings/).click()
+      await page.getByRole('button', { name: 'Change game', exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Exit cinema mode' })).toBeVisible()
+    }
+    await page.screenshot({ path: testInfo.outputPath('cinema-desktop.png') })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByRole('button', { name: 'Exit cinema mode' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(
+      page.locator('.sidebar, .topbar, .watch-header').filter({ visible: true }),
+    ).toHaveCount(0)
+    await page.screenshot({ path: testInfo.outputPath('cinema-mobile.png'), fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('button', { name: 'Enter cinema mode' })).toBeFocused()
+    await expect(page.locator(owner ? '.topbar' : '.watch-header')).toBeVisible()
+    await page.getByRole('button', { name: 'Enter cinema mode' }).click()
+    await page.getByRole('button', { name: 'Exit cinema mode' }).click()
+    await expect(page.locator(owner ? '.topbar' : '.watch-header')).toBeVisible()
+  })
+}

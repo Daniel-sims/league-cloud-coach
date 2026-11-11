@@ -18,6 +18,8 @@ import {
   Link2,
   LoaderCircle,
   MessageSquarePlus,
+  Maximize2,
+  Minimize2,
   Pencil,
   PanelRightClose,
   PanelRightOpen,
@@ -113,7 +115,31 @@ export function VideoReview({
   recordedOn?: string | null
   renderPlayer(onController: (controller: PlayerController | null) => void): ReactNode
 }) {
+  const [cinema, setCinema] = useState(false)
   const [openMenu, setOpenMenu] = useState<'settings' | 'filter' | null>(null)
+  const cinemaButton = useRef<HTMLButtonElement>(null)
+  useLayoutEffect(() => {
+    if (!cinema) return
+    const previousScroll = window.scrollY
+    window.scrollTo(0, 0)
+    return () => window.scrollTo(0, previousScroll)
+  }, [cinema])
+  useEffect(() => {
+    if (!cinema) return
+    const exit = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        openMenu ||
+        document.querySelector('dialog[open]')
+      )
+        return
+      setCinema(false)
+      cinemaButton.current?.focus()
+    }
+    window.addEventListener('keydown', exit)
+    return () => window.removeEventListener('keydown', exit)
+  }, [cinema, openMenu])
   useEffect(() => {
     if (!openMenu) return
     const dismiss = (event: PointerEvent) => {
@@ -228,7 +254,7 @@ export function VideoReview({
       observer?.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [])
+  }, [cinema])
 
   const reload = useCallback(async () => {
     try {
@@ -483,6 +509,22 @@ export function VideoReview({
   const videoSettings = data && (
     <div className="review-video-settings review-menu">
       <button
+        ref={cinemaButton}
+        type="button"
+        className="button secondary button-small"
+        aria-label={cinema ? 'Exit cinema mode' : 'Enter cinema mode'}
+        aria-pressed={cinema}
+        title={cinema ? 'Exit cinema mode (Escape)' : 'Cinema mode'}
+        onClick={() => {
+          closeSettings()
+          if (!cinema) showPanel(true)
+          setCinema(!cinema)
+        }}
+      >
+        {cinema ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        {cinema ? 'Exit cinema' : 'Cinema mode'}
+      </button>
+      <button
         type="button"
         aria-expanded={openMenu === 'settings'}
         onClick={() => setOpenMenu(openMenu === 'settings' ? null : 'settings')}
@@ -533,7 +575,7 @@ export function VideoReview({
     </div>
   )
   return (
-    <div className="review-container" ref={container}>
+    <div className={`review-container ${cinema ? 'cinema-mode' : ''}`} ref={container}>
       <div
         className={`review-layout ${panelOpen ? '' : 'timeline-collapsed'}`}
         style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}

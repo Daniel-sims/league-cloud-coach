@@ -2,6 +2,23 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Cinema mode
+
+The button beside Video tools switches owner and shared watch pages to a view
+containing only the video and timeline, hiding workspace/sidebar navigation,
+page title/share actions, shared branding and footers. It uses the full page
+width with 12px insets. The same player stays mounted at its current position;
+the timeline opens on entry and fills the available desktop height. Phones
+retain the stacked layout. Exit cinema or Escape returns to the normal page;
+Escape dismisses an open menu/dialog first. Entering starts at the page top;
+exiting restores the previous scroll position. The mode is per visit, not saved.
+
+Verification: 134 unit tests, production build and seven review Chrome workflows
+pass, including owner/shared cinema views, unchanged media element/position,
+menu/dialog Escape handling, exit button/focus, hidden mobile navigation with
+the collapsed sidebar preference, and no horizontal overflow. Desktop/mobile
+screenshots inspected. No backend or native changes.
+
 ## Video tools location and dropdown behavior
 
 Current behavior supersedes the earlier menu placements below: **Video tools**

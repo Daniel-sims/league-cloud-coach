@@ -208,6 +208,9 @@
 }
 /* Video tools sit on the video, outside the timeline's clipping boundary. */
 .review-video-settings {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   position: absolute;
   top: 12px;
   right: 12px;
@@ -1219,4 +1222,44 @@
 
 .review-settings-menu .review-settings small {
   margin-left: 0;
+}
+
+/* Cinema mode keeps the same player mounted while removing page chrome. */
+body:has(.cinema-mode) .app-shell .sidebar,
+body:has(.cinema-mode) .topbar,
+body:has(.cinema-mode) .video-bar,
+body:has(.cinema-mode) .main-footer,
+body:has(.cinema-mode) .watch-header,
+body:has(.cinema-mode) .watch-footer {
+  display: none;
+}
+body:has(.cinema-mode) .main-shell {
+  margin-left: 0;
+  width: 100%;
+}
+body:has(.cinema-mode) .main-content.wide,
+body:has(.cinema-mode) .watch-main {
+  padding: 12px;
+  max-width: none;
+}
+.cinema-mode .review-panel {
+  height: max(280px, calc(100dvh - 24px));
+}
+.cinema-mode .review-video .player-wrap {
+  max-width: max(480px, calc((100dvh - var(--review-chrome, 0px) - 24px) * 16 / 9));
+}
+@container (max-width: 900px) {
+  .cinema-mode .review-panel {
+    height: 75dvh;
+  }
+}
+@media (max-width: 600px) {
+  .review-video-settings {
+    top: 8px;
+    right: 8px;
+  }
+  .review-video-settings > button {
+    padding: 8px;
+    gap: 5px;
+  }
 }

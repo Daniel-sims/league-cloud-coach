@@ -46,6 +46,11 @@ There is no automatic YouTube/channel integration, match-level notes or AI analy
 
 ### Review timeline
 
+Choose **Cinema mode** beside Video tools to hide navigation, the title/share row
+and footer, leaving the video and timeline. Choose **Exit cinema** or press
+**Escape** to return. Playback continues at the same position. This works on
+owner and shared watch pages; phones keep the timeline below the video.
+
 On desktop, the timeline fills the available window height independently of the video; on phones it stacks below the player with its own scroll area. Each video page shows a timeline beside the player, ported from the Mac app's review panel: kills and deaths, teamfight cards (who was there, outcome, dive callouts, and your part or where you were), fights worth a rewatch, recalls with purchases and the resulting build, minute-by-minute lane matchups, objectives and (off by default) the lane opponent's purchases. Choose **Attach game** to pick a synced game from Home; the backend fetches its Riot timeline once with your token and stores a reduced copy with the video, so coaches never need a Riot token. Then pause on a frame, choose **Sync clock**, and type the in-game timer: that one reading maps every event onto the video for you and anyone with the watch link. Comments and timeline events seek to their exact timestamp. Only ultimate casts and deaths seek five seconds early, including death moments inside fight cards; kills, assists, fights, flags, objectives, recalls, purchases and checkpoints seek exactly.
 
 Comments are pinned to the video position and shown in game time once the clock is synced. The owner adds comments, questions or mindset notes; anyone with a valid watch link adds comments and questions under a name they choose. A coach can edit or delete only the comments written from their browser; the owner can remove any comment on their videos. Revoking or replacing the link ends guest access to the review as well as the video. Press **N** to comment at the playhead. Riot sync for Home is implemented; it does not migrate the Mac's local journal, recordings or historical rank observations.
