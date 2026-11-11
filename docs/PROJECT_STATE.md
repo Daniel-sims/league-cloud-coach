@@ -31,7 +31,10 @@ share a native exclusive details group, so opening either closes the other.
 Desktop and mobile browser checks cover switching menus in both directions. The production build
 and all five review Chrome workflows pass; regression assertions check menu bounds
 and pointer hits at both edges on narrow desktop and mobile. Both screenshots
-were inspected. No backend or native changes.
+were inspected. Both fixes are published in `ef15429bbc7cec434758db9143dcaf9f2bb5e4d4`
+through the [successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42996370184).
+All 134 unit tests and the full CI browser/database suites pass. No backend or
+native changes.
 
 ## Independent desktop and web workspaces
 
