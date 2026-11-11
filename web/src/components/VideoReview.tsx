@@ -216,7 +216,7 @@ export function VideoReview({
     handle.classList.add('dragging')
     let width = panelWidth
     const move = (e: PointerEvent) => {
-      width = right - e.clientX - 8
+      width = right - e.clientX - (cinema ? 0 : 8)
       resizeTo(width)
     }
     const end = () => {

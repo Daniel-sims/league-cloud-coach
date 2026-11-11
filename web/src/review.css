@@ -1239,18 +1239,61 @@ body:has(.cinema-mode) .main-shell {
 }
 body:has(.cinema-mode) .main-content.wide,
 body:has(.cinema-mode) .watch-main {
-  padding: 12px;
+  padding: 0;
   max-width: none;
 }
+.cinema-mode .review-layout:not(.timeline-collapsed) {
+  grid-template-columns:
+    minmax(0, 1fr) 0px
+    min(var(--panel-width, 420px), max(300px, calc(100% - 496px)));
+}
+.cinema-mode .review-layout.timeline-collapsed {
+  column-gap: 0;
+}
+.cinema-mode .review-resizer {
+  width: 12px;
+  margin-left: -6px;
+  z-index: 2;
+}
+.cinema-mode .review-resizer::before {
+  left: 5px;
+}
 .cinema-mode .review-panel {
-  height: max(280px, calc(100dvh - 24px));
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+}
+.cinema-mode .review-video {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100dvh;
+  background: #000;
 }
 .cinema-mode .review-video .player-wrap {
-  max-width: max(480px, calc((100dvh - var(--review-chrome, 0px) - 24px) * 16 / 9));
+  width: 100%;
+  max-width: min(100%, calc((100dvh - var(--review-chrome, 0px)) * 16 / 9));
+  margin: auto;
+}
+.cinema-mode .player-stage {
+  min-height: 0;
+  border-radius: 0;
+  background: #000;
 }
 @container (max-width: 900px) {
+  .cinema-mode .review-layout:not(.timeline-collapsed),
+  .cinema-mode .review-layout.timeline-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
+  }
+  .cinema-mode .review-video {
+    height: auto;
+  }
   .cinema-mode .review-panel {
     height: 75dvh;
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 }
 @media (max-width: 600px) {

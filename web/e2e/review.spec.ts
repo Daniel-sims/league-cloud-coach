@@ -792,8 +792,22 @@ for (const owner of [true, false]) {
     const timeline = page.getByRole('region', { name: 'Review timeline' })
     await expect(timeline).toBeVisible()
     const panel = (await timeline.boundingBox())!
-    expect(panel.y).toBe(12)
-    expect(panel.y + panel.height).toBe(888)
+    expect(panel.y).toBe(0)
+    expect(panel.y + panel.height).toBe(900)
+    expect(panel.x + panel.width).toBe(1440)
+    const videoColumn = (await page.locator('.review-video').boundingBox())!
+    const playerBounds = (await page.locator('.review-video .player-wrap').boundingBox())!
+    expect(videoColumn.x).toBe(0)
+    expect(videoColumn.width).toBe(panel.x)
+    expect(Math.abs(playerBounds.y + playerBounds.height / 2 - 450)).toBeLessThan(1)
+    expect(playerBounds.x).toBe(0)
+    expect(playerBounds.width).toBe(videoColumn.width)
+    expect(
+      await page.locator('.player-stage').evaluate((element) => {
+        const style = getComputedStyle(element)
+        return { background: style.backgroundColor, radius: style.borderRadius }
+      }),
+    ).toEqual({ background: 'rgb(0, 0, 0)', radius: '0px' })
     expect(await video.evaluate((v, original) => v === original, originalVideo)).toBe(true)
     expect(await video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(30)
     await page.getByLabel(/Video settings/).click()
