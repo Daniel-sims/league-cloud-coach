@@ -46,9 +46,10 @@ created. No cloud migration or resource change was required.
 The timeline header no longer shows event/comment/capture counts, which pushed the
 toolbar buttons around. Drawing captures now render as ordinary timeline rows (time
 in the gutter, dot on the spine, "Drawing capture" label, thumbnail, note and author).
-The filter no longer offers Flags, Fights without you or Opponent items. Flag and
-absent-fight events are always shown; opponent purchases stay hidden, and stale saved
-filter choices for these kinds are ignored. Frontend only; no backend or native change.
+Flags, Fights without you and Opponent items are removed entirely: no filter options
+and no timeline events (teamfights the player took no part in are not listed). This
+diverges deliberately from native `ReviewTimeline.swift`, which still builds them.
+Frontend only; no backend change.
 All 132 unit tests, the production build and 22 Chrome workflows pass.
 
 ## Capture timeline row layout correction

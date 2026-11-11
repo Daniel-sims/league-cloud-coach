@@ -95,17 +95,11 @@ type Item =
 function loadHidden(): Set<string> {
   try {
     const saved = localStorage.getItem(hiddenStorage)
-    if (saved !== null) {
-      const kinds = new Set<string>(JSON.parse(saved))
-      // These kinds have no filter option, so a stale saved choice can't be undone.
-      for (const kind of ['flag', 'absentFight']) kinds.delete(kind)
-      kinds.add('opponentItem')
-      return kinds
-    }
+    if (saved !== null) return new Set<string>(JSON.parse(saved))
   } catch {
     // Filters are a per-browser convenience.
   }
-  return new Set<string>(['opponentItem'])
+  return new Set<string>()
 }
 
 export function VideoReview({
@@ -685,7 +679,7 @@ export function VideoReview({
                       <button
                         className="button secondary button-small"
                         onClick={() => {
-                          setHidden(new Set(['opponentItem']))
+                          setHidden(new Set())
                           try {
                             localStorage.removeItem(hiddenStorage)
                           } catch {

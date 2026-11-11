@@ -301,9 +301,6 @@
 .kind-ultimate {
   --dot: var(--gold);
 }
-.kind-flag {
-  --dot: var(--event-flag);
-}
 .kind-kill {
   --dot: var(--event-kill);
 }
@@ -312,9 +309,6 @@
 }
 .kind-fight {
   --dot: var(--event-fight);
-}
-.kind-absentFight {
-  --dot: var(--event-absent);
 }
 .kind-recall {
   --dot: var(--event-recall);

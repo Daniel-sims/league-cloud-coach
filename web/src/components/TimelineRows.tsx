@@ -10,7 +10,12 @@ import {
   type MatchupCard,
   type TimelineEntry,
 } from '../lib/review-timeline'
-import { commentKinds, type ReviewCapture, type ReviewComment, type ReviewRepository } from '../lib/review'
+import {
+  commentKinds,
+  type ReviewCapture,
+  type ReviewComment,
+  type ReviewRepository,
+} from '../lib/review'
 import { CaptureThumbnail } from './DrawingCapture'
 
 const itemNames = new Map<string, Promise<Record<string, string>>>()

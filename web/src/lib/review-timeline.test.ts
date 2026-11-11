@@ -38,7 +38,6 @@ it('builds the native timeline: solo kills, teamfights with the player part, obj
   const entries = buildTimeline(reviewPayload())
   const labels = entries.map((e) => `${clock(e.gameTimeMs)} ${e.kind} ${e.label}`)
   expect(labels).toEqual([
-    '0:10 opponentItem Ahri bought 1 item',
     '0:10 recall Opening buy',
     '1:00 matchup Lane matchup',
     '3:00 kill Killed Ahri',
@@ -49,8 +48,6 @@ it('builds the native timeline: solo kills, teamfights with the player part, obj
     '10:00 matchup Lane matchup',
     '12:00 objective Infernal Drake taken by your team',
     '14:55 recall Recall',
-    '15:00 absentFight Teamfight without you',
-    '15:00 flag Teamfight without you — worth a rewatch',
   ])
   expect(entries.find((e) => e.kind === 'kill')!.detail).toBe('Solo kill')
   const fight = entries.find((e) => e.kind === 'fight')!
@@ -66,12 +63,6 @@ it('builds the native timeline: solo kills, teamfights with the player part, obj
     'Died to Syndra',
   ])
   expect(filterKinds(fight)).toEqual(['fight', 'kill', 'death'])
-  const absent = entries.find((e) => e.kind === 'absentFight')!
-  expect(absent.fight!.absence).toEqual({
-    kind: 'shopping',
-    label: 'You were shopping at base',
-    seekMs: 895_000,
-  })
   const recall = entries.find((e) => e.id === 'recall-360000')!
   expect(recall.detail).toBe('Backed 20 s after a takedown')
   expect(recall.items).toEqual([
@@ -111,6 +102,4 @@ it('omits lane-opponent rows when the opponent is unknown', () => {
   payload.participants = payload.participants.map((p) => ({ ...p, position: '' }))
   const kinds = new Set(buildTimeline(payload).map((e) => e.kind))
   expect(kinds.has('matchup')).toBe(false)
-  expect(kinds.has('flag')).toBe(false)
-  expect(kinds.has('opponentItem')).toBe(false)
 })

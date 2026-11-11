@@ -67,17 +67,7 @@ export type ReviewPayload = {
   }[]
 }
 
-export type EntryKind =
-  | 'ultimate'
-  | 'fight'
-  | 'absentFight'
-  | 'flag'
-  | 'kill'
-  | 'death'
-  | 'recall'
-  | 'matchup'
-  | 'objective'
-  | 'opponentItem'
+export type EntryKind = 'ultimate' | 'fight' | 'kill' | 'death' | 'recall' | 'matchup' | 'objective'
 export const entryKinds: { kind: EntryKind; name: string }[] = [
   { kind: 'ultimate', name: 'Ultimates' },
   { kind: 'kill', name: 'Kills' },
@@ -347,8 +337,10 @@ export function buildTimeline(payload: ReviewPayload): TimelineEntry[] {
   const inFights = new Set(fights.flatMap((f) => f))
   return [
     ...killEntries(c, inFights),
-    ...fights.map((f) => fightEntry(f, c)),
-    ...flagEntries(c),
+    ...fights.flatMap((f): TimelineEntry[] => {
+      const entry = fightEntry(f, c)
+      return entry ? [entry] : []
+    }),
     ...recallEntries(c),
     ...matchupEntries(c),
     ...payload.monsters.map((m): TimelineEntry => ({
@@ -357,7 +349,6 @@ export function buildTimeline(payload: ReviewPayload): TimelineEntry[] {
       kind: 'objective',
       label: `${monsterName(m.type, m.subType)} taken by ${m.team === team(c.player) ? 'your team' : 'the enemy team'}`,
     })),
-    ...opponentItemEntries(c),
   ].sort((a, b) => a.gameTimeMs - b.gameTimeMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
@@ -440,14 +431,15 @@ const fightCenter = (fight: Kill[]) => ({
   y: Math.trunc(fight.reduce((s, k) => s + k.y, 0) / fight.length),
 })
 
-function fightEntry(fight: Kill[], c: Context): TimelineEntry {
+/// Fights the player took no part in are not shown.
+function fightEntry(fight: Kill[], c: Context): TimelineEntry | null {
   const card = fightCard(fight, c)
-  const absent = card.moments === null
+  if (card.moments === null) return null
   return {
     id: `fight-${fight[0].t}`,
     gameTimeMs: fight[0].t,
-    kind: absent ? 'absentFight' : 'fight',
-    label: absent ? 'Teamfight without you' : 'Teamfight',
+    kind: 'fight',
+    label: 'Teamfight',
     fight: card,
   }
 }
@@ -580,29 +572,6 @@ function turretCallout(fight: Kill[], c: Context): string | null {
   if (!base) return null
   const fell = falls.some((b) => b.t >= end && b.t <= end + 30000)
   return fell ? `${base} — tower fell after` : base
-}
-
-function flagEntries(c: Context): TimelineEntry[] {
-  if (c.opponent === null) return []
-  return clusters(c.payload.kills).flatMap((fight): TimelineEntry[] => {
-    const people = fightParticipants(fight)
-    if (!isTeamfight(fight) || fight[0].t < 300000 || people.size < 4) return []
-    if (!people.has(c.opponent!) || people.has(c.player)) return []
-    return [
-      {
-        id: `flag-${fight[0].t}`,
-        gameTimeMs: fight[0].t,
-        kind: 'flag',
-        label: 'Teamfight without you — worth a rewatch',
-        sections: [
-          {
-            title: 'Why flagged',
-            body: "Your lane opponent took part in this fight; you earned no kill, assist, or death in it. The data can't say why — a prompt, not a verdict.",
-          },
-        ],
-      },
-    ]
-  })
 }
 
 // Shop visits: shop transactions within 30 s of each other.
@@ -756,20 +725,6 @@ function matchupEntries(c: Context): TimelineEntry[] {
       },
     ]
   })
-}
-
-function opponentItemEntries(c: Context): TimelineEntry[] {
-  const opponent = c.opponent
-  if (opponent === null) return []
-  return visits(c, opponent)
-    .filter((v) => v.bought.length)
-    .map((v) => ({
-      id: `opponentItem-${v.start}`,
-      gameTimeMs: v.start,
-      kind: 'opponentItem' as const,
-      label: `${c.name(opponent)} bought ${v.bought.length} ${v.bought.length === 1 ? 'item' : 'items'}`,
-      items: stacks(v.bought),
-    }))
 }
 
 export function monsterName(type: string, subType: string | null) {
