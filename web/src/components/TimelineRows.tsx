@@ -1,5 +1,5 @@
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
-import { MapPin, MessageSquarePlus, Pencil, Shield, Skull, Trash2, UserX, Zap } from 'lucide-react'
+import { useEffect, useState, type MouseEvent, type ReactNode, type KeyboardEvent } from 'react'
+import { MapPin, Pencil, Shield, Skull, Trash2, UserX, Zap } from 'lucide-react'
 import { championIcon } from '../lib/league'
 import {
   clock,
@@ -18,6 +18,7 @@ import {
   type ReviewRepository,
 } from '../lib/review'
 import { CaptureThumbnail } from './DrawingCapture'
+import type { EventMenuTarget } from './EventContextMenu'
 
 const itemNames = new Map<string, Promise<Record<string, string>>>()
 /// Item names for tooltips; icons render without them while Data Dragon answers.
@@ -85,10 +86,7 @@ export function EventRow({
   compact,
   onSeek,
   onSeekTime,
-  onComment,
-  commentCount = 0,
-  commentDisabled = false,
-  commentDisabledHint,
+  onOpenMenu,
   children,
 }: {
   entry: TimelineEntry
@@ -99,33 +97,43 @@ export function EventRow({
   compact?: boolean
   onSeek(): void
   onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
-  onComment?(): void
-  commentCount?: number
-  commentDisabled?: boolean
-  commentDisabledHint?: string
+  onOpenMenu?(target: EventMenuTarget): void
   children?: ReactNode
 }) {
-  const commentAction = onComment && (
-    <button
-      className="event-comment-button"
-      onClick={onComment}
-      disabled={commentDisabled}
-      aria-label={`Comment on ${entry.label} at ${clock(entry.gameTimeMs)}`}
-      title={
-        commentDisabled
-          ? (commentDisabledHint ?? 'Event comments need a synced recording covering this moment')
-          : 'Add a comment linked to this event'
-      }
-    >
-      <MessageSquarePlus size={13} />
-      {commentCount ? 'Reply' : 'Comment'}
-      {commentCount > 0 && <span className="event-comment-count">{commentCount}</span>}
-    </button>
-  )
+  const contextHandlers = {
+    onContextMenu: (event: MouseEvent<HTMLLIElement>) => {
+      if (
+        !onOpenMenu ||
+        (event.target instanceof Element && event.target.closest('.event-discussion'))
+      )
+        return
+      event.preventDefault()
+      event.stopPropagation()
+      onOpenMenu({
+        x: event.clientX,
+        y: event.clientY,
+        origin: event.currentTarget.querySelector('button'),
+      })
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLLIElement>) => {
+      if (
+        !onOpenMenu ||
+        (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) ||
+        (event.target instanceof Element && event.target.closest('.event-discussion'))
+      )
+        return
+      event.preventDefault()
+      event.stopPropagation()
+      const origin = event.currentTarget.querySelector('button')
+      const box = origin?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect()
+      onOpenMenu({ x: box.left, y: box.bottom, origin })
+    },
+  }
   if (compact) {
     const Icon = entry.kind === 'death' ? Skull : Zap
     return (
       <li
+        {...contextHandlers}
         className={`timeline-row timeline-compact kind-${entry.kind} ${current ? 'current' : ''} ${dim ? 'dim' : ''} ${seekable ? 'clickable' : ''}`}
         data-item={entry.id}
         onClick={seekable ? rowClick(onSeek) : undefined}
@@ -136,22 +144,28 @@ export function EventRow({
         </span>
         <div className="timeline-body">
           <button
-            className={`timeline-icon ${entry.objective ? (entry.objective.mine ? 'objective-ours' : 'objective-theirs') : ''}`}
+            className="timeline-compact-play"
             onClick={onSeek}
             disabled={!seekable}
             aria-label={`${entry.label} at ${clock(entry.gameTimeMs)}`}
             title={entry.detail ? `${entry.label} · ${entry.detail}` : entry.label}
+            aria-keyshortcuts="Shift+F10"
+            aria-description="Right-click or press Shift+F10 to add a comment."
           >
-            {entry.objective ? (
-              <img
-                src={`${import.meta.env.BASE_URL}objectives/${entry.objective.icon}.png`}
-                alt=""
-              />
-            ) : (
-              <Icon size={15} aria-hidden="true" />
-            )}
+            <span
+              className={`timeline-icon ${entry.objective ? (entry.objective.mine ? 'objective-ours' : 'objective-theirs') : ''}`}
+            >
+              {entry.objective ? (
+                <img
+                  src={`${import.meta.env.BASE_URL}objectives/${entry.objective.icon}.png`}
+                  alt=""
+                />
+              ) : (
+                <Icon size={15} aria-hidden="true" />
+              )}
+            </span>
+            <span className="timeline-play-name">{entry.objective?.name ?? entry.label}</span>
           </button>
-          {commentAction}
           {children}
         </div>
       </li>
@@ -159,6 +173,7 @@ export function EventRow({
   }
   return (
     <li
+      {...contextHandlers}
       className={`timeline-row kind-${entry.kind} ${current ? 'current' : ''} ${dim ? 'dim' : ''} ${seekable ? 'clickable' : ''}`}
       data-item={entry.id}
       onClick={seekable ? rowClick(onSeek) : undefined}
@@ -170,6 +185,8 @@ export function EventRow({
       <div className="timeline-body">
         <button
           className="timeline-label"
+          aria-keyshortcuts="Shift+F10"
+          aria-description="Right-click or press Shift+F10 to add a comment."
           onClick={onSeek}
           disabled={!seekable}
           title={
@@ -209,7 +226,6 @@ export function EventRow({
             ))}
           </>
         )}
-        {commentAction}
         {children}
       </div>
     </li>

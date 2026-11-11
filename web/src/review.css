@@ -1454,28 +1454,6 @@ body:has(.cinema-mode) .watch-main {
   border-color: var(--behind);
 }
 
-.event-comment-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  margin: 4px 0 0 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-.event-comment-button:hover:not(:disabled) {
-  background: var(--surface-sunk);
-  color: var(--ink);
-}
-.event-comment-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
 .event-discussion {
   margin-top: 8px;
   border-left: 2px solid var(--line);
@@ -1517,13 +1495,6 @@ body:has(.cinema-mode) .watch-main {
 
 .event-discussion {
   width: 100%;
-}
-.event-comment-count {
-  min-width: 16px;
-  padding: 1px 4px;
-  border-radius: 8px;
-  background: var(--surface-sunk);
-  font-size: 10px;
 }
 .timeline-compact .timeline-body {
   display: flex;
@@ -1672,4 +1643,74 @@ body:has(.cinema-mode) .watch-main {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
+}
+
+.timeline-compact-play {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.timeline-compact-play .timeline-icon {
+  flex-shrink: 0;
+}
+.timeline-play-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.timeline-compact-play:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+.timeline-compact-play:hover:not(:disabled) .timeline-play-name {
+  color: var(--gold);
+}
+.event-context-menu {
+  position: fixed;
+  z-index: 1000;
+  width: min(224px, calc(100vw - 16px));
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 8px 24px #00000029;
+}
+.event-context-menu > small {
+  display: block;
+  padding: 4px 6px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.event-context-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+}
+.event-context-menu > button:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+.event-context-menu > button:disabled {
+  opacity: 0.5;
 }

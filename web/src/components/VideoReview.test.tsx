@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -232,6 +232,14 @@ it('remembers filter changes and never lists opponent purchases or absent fights
   // A fight the player killed in still answers to the fight filter.
   expect(screen.getAllByRole('button', { name: 'Teamfight' })).toHaveLength(1)
   expect(JSON.parse(localStorage.getItem('league-cloud-coach-hidden-kinds')!)).toEqual(['kill'])
+  await userEvent.click(screen.getByRole('checkbox', { name: /Teamfights/ }))
+  expect(screen.queryByRole('button', { name: 'Teamfight' })).toBeNull()
+  expect(JSON.parse(localStorage.getItem('league-cloud-coach-hidden-kinds')!)).toEqual([
+    'kill',
+    'fight',
+  ])
+  await userEvent.click(screen.getByRole('checkbox', { name: /Teamfights/ }))
+  expect(screen.getByRole('button', { name: 'Teamfight' })).toBeVisible()
 })
 
 it('seeks comments and ordinary events exactly, with lead-in only for ultimates and deaths including fight moments', async () => {
@@ -302,10 +310,17 @@ it('groups linked comments under an event and saves new notes at event time, not
   expect(within(thread).getByText('Contest dragon?')).toBeInTheDocument()
   expect(within(thread).queryByText('A general playhead note')).toBeNull()
   expect(screen.getByText('A general playhead note')).toBeInTheDocument()
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Comment on Infernal Drake taken by your team at 12:00' }),
-  )
-  expect(screen.getByRole('button', { name: 'Comment on Killed Ahri at 3:00' })).toBeDisabled()
+  fireEvent.contextMenu(screen.getByRole('button', { name: 'Infernal Drake taken by your team' }), {
+    clientX: 200,
+    clientY: 100,
+  })
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Add comment' }))
+  fireEvent.contextMenu(screen.getByRole('button', { name: 'Killed Ahri' }), {
+    clientX: 200,
+    clientY: 100,
+  })
+  expect(screen.getByRole('menuitem', { name: 'Add comment' })).toBeDisabled()
+  await userEvent.keyboard('{Escape}')
   await userEvent.type(within(thread).getByLabelText('Comment text'), 'Move as five.')
   await userEvent.click(within(thread).getByRole('button', { name: 'Add' }))
   expect(repo.addComment).toHaveBeenCalledWith(

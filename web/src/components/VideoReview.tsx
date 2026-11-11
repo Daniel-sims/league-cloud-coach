@@ -28,6 +28,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
+import { EventContextMenu, type EventMenuTarget } from './EventContextMenu'
 import { CompleteReview, ReviewNotebook, type ReviewNotebookModel } from './ReviewNotebook'
 import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
@@ -41,7 +42,6 @@ import {
   clock,
   context,
   entryKinds,
-  filterKinds,
   gameTimeMs,
   parseGameClock,
   videoOffset,
@@ -123,6 +123,9 @@ export function VideoReview({
   renderPlayer(onController: (controller: PlayerController | null) => void): ReactNode
 }) {
   const [cinema, setCinema] = useState(false)
+  const [eventMenu, setEventMenu] = useState<(EventMenuTarget & { entry: TimelineEntry }) | null>(
+    null,
+  )
   const [openMenu, setOpenMenu] = useState<'settings' | 'filter' | null>(null)
   const cinemaButton = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => {
@@ -213,6 +216,7 @@ export function VideoReview({
     if (notebook?.view === 'notes') {
       setPanelOpen(true)
       setOpenMenu(null)
+      setEventMenu(null)
     }
   }, [notebook?.view])
   function showPanel(open: boolean) {
@@ -344,7 +348,7 @@ export function VideoReview({
     const eventMs = (gameMs: number) =>
       anchor ? Math.round(videoOffset(anchor, gameMs / 1000) * 1000) : gameMs
     const events: Item[] = entries
-      .filter((e) => filterKinds(e).some((k) => !hidden.has(k)))
+      .filter((e) => !hidden.has(e.kind))
       .map((entry) => ({ id: entry.id, type: 'event', entry, sortMs: eventMs(entry.gameTimeMs) }))
     const notes: Item[] = hidden.has(commentsKey)
       ? []
@@ -679,7 +683,7 @@ export function VideoReview({
                   onClick={() => chooseDetail(value)}
                   title={
                     value === 'simple'
-                      ? 'Your deaths, ultimate casts and objectives, as icons'
+                      ? 'Compact named events for your deaths, ultimate casts and objectives'
                       : 'Fights, kills, objectives, matchups and more'
                   }
                 >
@@ -709,6 +713,25 @@ export function VideoReview({
   return (
     <div className={`review-container ${cinema ? 'cinema-mode' : ''}`} ref={container}>
       {notebook && <CompleteReview notebook={notebook} />}
+      {eventMenu && (
+        <EventContextMenu
+          target={eventMenu}
+          label={eventMenu.entry.label}
+          disabled={
+            !anchor ||
+            !controller ||
+            !seekable(eventMenu.entry.gameTimeMs) ||
+            editing !== null ||
+            (composing !== null && commentEvent?.id !== eventMenu.entry.id)
+          }
+          hint={
+            editing !== null || composing !== null ? 'Finish your current comment first' : undefined
+          }
+          onClose={() => setEventMenu(null)}
+          onComment={() => commentOnEvent(eventMenu.entry)}
+        />
+      )}
+
       <div
         className={`review-layout ${panelOpen ? '' : 'timeline-collapsed'}`}
         style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}
@@ -794,7 +817,7 @@ export function VideoReview({
                   </div>
                   <div className="review-tools">
                     {notebook?.view !== 'notes' && cinemaToggle}
-                    {notebook?.supported && (
+                    {notebook?.supported && cinema && (
                       <button
                         className="icon-button"
                         aria-label="Add review notes"
@@ -973,20 +996,16 @@ export function VideoReview({
                             seekable={seekable(item.entry.gameTimeMs)}
                             dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
                             compact={simple}
-                            commentCount={eventComments.get(item.id)?.length ?? 0}
-                            commentDisabled={
-                              !anchor ||
-                              !controller ||
-                              !seekable(item.entry.gameTimeMs) ||
-                              editing !== null ||
-                              (composing !== null && commentEvent?.id !== item.id)
-                            }
-                            commentDisabledHint={
-                              editing !== null || composing !== null
-                                ? 'Finish your current comment first'
-                                : undefined
-                            }
-                            onComment={() => commentOnEvent(item.entry)}
+                            onOpenMenu={(target) => {
+                              setOpenMenu(null)
+                              setFollow(false)
+                              if (list.current)
+                                list.current.scrollTo?.({
+                                  top: list.current.scrollTop,
+                                  behavior: 'instant',
+                                })
+                              setEventMenu({ ...target, entry: item.entry })
+                            }}
                             onSeek={() =>
                               seekGame(item.entry.gameTimeMs, seekLeadMs(item.entry.kind))
                             }

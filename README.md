@@ -63,7 +63,7 @@ conflicting edits from another tab cannot silently overwrite saved notes.
 
 ### Review timeline
 
-Choose **Simple** in the timeline cog for compact icons showing your deaths,
+Choose **Simple** in the timeline cog for compact, named events showing your deaths,
 ultimate casts and neutral objectives (dragons, Baron, Herald and grubs where
 present). Objective icons show the securing team in their tooltip and border
 colour; they seek to the exact event time. Scuttle timestamps are not available
@@ -76,14 +76,15 @@ owner and shared watch pages; phones keep the timeline below the video.
 
 On desktop, the timeline fills the available window height independently of the video; on phones it stacks below the player with its own scroll area. Each video page shows a timeline beside the player, ported from the Mac app's review panel: kills and deaths, teamfight cards (who was there, outcome, dive callouts, and your part or where you were), fights worth a rewatch, recalls with purchases and the resulting build, minute-by-minute lane matchups, objectives and (off by default) the lane opponent's purchases. Choose **Attach game** to pick a synced game from Home; the backend fetches its Riot timeline once with your token and stores a reduced copy with the video, so coaches never need a Riot token. Then pause on a frame, choose **Sync clock**, and type the in-game timer: that one reading maps every event onto the video for you and anyone with the watch link. Comments and timeline events seek to their exact timestamp. Only ultimate casts and deaths seek five seconds early, including death moments inside fight cards; kills, assists, fights, flags, objectives, recalls, purchases and checkpoints seek exactly.
 
-Choose **Comment** beside an event to start a discussion beneath it. The composer
-names the event and uses its exact timestamp. After a note is saved, **Reply**
-adds another note to the same discussion; players and coaches see each other's
-comments, with the existing editing and moderation rules. This works in Simple
-and Detailed mode. The header's **Comment** button still creates a general note
-at the playhead. Existing notes are preserved without guessing event links.
+Right-click an event and choose **Add comment** to start or continue its discussion.
+Keyboard users can focus the event and press **Shift+F10**. The composer names
+the event and uses its exact timestamp. Players and coaches see the discussion
+beneath the event, with existing editing and moderation rules. Simple mode shows
+the event name beside its icon; it has no repeated Comment buttons. The header's
+**Comment** button still adds a general playhead note. Existing notes stay intact.
 If an event is hidden or a different game is attached, its comments retain an
-explicit event caption in the timeline.
+explicit event caption in the timeline. **Teamfights** in the filter independently
+hides fight cards, regardless of the Kills and Deaths selections.
 
 Comments are pinned to the video position and shown in game time once the clock is synced. The owner adds comments, questions or mindset notes; anyone with a valid watch link adds comments and questions under a name they choose. A coach can edit or delete only the comments written from their browser; the owner can remove any comment on their videos. Revoking or replacing the link ends guest access to the review as well as the video. Press **N** to comment at the playhead. Riot sync for Home is implemented; it does not migrate the Mac's local journal, recordings or historical rank observations.
 

@@ -1012,11 +1012,27 @@ for (const owner of [true, false]) {
       exact: true,
     })
     await expect(dragon.locator('img')).toHaveAttribute('src', /dragon_infernal.png$/)
+    await expect(dragon).toHaveText('Infernal Drake')
+    await expect(baron).toHaveText('Baron Nashor')
+    await expect(panel.locator('.event-comment-button')).toHaveCount(0)
     await expect(baron.locator('img')).toHaveAttribute('src', /baron.png$/)
     await dragon.click()
     await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(30)
     await baron.click()
     await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(60)
+    await baron.click({ button: 'right' })
+    const menu = page.getByRole('menu', { name: 'Event actions' })
+    await expect(menu.getByRole('menuitem', { name: 'Add comment' })).toBeVisible()
+    const menuBox = (await menu.boundingBox())!
+    expect(menuBox.x).toBeGreaterThanOrEqual(0)
+    expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+    await page.screenshot({ path: testInfo.outputPath('event-context-menu.png') })
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+    await expect(baron).toBeFocused()
+    await baron.press('Shift+F10')
+    await expect(menu.getByRole('menuitem', { name: 'Add comment' })).toBeFocused()
+    await page.keyboard.press('Escape')
     await page.getByLabel('Filter timeline', { exact: true }).click()
     await panel.getByRole('checkbox', { name: /Objectives/ }).uncheck()
     await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(0)
@@ -1046,8 +1062,14 @@ test('event discussions group player and coach comments at the event timestamp',
   })
   await page.goto(`/#/video/${recordingId}`)
   await seekVideo(page, 'Ranked mid review', 90)
-  const eventAction = { name: 'Comment on Infernal Drake taken by your team at 12:00', exact: true }
-  await page.getByRole('button', eventAction).click()
+  const addEventComment = async (target: Page) => {
+    await target
+      .locator('[data-item="objective-720000"] > .timeline-body > button')
+      .first()
+      .click({ button: 'right' })
+    await target.getByRole('menuitem', { name: 'Add comment', exact: true }).click()
+  }
+  await addEventComment(page)
   const thread = page.getByRole('region', {
     name: 'Comments on Infernal Drake taken by your team at 12:00',
     exact: true,
@@ -1082,7 +1104,7 @@ test('event discussions group player and coach comments at the event timestamp',
     guestThread.getByText('Should we contest this dragon?', { exact: true }),
   ).toBeVisible()
   await expect(guestThread.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
-  await guest.getByRole('button', eventAction).click()
+  await addEventComment(guest)
   await guestThread.getByPlaceholder('Shown with your comments').fill('Coach')
   await guestThread.getByLabel('Comment text').fill('Push mid first, then move together.')
   await guestThread.getByRole('button', { name: 'Add', exact: true }).click()
@@ -1131,6 +1153,7 @@ test('running notes autosave privately, survive reload, and publish the polished
   const video = await seekVideo(page, 'Ranked mid review', 30)
   const originalVideo = await video.elementHandle()
   await video.evaluate((v: HTMLVideoElement) => v.play())
+  await expect(page.getByRole('button', { name: 'Add review notes' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Add notes', exact: true }).click()
   const notes = page.getByRole('region', { name: 'Review notes', exact: true })
   await notes.getByLabel('Running notes').fill('Push the wave before roaming.')
@@ -1193,6 +1216,8 @@ test('running notes autosave privately, survive reload, and publish the polished
   await notes.getByRole('button', { name: 'Timeline', exact: true }).click()
   await seekVideo(page, 'Ranked mid review', 30)
   await page.getByRole('button', { name: 'Enter cinema mode' }).click()
+  await expect(page.getByRole('button', { name: 'Add notes', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Add review notes' })).toHaveCount(1)
   await page.getByRole('button', { name: 'Add review notes' }).click()
   await expect(notes).toBeVisible()
   await expect(page.locator('.topbar')).toBeHidden()
@@ -1203,4 +1228,35 @@ test('running notes autosave privately, survive reload, and publish the polished
   await notes.getByRole('button', { name: 'Exit cinema mode' }).click()
   await expect(page.locator('.topbar')).toBeVisible()
   await guestContext.close()
+})
+
+test('Teamfights filter independently hides teamfights while keeping solo kills', async ({
+  page,
+}) => {
+  const state: State = {
+    review: reviewPayload(),
+    anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 0 },
+    comments: [],
+    calls: [],
+  }
+  await mock(page.context(), state, true)
+  await signIn(page.context())
+  await page.goto(`/#/video/${recordingId}`)
+  const panel = page.getByRole('region', { name: 'Review timeline' })
+  await expect(panel.getByRole('button', { name: 'Teamfight', exact: true })).toBeVisible()
+  await page.getByLabel('Filter timeline', { exact: true }).click()
+  await panel.getByRole('checkbox', { name: /Teamfights/ }).uncheck()
+  await expect(panel.getByRole('checkbox', { name: /Kills/ })).toBeChecked()
+  expect(
+    await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('league-cloud-coach-hidden-kinds') || '[]'),
+    ),
+  ).not.toContain('death')
+  await expect(panel.getByRole('button', { name: 'Teamfight', exact: true })).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: 'Killed Ahri', exact: true })).toBeVisible()
+  await page.reload()
+  await expect(panel.getByRole('button', { name: 'Teamfight', exact: true })).toHaveCount(0)
+  await page.getByLabel('Filter timeline', { exact: true }).click()
+  await panel.getByRole('checkbox', { name: /Teamfights/ }).check()
+  await expect(panel.getByRole('button', { name: 'Teamfight', exact: true })).toBeVisible()
 })

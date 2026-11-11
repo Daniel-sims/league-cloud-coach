@@ -72,7 +72,7 @@ export const entryKinds: { kind: EntryKind; name: string }[] = [
   { kind: 'ultimate', name: 'Ultimates' },
   { kind: 'kill', name: 'Kills' },
   { kind: 'death', name: 'Deaths' },
-  { kind: 'fight', name: 'Fights' },
+  { kind: 'fight', name: 'Teamfights' },
   { kind: 'recall', name: 'Recalls' },
   { kind: 'matchup', name: 'Lane matchups' },
   { kind: 'objective', name: 'Objectives' },
@@ -361,7 +361,7 @@ export function buildTimeline(payload: ReviewPayload): TimelineEntry[] {
 }
 
 /// The simple timeline: every one of the player's deaths (teamfight or not)
-/// ultimate casts and neutral objectives, rendered as compact icons.
+/// ultimate casts and neutral objectives, rendered as compact named events.
 export function simpleEntries(payload: ReviewPayload, anchor: ClockAnchor | null): TimelineEntry[] {
   const c = context(payload)
   const deaths = payload.kills.flatMap((kill): TimelineEntry[] => {
@@ -382,8 +382,8 @@ export function simpleEntries(payload: ReviewPayload, anchor: ClockAnchor | null
   )
 }
 
-/// The kinds a row answers to: a fight the player killed or died in also
-/// answers to the kill and death filters.
+/// The kinds represented inside a row. Visibility filters use the primary kind
+/// so disabling Teamfights cannot be overridden by its kill/death moments.
 export function filterKinds(entry: TimelineEntry): EntryKind[] {
   if (entry.kind !== 'fight' || !entry.fight?.moments) return [entry.kind]
   const kinds: EntryKind[] = ['fight']

@@ -2,6 +2,30 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Named events, context comments and independent filters
+
+Simple rows now show the play name beside their icon (e.g. Cast ultimate,
+Died to Zac, Infernal Drake, Baron Nashor). Repeated per-event Comment/Reply
+buttons are removed. Right-click a play and choose Add comment to open the
+existing linked discussion composer; Shift+F10 provides keyboard access.
+The context menu renders outside the clipped timeline, clamps to the viewport,
+and dismisses on Escape, outside click, user scroll or resize. Opening it stops
+automatic timeline following and any in-progress smooth scroll. Discussions
+and their ownership/draft safeguards remain unchanged.
+
+The filter now labels fight events Teamfights. Visibility checks the primary
+event kind: unchecking Teamfights hides those cards even while Kills/Deaths
+are enabled. The old union-of-kinds test incorrectly kept cards visible via
+their contained kill/death moments. Existing saved fight preferences are kept.
+Add notes appears beside Share video in normal mode; the timeline shortcut is
+shown only in cinema mode, where the top actions are hidden.
+
+Validation: 138 unit tests, production build and twelve review Chrome workflows
+pass. Browser checks cover named icons, right-click commenting for player/coach,
+keyboard menu/focus behavior, viewport bounds, independent persisted Teamfights
+filtering, and one visible notes entry point per viewing mode. Screenshots
+inspected. Frontend only; no database or native changes.
+
 ## Running notes and review completion
 
 Add notes and Complete review sit beside Share video (and on shared watch pages).
@@ -40,7 +64,7 @@ Remote migration listing confirms local/remote parity.
 
 ## Event-linked discussions
 
-Each timeline event has a Comment action (Reply plus a count once discussed).
+Each timeline event offers Add comment from its right-click menu.
 It opens a composer beneath that event, naming its subject and exact timestamp.
 Player/coach notes render as a connected discussion with author labels and the
 existing editing/moderation rules. Notes attach to match + event identity, not
