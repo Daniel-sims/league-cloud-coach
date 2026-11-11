@@ -5,6 +5,8 @@ export interface LeagueRepository {
   profiles(): Promise<LeagueProfile[]>
   matches(id: string): Promise<LeagueMatch[]>
   connect(riotId: string, platform: string): Promise<{ id: string }>
+  viewPlayer(platform: string, puuid: string): Promise<{ id: string }>
+  removeProfile(id: string): Promise<void>
   refreshProfile(id: string): Promise<void>
   sync(id: string, start: number): Promise<{ nextStart: number; hasMore: boolean }>
 }
@@ -32,6 +34,10 @@ export const leagueRepository: LeagueRepository = {
   profiles: () => rpc('list_league_profiles'),
   matches: (id) => rpc('list_league_matches', { p_profile: id }),
   connect: (riotId, platform) => riotRequest({ action: 'connect', riotId, platform }),
+  viewPlayer: (platform, puuid) => riotRequest({ action: 'view-player', platform, puuid }),
+  removeProfile: async (id) => {
+    await riotRequest({ action: 'remove-profile', profileId: id })
+  },
   refreshProfile: (id) => riotRequest({ action: 'refresh-profile', profileId: id }),
   sync: (id, start) => riotRequest({ action: 'sync', profileId: id, start }),
 }

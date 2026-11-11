@@ -73,6 +73,8 @@ export function createRiotHandler(deps: Dependencies) {
         typeof body !== "object" ||
         ![
           "connect",
+          "view-player",
+          "remove-profile",
           "sync",
           "refresh-profile",
           "token-status",
@@ -262,6 +264,52 @@ export function createRiotHandler(deps: Dependencies) {
           ...(warning ? { warning } : {}),
         });
       }
+      if (body.action === "view-player") {
+        // Look up another player seen in a game; stored as a removable viewed profile.
+        if (
+          typeof body.platform !== "string" ||
+          !regions[body.platform] ||
+          typeof body.puuid !== "string" ||
+          !/^[A-Za-z0-9_-]{20,100}$/.test(body.puuid)
+        )
+          throw new Failure(400, "Choose a player and supported region.");
+        const { data: existing, error: existingError } = await admin
+          .from("league_profiles")
+          .select("id")
+          .eq("owner_id", ownerId)
+          .eq("platform", body.platform)
+          .eq("puuid", body.puuid)
+          .maybeSingle();
+        if (existingError)
+          throw new Failure(503, "Could not open this player. Please retry.");
+        if (existing) return reply({ id: existing.id });
+        const account = await riot(
+          regions[body.platform],
+          `/riot/account/v1/accounts/by-puuid/${encodeURIComponent(body.puuid)}`,
+        );
+        if (
+          typeof account.gameName !== "string" ||
+          typeof account.tagLine !== "string"
+        )
+          throw new Failure(
+            404,
+            "This player has no public Riot ID, so their profile can't be opened.",
+          );
+        const data = await profileData(body.platform, body.puuid, account);
+        const { data: saved, error } = await admin
+          .from("league_profiles")
+          .insert({
+            owner_id: ownerId,
+            platform: body.platform,
+            puuid: body.puuid,
+            profile: { ...data, viewed: true },
+          })
+          .select("id")
+          .single();
+        if (error || !saved)
+          throw new Failure(503, "Could not open this player. Please retry.");
+        return reply({ id: saved.id });
+      }
       if (body.action === "connect") {
         if (
           typeof body.platform !== "string" ||
@@ -324,6 +372,21 @@ export function createRiotHandler(deps: Dependencies) {
         .maybeSingle();
       if (profileError || !profile)
         throw new Failure(404, "League account unavailable.");
+      if (body.action === "remove-profile") {
+        if (profile.profile?.viewed !== true)
+          throw new Failure(
+            400,
+            "Only players you looked up can be removed here.",
+          );
+        const { error } = await admin
+          .from("league_profiles")
+          .delete()
+          .eq("id", profile.id)
+          .eq("owner_id", ownerId);
+        if (error)
+          throw new Failure(503, "Could not remove this player. Please retry.");
+        return reply({ ok: true });
+      }
       if (body.action === "review-timeline") {
         // One owner-initiated fetch per recording; guests then read the stored copy.
         if (
@@ -428,17 +491,31 @@ export function createRiotHandler(deps: Dependencies) {
         for (const id of ids) {
           const { data: exists, error: cacheError } = await admin
             .from("league_matches")
-            .select("match_id")
+            .select("match")
             .eq("profile_id", profile.id)
             .eq("match_id", id)
             .maybeSingle();
           if (cacheError)
             throw new Failure(503, "Could not read saved history.");
-          if (exists) continue;
-          const match = await riot(
-            regions[profile.platform],
-            `/lol/match/v5/matches/${id}`,
-          );
+          // Games saved before account levels were kept are fetched once more.
+          const needsLevel =
+            exists &&
+            !(exists.match?.participants ?? []).every(
+              (p: { summonerLevel?: unknown }) =>
+                typeof p.summonerLevel === "number",
+            );
+          if (exists && !needsLevel) continue;
+          let match;
+          try {
+            match = await riot(
+              regions[profile.platform],
+              `/lol/match/v5/matches/${id}`,
+            );
+          } catch (error) {
+            if (needsLevel && error instanceof Failure && error.status === 404)
+              continue;
+            throw error;
+          }
           const info = match.info;
           if (
             match.metadata?.matchId !== id ||
@@ -468,6 +545,7 @@ export function createRiotHandler(deps: Dependencies) {
             "deaths",
             "assists",
             "champLevel",
+            "summonerLevel",
             "totalMinionsKilled",
             "neutralMinionsKilled",
             "goldEarned",

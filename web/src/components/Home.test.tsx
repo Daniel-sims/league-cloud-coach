@@ -37,6 +37,8 @@ function repository(): LeagueRepository {
     refreshProfile: vi.fn(async () => {}),
     sync: vi.fn(async () => ({ nextStart: 2, hasMore: false })),
     connect: vi.fn(async () => ({ id: 'one' })),
+    viewPlayer: vi.fn(async () => ({ id: 'viewed' })),
+    removeProfile: vi.fn(async () => {}),
   }
 }
 afterEach(() => {
@@ -104,4 +106,40 @@ it('shows dated game groups in the selected order and removes days with no filte
   expect(
     screen.queryByRole('region', { name: 'Tuesday, 10 November 2026' }),
   ).not.toBeInTheDocument()
+})
+it('shows each player’s account level and opens a clicked player as a removable profile', async () => {
+  const repo = repository()
+  const list = [...profiles]
+  vi.mocked(repo.profiles).mockImplementation(async () => list)
+  vi.mocked(repo.viewPlayer).mockImplementation(async () => {
+    list.push({
+      id: 'viewed',
+      platform: 'euw1',
+      puuid: 'enemy',
+      gameName: 'Zed',
+      tagLine: 'EUW',
+      profileIconId: 3,
+      summonerLevel: 150,
+      ranks: [],
+      syncedAt: null,
+      viewed: true,
+    })
+    return { id: 'viewed' }
+  })
+  vi.mocked(repo.removeProfile).mockImplementation(async () => {
+    list.pop()
+  })
+  render(<Home ownerId="owner" repository={repo} />)
+  await screen.findByText('50% win rate · 1W – 1L')
+  await userEvent.click(screen.getAllByRole('button', { name: /Scoreboard for 1/ })[0])
+  expect(screen.getAllByText('Lv. 150').length).toBeGreaterThan(0)
+  await userEvent.click(screen.getAllByTitle("Open Zed's profile")[0])
+  expect(repo.viewPlayer).toHaveBeenCalledWith('euw1', 'enemy')
+  expect(await screen.findByRole('status', { name: '' })).toHaveTextContent('Viewing Zed')
+  await userEvent.click(screen.getByRole('button', { name: 'Back to First' }))
+  expect(screen.queryByText(/Viewing/)).not.toBeInTheDocument()
+  await userEvent.selectOptions(screen.getByLabelText('League account'), 'viewed')
+  await userEvent.click(await screen.findByRole('button', { name: 'Remove player' }))
+  expect(repo.removeProfile).toHaveBeenCalledWith('viewed')
+  await waitFor(() => expect(screen.queryByText(/Viewing/)).not.toBeInTheDocument())
 })

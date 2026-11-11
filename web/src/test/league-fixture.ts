@@ -15,6 +15,7 @@ export function match(
     deaths: 2,
     assists: 4,
     champLevel: 18,
+    summonerLevel: 150,
     totalMinionsKilled: 180,
     neutralMinionsKilled: 20,
     goldEarned: 12000,

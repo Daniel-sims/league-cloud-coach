@@ -13,13 +13,15 @@ const getUser = vi.fn(),
   writes = vi.fn();
 let member = true,
   available = true,
-  cached = false;
-const profile = {
+  cached: boolean | "no-level" = false,
+  viewed = false;
+const profile = () => ({
   id,
   owner_id: "owner",
   puuid: "verified-player",
   platform: "euw1",
-};
+  profile: viewed ? { viewed: true } : {},
+});
 function table(name: string) {
   let operation = "select";
   const query = {
@@ -30,6 +32,11 @@ function table(name: string) {
     }),
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    insert: vi.fn((data: unknown) => {
+      writes(name, data);
+      operation = "write";
+      return query;
+    }),
     upsert: vi.fn((data: unknown) => {
       writes(name, data);
       operation = "write";
@@ -49,12 +56,19 @@ function table(name: string) {
             : null
           : name === "league_profiles"
             ? available
-              ? profile
+              ? profile()
               : null
             : name === "riot_credentials"
               ? credential
               : cached
-                ? { match_id: "EUW1_1" }
+                ? {
+                    match_id: "EUW1_1",
+                    match: {
+                      participants: [
+                        cached === "no-level" ? {} : { summonerLevel: 10 },
+                      ],
+                    },
+                  }
                 : null,
       error: null,
     })),
@@ -93,6 +107,7 @@ beforeEach(() => {
   member = true;
   available = true;
   cached = false;
+  viewed = false;
   getUser.mockResolvedValue({ data: { user: { id: "owner" } }, error: null });
   rpc.mockImplementation(async (name) => ({
     data: name === "reserve_riot_request" ? 0 : true,
@@ -117,6 +132,7 @@ beforeEach(() => {
                         puuid: "verified-player",
                         championId: 103,
                         kills: 3,
+                        summonerLevel: 150,
                         unusedPrivateField: "omit",
                       },
                     ],
@@ -205,6 +221,7 @@ it("stores API match fields idempotently, strips unused fields and advances the 
     puuid: "verified-player",
     championId: 103,
     kills: 3,
+    summonerLevel: 150,
   });
   expect(rpc).toHaveBeenCalledWith("complete_league_sync", {
     p_profile: id,
@@ -221,6 +238,61 @@ it("does not refetch immutable cached matches", async () => {
     (await request({ action: "sync", profileId: id, start: 5 })).status,
   ).toBe(200);
   expect(provider).toHaveBeenCalledTimes(1);
+});
+it("fetches a cached game once more when it was saved without account levels", async () => {
+  cached = "no-level";
+  expect(
+    (await request({ action: "sync", profileId: id, start: 5 })).status,
+  ).toBe(200);
+  expect(provider).toHaveBeenCalledTimes(2);
+  const stored = writes.mock.calls.find(
+    (call) => call[0] === "league_matches",
+  )![1];
+  expect(stored.match.participants[0].summonerLevel).toBe(150);
+});
+it("opens another player by account id as a removable viewed profile", async () => {
+  available = false;
+  const puuid = "p".repeat(78);
+  const response = await request({
+    action: "view-player",
+    platform: "euw1",
+    puuid,
+    ownerId: "attacker",
+  });
+  expect(response.status).toBe(200);
+  expect(provider.mock.calls[0][0]).toBe(
+    `https://europe.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}`,
+  );
+  const saved = writes.mock.calls.find(
+    (call) => call[0] === "league_profiles",
+  )![1];
+  expect(saved).toMatchObject({ owner_id: "owner", puuid, platform: "euw1" });
+  expect(saved.profile.viewed).toBe(true);
+});
+it("returns an already saved player without asking Riot and rejects malformed account ids", async () => {
+  const puuid = "p".repeat(78);
+  expect(
+    await (
+      await request({ action: "view-player", platform: "euw1", puuid })
+    ).json(),
+  ).toEqual({ id });
+  expect(provider).not.toHaveBeenCalled();
+  for (const bad of ["short", "../etc/passwd", 7, undefined])
+    expect(
+      (await request({ action: "view-player", platform: "euw1", puuid: bad }))
+        .status,
+    ).toBe(400);
+});
+it("removes only players that were looked up, never your own accounts", async () => {
+  expect(
+    (await request({ action: "remove-profile", profileId: id })).status,
+  ).toBe(400);
+  expect(writes).not.toHaveBeenCalled();
+  viewed = true;
+  expect(
+    (await request({ action: "remove-profile", profileId: id })).status,
+  ).toBe(200);
+  expect(writes).toHaveBeenCalledWith("league_profiles", { deleted: true });
 });
 it("releases the sync lock on rate limits and does not advance the cursor or echo secrets", async () => {
   provider.mockResolvedValueOnce(

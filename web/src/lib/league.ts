@@ -14,6 +14,7 @@ export type Participant = {
   deaths: number
   assists: number
   champLevel: number
+  summonerLevel?: number
   totalMinionsKilled: number
   neutralMinionsKilled: number
   goldEarned: number
@@ -61,6 +62,7 @@ export type LeagueProfile = {
   ranks: Rank[]
   syncedAt: string | null
   historyCursor?: number
+  viewed?: boolean
 }
 export type Game = LeagueMatch & {
   player: Participant

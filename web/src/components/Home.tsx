@@ -100,6 +100,7 @@ export function Home({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
   const [connect, setConnect] = useState(false)
+  const [returnTo, setReturnTo] = useState('')
   const [filter, setFilter] = useState<HistoryFilter>(emptyFilter)
   const [windowCount, setWindowCount] = useState(() => {
     const saved = preferences().windowCount
@@ -186,6 +187,54 @@ export function Home({
       active = false
     }
   }, [selected, repository])
+
+  async function openPlayer(player: Participant) {
+    if (!profile || busy) return
+    setError('')
+    const saved = profiles.find((p) => p.puuid === player.puuid && p.platform === profile.platform)
+    if (saved) {
+      if (saved.id !== selected) {
+        if (!profile.viewed) setReturnTo(profile.id)
+        setSelected(saved.id)
+      }
+      return
+    }
+    setBusy('Opening player…')
+    try {
+      const { id } = await repository.viewPlayer(profile.platform, player.puuid)
+      if (!profile.viewed) setReturnTo(profile.id)
+      await loadProfiles(id)
+      setSelected(id)
+    } catch (e) {
+      if (mounted.current)
+        setError(e instanceof Error ? e.message : 'Could not open this player. Please retry.')
+    } finally {
+      if (mounted.current) setBusy('')
+    }
+  }
+  async function removePlayer() {
+    if (!profile?.viewed || busy) return
+    setError('')
+    setBusy('Removing player…')
+    try {
+      await repository.removeProfile(profile.id)
+      const rows = await repository.profiles()
+      if (!mounted.current) return
+      setProfiles(rows)
+      setSelected(
+        [returnTo, ...rows.filter((p) => !p.viewed).map((p) => p.id)].find((id) =>
+          rows.some((p) => p.id === id),
+        ) ||
+          rows[0]?.id ||
+          '',
+      )
+    } catch (e) {
+      if (mounted.current)
+        setError(e instanceof Error ? e.message : 'Could not remove this player. Please retry.')
+    } finally {
+      if (mounted.current) setBusy('')
+    }
+  }
 
   async function sync(older = false, count = Math.max(20, windowCount)) {
     if (!profile || busy) return
@@ -307,6 +356,34 @@ export function Home({
       ) : (
         profile && (
           <>
+            {profile.viewed && (
+              <div className="league-viewing" role="status">
+                <span>
+                  Viewing <strong>{profile.gameName}</strong> — a player from your games. Their
+                  stats are for this account only.
+                </span>
+                <span className="league-viewing-actions">
+                  {returnTo &&
+                    returnTo !== profile.id &&
+                    profiles.some((p) => p.id === returnTo) && (
+                      <button
+                        className="button secondary"
+                        disabled={Boolean(busy)}
+                        onClick={() => setSelected(returnTo)}
+                      >
+                        Back to {profiles.find((p) => p.id === returnTo)?.gameName}
+                      </button>
+                    )}
+                  <button
+                    className="button secondary"
+                    disabled={Boolean(busy)}
+                    onClick={() => void removePlayer()}
+                  >
+                    Remove player
+                  </button>
+                </span>
+              </div>
+            )}
             <section className="league-profile league-card" aria-label="League profile">
               <div className="league-identity">
                 <span className="league-avatar">
@@ -330,13 +407,26 @@ export function Home({
                       }
                     }}
                   >
-                    <optgroup label={busy ? 'Sync in progress' : 'Saved accounts'}>
-                      {profiles.map((p) => (
-                        <option key={p.id} value={p.id} disabled={Boolean(busy)}>
-                          {p.gameName}#{p.tagLine} · {platforms[p.platform]}
-                        </option>
-                      ))}
+                    <optgroup label={busy ? 'Sync in progress' : 'Your accounts'}>
+                      {profiles
+                        .filter((p) => !p.viewed)
+                        .map((p) => (
+                          <option key={p.id} value={p.id} disabled={Boolean(busy)}>
+                            {p.gameName}#{p.tagLine} · {platforms[p.platform]}
+                          </option>
+                        ))}
                     </optgroup>
+                    {profiles.some((p) => p.viewed) && (
+                      <optgroup label="Players you looked up">
+                        {profiles
+                          .filter((p) => p.viewed)
+                          .map((p) => (
+                            <option key={p.id} value={p.id} disabled={Boolean(busy)}>
+                              {p.gameName}#{p.tagLine} · {platforms[p.platform]}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
                   </Select>
                   <span className="muted">
                     Level {profile.summonerLevel} · {platforms[profile.platform]}
@@ -645,7 +735,12 @@ export function Home({
                         </span>
                       </div>
                       {day.games.map((game) => (
-                        <MatchRow key={game.id} game={game} />
+                        <MatchRow
+                          key={game.id}
+                          game={game}
+                          onOpenPlayer={openPlayer}
+                          busy={Boolean(busy)}
+                        />
                       ))}
                     </section>
                   ))}
@@ -929,7 +1024,15 @@ function WinDonut({ rate }: { rate: number | null }) {
   )
 }
 
-function MatchRow({ game: g }: { game: Game }) {
+function MatchRow({
+  game: g,
+  onOpenPlayer,
+  busy,
+}: {
+  game: Game
+  onOpenPlayer: (player: Participant) => void
+  busy: boolean
+}) {
   const [open, setOpen] = useState(false)
   const p = g.player,
     teamKills = g.allies.reduce((n, p) => n + p.kills, 0)
@@ -997,6 +1100,8 @@ function MatchRow({ game: g }: { game: Game }) {
               key={team}
               players={g.participants.filter((p) => p.teamId === team)}
               game={g}
+              onOpenPlayer={onOpenPlayer}
+              busy={busy}
             />
           ))}
         </div>
@@ -1005,7 +1110,17 @@ function MatchRow({ game: g }: { game: Game }) {
   )
 }
 
-function Scoreboard({ players, game }: { players: Participant[]; game: Game }) {
+function Scoreboard({
+  players,
+  game,
+  onOpenPlayer,
+  busy,
+}: {
+  players: Participant[]
+  game: Game
+  onOpenPlayer: (player: Participant) => void
+  busy: boolean
+}) {
   const team = players[0].teamId
   const teamKills = players.reduce((n, p) => n + p.kills, 0)
   const maxDamage = Math.max(1, ...game.participants.map((p) => p.totalDamageDealtToChampions))
@@ -1045,12 +1160,23 @@ function Scoreboard({ players, game }: { players: Participant[]; game: Game }) {
                       <b>{p.champLevel}</b>
                     </span>
                     <Loadout player={p} />
-                    <span>
-                      <strong>
+                    <span className="league-player-name">
+                      <button
+                        className="league-player-link"
+                        disabled={busy}
+                        title={`Open ${p.riotIdGameName || p.championName}'s profile`}
+                        onClick={() => onOpenPlayer(p)}
+                      >
                         {p.riotIdGameName || p.summonerName || p.championName}
                         {p.riotIdTagline ? `#${p.riotIdTagline}` : ''}
-                      </strong>
+                      </button>
                       <small>
+                        {typeof p.summonerLevel === 'number' && (
+                          <>
+                            <span className="league-account-level">Lv. {p.summonerLevel}</span>{' '}
+                            ·{' '}
+                          </>
+                        )}
                         {p.championName} · {roleNames[p.teamPosition] || '—'}
                       </small>
                     </span>
