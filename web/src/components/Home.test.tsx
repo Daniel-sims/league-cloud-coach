@@ -52,7 +52,7 @@ it('shows saved matches immediately, retains them on refresh failure and support
   await userEvent.click(screen.getByRole('button', { name: /Scoreboard for 1/ }))
   expect(screen.getByText('Victory · Blue team')).toBeVisible()
   expect(screen.getByText('Defeat · Red team')).toBeVisible()
-  expect(screen.getAllByRole('columnheader', { name: 'Damage / taken' })).toHaveLength(2)
+  expect(screen.getAllByRole('columnheader', { name: 'Damage' })).toHaveLength(2)
 })
 it('filters rows without changing the full matchup record, and switching profiles clears prior games', async () => {
   render(<Home ownerId="owner" repository={repository()} />)

@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   championGroups,
   emptyFilter,
@@ -8,6 +8,7 @@ import {
   seasonOf,
   splitOf,
   summary,
+  timeAgo,
 } from './league'
 
 import { match } from '../test/league-fixture'
@@ -166,4 +167,15 @@ it('keeps both sides of a daylight-saving clock change in the same local day', (
   expect(groupGamesByDay(games, 'Europe/London').map((day) => [day.key, day.games.length])).toEqual(
     [['2026-10-25', 2]],
   )
+})
+
+describe('timeAgo', () => {
+  const now = Date.UTC(2026, 10, 11, 12)
+  it('uses minutes, hours and days, then a calendar date', () => {
+    expect(timeAgo(now - 30_000, now)).toBe('1m ago')
+    expect(timeAgo(now - 25 * 60_000, now)).toBe('25m ago')
+    expect(timeAgo(now - 3 * 3_600_000, now)).toBe('3h ago')
+    expect(timeAgo(now - 2 * 86_400_000, now)).toBe('2d ago')
+    expect(timeAgo(now - 40 * 86_400_000, now)).toMatch(/Oct/)
+  })
 })

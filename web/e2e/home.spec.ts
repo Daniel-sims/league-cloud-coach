@@ -111,7 +111,7 @@ test('home loads stats, champion and result filters, scoreboard, and keeps the v
   await expect(page.getByRole('button', { name: /Scoreboard for/ })).toHaveCount(1)
   await page.getByRole('button', { name: /Scoreboard for 2/ }).click()
   await expect(page.getByText('Defeat · Blue team')).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: 'Damage / taken' })).toHaveCount(2)
+  await expect(page.getByRole('columnheader', { name: 'Damage' })).toHaveCount(2)
   await page.screenshot({ path: testInfo.outputPath('home-desktop.png'), fullPage: true })
   await page.getByRole('link', { name: /Video library/ }).click()
   await expect(page.getByRole('button', { name: 'Upload your first video' })).toBeVisible()

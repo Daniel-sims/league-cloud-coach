@@ -125,6 +125,15 @@ export const kda = (p: { kills: number; deaths: number; assists: number }) =>
   p.deaths ? `${number((p.kills + p.assists) / p.deaths, 2)}:1` : 'Perfect'
 export const duration = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`
+export function timeAgo(timestamp: number, now = Date.now()) {
+  const minutes = Math.max(0, Math.round((now - timestamp) / 60000))
+  if (minutes < 60) return `${Math.max(minutes, 1)}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
 export const cs = (p: Participant) => p.totalMinionsKilled + p.neutralMinionsKilled
 export const remake = (g: Game) => Boolean(g.player.gameEndedInEarlySurrender)
 export function gamesFor(matches: LeagueMatch[], puuid: string): Game[] {

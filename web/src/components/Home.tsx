@@ -29,6 +29,8 @@ import {
   type LeagueMatch,
   type LeagueProfile,
   type Participant,
+  type Rank,
+  timeAgo,
 } from '../lib/league'
 
 function Champion({ id, name, size = 36 }: { id: number; name: string; size?: number }) {
@@ -307,13 +309,16 @@ export function Home({
           <>
             <section className="league-profile league-card" aria-label="League profile">
               <div className="league-identity">
-                <img
-                  className="champion-icon"
-                  width={48}
-                  height={48}
-                  alt="Profile icon"
-                  src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${profile.profileIconId}.jpg`}
-                />
+                <span className="league-avatar">
+                  <img
+                    className="champion-icon"
+                    width={64}
+                    height={64}
+                    alt="Profile icon"
+                    src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${profile.profileIconId}.jpg`}
+                  />
+                  <b>{profile.summonerLevel}</b>
+                </span>
                 <div>
                   <Select
                     label="League account"
@@ -338,29 +343,6 @@ export function Home({
                   </span>
                 </div>
               </div>
-              <div className="league-ranks">
-                {profile.ranks.length ? (
-                  profile.ranks.map((rank) => (
-                    <div key={rank.queueType}>
-                      <span className="eyebrow">
-                        {rank.queueType === 'RANKED_SOLO_5x5' ? 'SOLO / DUO' : 'FLEX'}
-                      </span>
-                      <strong>
-                        {rank.tier} {rank.rank} <span>{rank.leaguePoints} LP</span>
-                      </strong>
-                      <small>
-                        {rank.wins}W · {rank.losses}L ·{' '}
-                        {percent(rank.wins / (rank.wins + rank.losses || 1))}
-                      </small>
-                    </div>
-                  ))
-                ) : (
-                  <div>
-                    <strong>Unranked</strong>
-                    <small>No current ranked placement</small>
-                  </div>
-                )}
-              </div>
               <div className="league-refresh">
                 <button
                   className="button secondary"
@@ -377,305 +359,332 @@ export function Home({
                 </small>
               </div>
             </section>
-            <div className="league-section-heading">
-              <h2>Recent games</h2>
-              <div className="league-controls">
-                <label className="league-check">
-                  <input
-                    type="checkbox"
-                    checked={soloOnly}
-                    onChange={(e) => setSoloOnly(e.target.checked)}
+            <div className="league-layout">
+              <div className="league-rail" role="group" aria-label="Ranks and champions">
+                {profile.ranks.length ? (
+                  [...profile.ranks]
+                    .sort((a, b) =>
+                      a.queueType === 'RANKED_SOLO_5x5'
+                        ? -1
+                        : b.queueType === 'RANKED_SOLO_5x5'
+                          ? 1
+                          : 0,
+                    )
+                    .map((rank) => <RankCard key={rank.queueType} rank={rank} />)
+                ) : (
+                  <div className="league-card league-rank-card">
+                    <strong>Unranked</strong>
+                    <small className="muted">No current ranked placement</small>
+                  </div>
+                )}
+                {queued.length > 0 && (
+                  <SeasonChampions
+                    games={queued}
+                    choose={(id) => updateFilter('champion', String(id))}
                   />
-                  Ranked Solo/Duo only
-                </label>
-                <Select
-                  label="Recent games window"
-                  value={String(windowCount)}
-                  onChange={(v) => setWindowCount(Number(v))}
-                >
-                  {[5, 10, 15, 20, 30, 40, 50].map((n) => (
-                    <option key={n} value={n}>
-                      Last {n} games
-                    </option>
-                  ))}
-                </Select>
+                )}
               </div>
-            </div>
-            {historyLoading ? (
-              <p role="status" className="muted">
-                Loading saved games…
-              </p>
-            ) : recent.length ? (
-              <section className="league-card" aria-label="Recent game statistics">
-                <div className="league-summary-grid">
-                  <div className="league-summary-column">
-                    <span className="eyebrow">RECORD</span>
-                    <div className="league-winrate">{percent(stats.winRate)}</div>
-                    <strong>
-                      {stats.wins}W · {stats.losses}L
-                    </strong>
-                    <span className="muted">
-                      {stats.games} decided games
-                      {stats.remakes ? ` · ${stats.remakes} remakes excluded` : ''}
-                    </span>
-                    <span>
-                      {number(stats.averageKills)} / {number(stats.averageDeaths)} /{' '}
-                      {number(stats.averageAssists)} · {stats.games ? `${kda(stats)} KDA` : '—'}
-                    </span>
-                    <span className="muted">{duration(stats.averageDuration)} average length</span>
+              <div className="league-main">
+                <div className="league-section-heading">
+                  <h2>Recent games</h2>
+                  <div className="league-controls">
+                    <label className="league-check">
+                      <input
+                        type="checkbox"
+                        checked={soloOnly}
+                        onChange={(e) => setSoloOnly(e.target.checked)}
+                      />
+                      Ranked Solo/Duo only
+                    </label>
+                    <Select
+                      label="Recent games window"
+                      value={String(windowCount)}
+                      onChange={(v) => setWindowCount(Number(v))}
+                    >
+                      {[5, 10, 15, 20, 30, 40, 50].map((n) => (
+                        <option key={n} value={n}>
+                          Last {n} games
+                        </option>
+                      ))}
+                    </Select>
                   </div>
-                  <div className="league-summary-column">
-                    <span className="eyebrow">PER GAME</span>
-                    <div className="league-metrics">
-                      <Metric label="CS / min" value={number(stats.csPerMinute)} />
-                      <Metric label="Gold / min" value={number(stats.goldPerMinute, 0)} />
-                      <Metric label="Kill participation" value={percent(stats.killParticipation)} />
-                      <Metric label="Damage share" value={percent(stats.damageShare)} />
-                    </div>
-                    <small className="muted">
-                      {stats.primaryRole
-                        ? `${roleNames[stats.primaryRole]} games only`
-                        : 'All roles'}
-                    </small>
-                  </div>
-                  <div className="league-summary-column">
-                    <span className="eyebrow">ROLES</span>
-                    {stats.roles.map(({ role, games }) => {
-                      const s = summary(games)
-                      return (
-                        <div className="league-small-row" key={role}>
-                          <strong>{roleNames[role]}</strong>
-                          <span>
-                            {percent(s.winRate)} · {s.wins}W {s.losses}L · {kda(s)}
+                </div>
+                {historyLoading ? (
+                  <p role="status" className="muted">
+                    Loading saved games…
+                  </p>
+                ) : recent.length ? (
+                  <section
+                    className="league-card league-summary"
+                    aria-label="Recent game statistics"
+                  >
+                    <div className="league-summary-grid">
+                      <div className="league-summary-record">
+                        <WinDonut rate={stats.winRate} />
+                        <div>
+                          <strong>
+                            {stats.wins}W {stats.losses}L
+                          </strong>
+                          <span className="muted">
+                            {stats.games} games
+                            {stats.remakes
+                              ? ` · ${stats.remakes} remake${stats.remakes > 1 ? 's' : ''}`
+                              : ''}
                           </span>
                         </div>
-                      )
-                    })}
-                    {!stats.roles.length && <span className="muted">No assigned roles</span>}
-                  </div>
-                  <div className="league-summary-column">
-                    <span className="eyebrow">CHAMPIONS</span>
-                    {champions.map((c) => (
-                      <button
-                        className="league-small-row league-champion-choice"
-                        key={c.id}
-                        onClick={() => updateFilter('champion', String(c.id))}
-                      >
-                        <Champion id={c.id} name={c.name} size={24} />
+                      </div>
+                      <div className="league-summary-kda">
+                        <strong>{stats.games ? kda(stats) : '—'}</strong>
                         <span>
-                          <strong>{c.name}</strong>
-                          <small>
-                            {percent(c.summary.winRate)} · {c.summary.wins}W {c.summary.losses}L ·{' '}
-                            {kda(c.summary)} KDA · {number(c.summary.csPerMinute)} CS/min
-                          </small>
+                          {number(stats.averageKills)} / <b>{number(stats.averageDeaths)}</b> /{' '}
+                          {number(stats.averageAssists)}
                         </span>
-                      </button>
-                    ))}
+                        <small className="muted">KDA</small>
+                      </div>
+                      <div className="league-metrics">
+                        <Metric
+                          label="Kill participation"
+                          value={percent(stats.killParticipation)}
+                        />
+                        <Metric label="CS / min" value={number(stats.csPerMinute)} />
+                        <Metric label="Damage share" value={percent(stats.damageShare)} />
+                        <small className="muted">
+                          {stats.primaryRole
+                            ? `${roleNames[stats.primaryRole]} games only`
+                            : 'All roles'}
+                        </small>
+                      </div>
+                      <div className="league-summary-roles">
+                        <span className="eyebrow">ROLES</span>
+                        {stats.roles.map(({ role, games }) => {
+                          const s = summary(games)
+                          return (
+                            <div className="league-role-row" key={role}>
+                              <strong>{roleNames[role]}</strong>
+                              <span className="league-role-bar">
+                                <i
+                                  style={{ width: `${(games.length / (stats.games || 1)) * 100}%` }}
+                                />
+                              </span>
+                              <span>
+                                {games.length}G · {percent(s.winRate)}
+                              </span>
+                            </div>
+                          )
+                        })}
+                        {!stats.roles.length && <span className="muted">No assigned roles</span>}
+                      </div>
+                    </div>
+                    <div className="league-form" aria-label="Recent results, newest first">
+                      {recent.map((g) => (
+                        <span
+                          key={g.id}
+                          className={`league-result ${remake(g) ? 'remake' : g.player.win ? 'win' : 'loss'}`}
+                          title={`${g.player.championName}: ${remake(g) ? 'Remake' : g.player.win ? 'Victory' : 'Defeat'}`}
+                        >
+                          {remake(g) ? 'R' : g.player.win ? 'W' : 'L'}
+                        </span>
+                      ))}
+                      {stats.streak && (
+                        <small>
+                          {stats.streak.count} {stats.streak.win ? 'win' : 'loss'} streak
+                        </small>
+                      )}
+                    </div>
+                    {recent.length < windowCount && (
+                      <p className="league-coverage muted">
+                        Showing {recent.length} of up to {windowCount} games from synced history.{' '}
+                        <button
+                          className="text-link"
+                          disabled={Boolean(busy)}
+                          onClick={() => void sync(true, windowCount)}
+                        >
+                          Sync more history
+                        </button>
+                      </p>
+                    )}
+                  </section>
+                ) : (
+                  <div className="league-card league-empty">
+                    <Swords size={26} />
+                    <h3>
+                      {games.length
+                        ? 'No games in this queue yet'
+                        : 'Your match history is ready to sync'}
+                    </h3>
+                    <p>
+                      Refresh to fetch your recent games from Riot. Saved games stay available
+                      between visits.
+                    </p>
+                    <button className="button" disabled={Boolean(busy)} onClick={() => void sync()}>
+                      {busy || 'Sync recent games'}
+                    </button>
                   </div>
+                )}
+                <div className="league-section-heading">
+                  <h2>Match history</h2>
+                  <span className="muted">{games.length} synced games</span>
                 </div>
-                <div className="league-form" aria-label="Recent results, newest first">
-                  {recent.map((g) => (
-                    <span
-                      key={g.id}
-                      className={`league-result ${remake(g) ? 'remake' : g.player.win ? 'win' : 'loss'}`}
-                      title={`${g.player.championName}: ${remake(g) ? 'Remake' : g.player.win ? 'Victory' : 'Defeat'}`}
+                <section className="league-card league-history" aria-label="Match history">
+                  <div className="league-filters">
+                    <Select
+                      label="Your champion"
+                      value={filter.champion}
+                      onChange={(v) => updateFilter('champion', v)}
                     >
-                      {remake(g) ? 'R' : g.player.win ? 'W' : 'L'}
-                    </span>
-                  ))}
-                  {stats.streak && (
-                    <small>
-                      {stats.streak.count} {stats.streak.win ? 'win' : 'loss'} streak
-                    </small>
-                  )}
-                </div>
-                {recent.length < windowCount && (
-                  <p className="league-coverage muted">
-                    Showing {recent.length} of up to {windowCount} games from synced history.{' '}
+                      <option value="">All champions</option>
+                      {playedOptions.map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select
+                      label="Lane opponent"
+                      value={filter.opponent}
+                      onChange={(v) => updateFilter('opponent', v)}
+                    >
+                      <option value="">Any opponent</option>
+                      {opponentOptions.map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select
+                      label="Lane"
+                      value={filter.role}
+                      onChange={(v) => updateFilter('role', v)}
+                    >
+                      <option value="">All lanes</option>
+                      {roles.map((role) => (
+                        <option key={role} value={role}>
+                          {roleNames[role]}
+                        </option>
+                      ))}
+                    </Select>
+                    {!soloOnly && (
+                      <Select
+                        label="Queue"
+                        value={filter.queue}
+                        onChange={(v) => updateFilter('queue', v)}
+                      >
+                        <option value="">All queues</option>
+                        {[...new Set(games.map((g) => g.queueId))].sort().map((id) => (
+                          <option key={id} value={id}>
+                            {queues[id] || `Queue ${id}`}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                    <Select
+                      label="Patch"
+                      value={filter.patch}
+                      onChange={(v) => updateFilter('patch', v)}
+                    >
+                      <option value="">All patches</option>
+                      {[
+                        ...new Set(
+                          games.map((g) => g.gameVersion.split('.').slice(0, 2).join('.')),
+                        ),
+                      ]
+                        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+                        .map((p) => (
+                          <option key={p}>{p}</option>
+                        ))}
+                    </Select>
+                    <Select
+                      label="Result"
+                      value={filter.result}
+                      onChange={(v) => updateFilter('result', v)}
+                    >
+                      <option value="">All results</option>
+                      <option value="win">Wins</option>
+                      <option value="loss">Losses</option>
+                    </Select>
+                    <Select
+                      label="Sort"
+                      value={filter.oldest ? 'oldest' : 'newest'}
+                      onChange={(v) => updateFilter('oldest', v === 'oldest')}
+                    >
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                    </Select>
                     <button
                       className="text-link"
-                      disabled={Boolean(busy)}
-                      onClick={() => void sync(true, windowCount)}
+                      onClick={() => {
+                        setFilter(emptyFilter)
+                        setLimit(20)
+                      }}
                     >
-                      Sync more history
+                      Clear filters
                     </button>
-                  </p>
-                )}
-              </section>
-            ) : (
-              <div className="league-card league-empty">
-                <Swords size={28} />
-                <h3>
-                  {games.length
-                    ? 'No games in this queue yet'
-                    : 'Your match history is ready to sync'}
-                </h3>
-                <p>
-                  Refresh to fetch your recent games from Riot. Saved games stay available between
-                  visits.
-                </p>
-                <button className="button" disabled={Boolean(busy)} onClick={() => void sync()}>
-                  {busy || 'Sync recent games'}
-                </button>
-              </div>
-            )}
-            {queued.length > 0 && (
-              <SeasonChampions
-                games={queued}
-                choose={(id) => updateFilter('champion', String(id))}
-              />
-            )}
-            <div className="league-section-heading">
-              <h2>Match history</h2>
-              <span className="muted">{games.length} synced games</span>
-            </div>
-            <section className="league-card league-history" aria-label="Match history">
-              <div className="league-filters">
-                <Select
-                  label="Your champion"
-                  value={filter.champion}
-                  onChange={(v) => updateFilter('champion', v)}
-                >
-                  <option value="">All champions</option>
-                  {playedOptions.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  label="Lane opponent"
-                  value={filter.opponent}
-                  onChange={(v) => updateFilter('opponent', v)}
-                >
-                  <option value="">Any opponent</option>
-                  {opponentOptions.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-                <Select label="Lane" value={filter.role} onChange={(v) => updateFilter('role', v)}>
-                  <option value="">All lanes</option>
-                  {roles.map((role) => (
-                    <option key={role} value={role}>
-                      {roleNames[role]}
-                    </option>
-                  ))}
-                </Select>
-                {!soloOnly && (
-                  <Select
-                    label="Queue"
-                    value={filter.queue}
-                    onChange={(v) => updateFilter('queue', v)}
-                  >
-                    <option value="">All queues</option>
-                    {[...new Set(games.map((g) => g.queueId))].sort().map((id) => (
-                      <option key={id} value={id}>
-                        {queues[id] || `Queue ${id}`}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-                <Select
-                  label="Patch"
-                  value={filter.patch}
-                  onChange={(v) => updateFilter('patch', v)}
-                >
-                  <option value="">All patches</option>
-                  {[...new Set(games.map((g) => g.gameVersion.split('.').slice(0, 2).join('.')))]
-                    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-                    .map((p) => (
-                      <option key={p}>{p}</option>
-                    ))}
-                </Select>
-                <Select
-                  label="Result"
-                  value={filter.result}
-                  onChange={(v) => updateFilter('result', v)}
-                >
-                  <option value="">All results</option>
-                  <option value="win">Wins</option>
-                  <option value="loss">Losses</option>
-                </Select>
-                <Select
-                  label="Sort"
-                  value={filter.oldest ? 'oldest' : 'newest'}
-                  onChange={(v) => updateFilter('oldest', v === 'oldest')}
-                >
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                </Select>
-                <button
-                  className="text-link"
-                  onClick={() => {
-                    setFilter(emptyFilter)
-                    setLimit(20)
-                  }}
-                >
-                  Clear filters
-                </button>
-              </div>
-              <div className="league-history-record">
-                <strong>
-                  {percent(record.winRate)} win rate · {record.wins}W – {record.losses}L
-                  {record.remakes ? ` · ${record.remakes} remakes` : ''}
-                </strong>
-                <span className="muted">
-                  Across {record.games + record.remakes} matching synced games · Result filter only
-                  changes the list
-                </span>
-              </div>
-              {groupGamesByDay(filtered.slice(0, limit)).map((day) => (
-                <section
-                  className="league-match-day"
-                  key={`${selected}:${day.key}`}
-                  aria-label={day.label}
-                >
-                  <div className="league-day-heading">
-                    <h3>
-                      <time dateTime={day.key}>{day.label}</time>
-                    </h3>
-                    <span>
-                      {day.games.length} {day.games.length === 1 ? 'game' : 'games'}
+                  </div>
+                  <div className="league-history-record">
+                    <strong>
+                      {percent(record.winRate)} win rate · {record.wins}W – {record.losses}L
+                      {record.remakes ? ` · ${record.remakes} remakes` : ''}
+                    </strong>
+                    <span className="muted">
+                      Across {record.games + record.remakes} matching synced games · Result filter
+                      only changes the list
                     </span>
                   </div>
-                  {day.games.map((game) => (
-                    <MatchRow key={game.id} game={game} />
+                  {groupGamesByDay(filtered.slice(0, limit)).map((day) => (
+                    <section
+                      className="league-match-day"
+                      key={`${selected}:${day.key}`}
+                      aria-label={day.label}
+                    >
+                      <div className="league-day-heading">
+                        <h3>
+                          <time dateTime={day.key}>{day.label}</time>
+                        </h3>
+                        <span>
+                          {day.games.length} {day.games.length === 1 ? 'game' : 'games'}
+                        </span>
+                      </div>
+                      {day.games.map((game) => (
+                        <MatchRow key={game.id} game={game} />
+                      ))}
+                    </section>
                   ))}
+                  {!filtered.length && (
+                    <div className="league-empty">
+                      <p>
+                        {games.length
+                          ? 'No games match these filters. Clear them or sync more history.'
+                          : 'Sync your first games to see your full match history here.'}
+                      </p>
+                    </div>
+                  )}
+                  <div className="league-history-footer">
+                    {filtered.length > limit && (
+                      <button
+                        className="button secondary"
+                        onClick={() => setLimit((old) => old + 20)}
+                      >
+                        Show more saved games
+                      </button>
+                    )}
+                    <button
+                      className="button secondary"
+                      disabled={Boolean(busy) || exhausted[selected]}
+                      onClick={() => void sync(true, 20)}
+                    >
+                      {busy ||
+                        (exhausted[selected]
+                          ? 'All available Riot history synced'
+                          : 'Sync older games')}
+                    </button>
+                    <small className="muted">
+                      History and season totals cover synced games. Riot may no longer provide older
+                      games.
+                    </small>
+                  </div>
                 </section>
-              ))}
-              {!filtered.length && (
-                <div className="league-empty">
-                  <p>
-                    {games.length
-                      ? 'No games match these filters. Clear them or sync more history.'
-                      : 'Sync your first games to see your full match history here.'}
-                  </p>
-                </div>
-              )}
-              <div className="league-history-footer">
-                {filtered.length > limit && (
-                  <button className="button secondary" onClick={() => setLimit((old) => old + 20)}>
-                    Show more saved games
-                  </button>
-                )}
-                <button
-                  className="button secondary"
-                  disabled={Boolean(busy) || exhausted[selected]}
-                  onClick={() => void sync(true, 20)}
-                >
-                  {busy ||
-                    (exhausted[selected]
-                      ? 'All available Riot history synced'
-                      : 'Sync older games')}
-                </button>
-                <small className="muted">
-                  History and season totals cover synced games. Riot may no longer provide older
-                  games.
-                </small>
               </div>
-            </section>
+            </div>
           </>
         )
       )}
@@ -790,9 +799,9 @@ function SeasonChampions({ games, choose }: { games: Game[]; choose: (id: number
     ),
   )
   return (
-    <section className="league-card">
-      <div className="league-section-heading">
-        <h2>Champions this season</h2>
+    <section className="league-card league-rail-champions">
+      <div className="league-rail-heading">
+        <h2>Champions</h2>
         <div className="league-controls">
           <Select
             label="Season"
@@ -822,43 +831,101 @@ function SeasonChampions({ games, choose }: { games: Game[]; choose: (id: number
           </Select>
         </div>
       </div>
-      <div className="league-table-wrap">
-        <table className="league-table">
-          <thead>
-            <tr>
-              <th>Champion</th>
-              <th>Games</th>
-              <th>Record</th>
-              <th>Win rate</th>
-              <th>KDA</th>
-              <th>CS / min</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((c) => (
-              <tr key={c.id}>
-                <td>
-                  <button className="league-champion-choice" onClick={() => choose(c.id)}>
-                    <Champion id={c.id} name={c.name} size={28} />
-                    <strong>{c.name}</strong>
-                  </button>
-                </td>
-                <td>{c.summary.games}</td>
-                <td>
+      <ul className="league-champion-list">
+        {list.map((c) => (
+          <li key={c.id}>
+            <button className="league-champion-row" onClick={() => choose(c.id)}>
+              <Champion id={c.id} name={c.name} size={36} />
+              <span className="league-champion-name">
+                <strong>{c.name}</strong>
+                <small>
+                  {number(c.summary.csPerMinute)} CS/min · {c.summary.games}{' '}
+                  {c.summary.games === 1 ? 'game' : 'games'}
+                </small>
+              </span>
+              <span className="league-champion-kda">
+                <strong>{kda(c.summary)}</strong>
+                <small>KDA</small>
+              </span>
+              <span
+                className={`league-champion-wr ${(c.summary.winRate ?? 0) >= 0.5 ? 'good' : 'bad'}`}
+              >
+                <strong>{percent(c.summary.winRate)}</strong>
+                <small>
                   {c.summary.wins}W {c.summary.losses}L
-                </td>
-                <td>{percent(c.summary.winRate)}</td>
-                <td>{kda(c.summary)}</td>
-                <td>{number(c.summary.csPerMinute)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <small className="muted">
-        From synced games · Remakes excluded · Splits follow native patch boundaries
-      </small>
+                </small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <small className="muted">Synced games · remakes excluded</small>
     </section>
+  )
+}
+
+function RankCard({ rank }: { rank: Rank }) {
+  const solo = rank.queueType === 'RANKED_SOLO_5x5'
+  const games = rank.wins + rank.losses
+  const apex = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(rank.tier)
+  const tier = rank.tier.charAt(0) + rank.tier.slice(1).toLowerCase()
+  return (
+    <section
+      className="league-card league-rank-card"
+      aria-label={solo ? 'Solo/Duo rank' : 'Flex rank'}
+    >
+      <span className="eyebrow">{solo ? 'RANKED SOLO/DUO' : 'RANKED FLEX'}</span>
+      <div className="league-rank-body">
+        <img
+          src={`https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-${rank.tier.toLowerCase()}.png`}
+          alt=""
+          width={72}
+          height={72}
+          onError={(e) => {
+            e.currentTarget.style.visibility = 'hidden'
+          }}
+        />
+        <div>
+          <strong>
+            {tier}
+            {apex ? '' : ` ${rank.rank}`}
+          </strong>
+          <span className="league-rank-lp">{rank.leaguePoints} LP</span>
+        </div>
+        <div className="league-rank-record">
+          <span>
+            {rank.wins}W {rank.losses}L
+          </span>
+          <b>{percent(games ? rank.wins / games : null)} win rate</b>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function WinDonut({ rate }: { rate: number | null }) {
+  const radius = 30
+  const length = 2 * Math.PI * radius
+  return (
+    <svg
+      className="league-donut"
+      viewBox="0 0 80 80"
+      role="img"
+      aria-label={`Win rate ${percent(rate)}`}
+    >
+      <circle cx="40" cy="40" r={radius} className="loss" />
+      <circle
+        cx="40"
+        cy="40"
+        r={radius}
+        className="win"
+        strokeDasharray={`${(rate ?? 0) * length} ${length}`}
+        transform="rotate(-90 40 40)"
+      />
+      <text x="40" y="45" textAnchor="middle">
+        {percent(rate)}
+      </text>
+    </svg>
   )
 }
 
@@ -879,41 +946,36 @@ function MatchRow({ game: g }: { game: Game }) {
           <strong>{outcome}</strong>
           <span>{queues[g.queueId] || `Queue ${g.queueId}`}</span>
           <small>
-            {new Date(g.gameCreation).toLocaleDateString('en-GB')} · {duration(g.gameDuration)}
+            <time dateTime={new Date(g.gameCreation).toISOString()}>{timeAgo(g.gameCreation)}</time>{' '}
+            · {duration(g.gameDuration)}
           </small>
         </div>
         <div className="league-match-champion">
-          <Champion id={p.championId} name={p.championName} size={44} />
-          <span>
+          <span className="league-portrait">
+            <Champion id={p.championId} name={p.championName} size={52} />
+            <b>{p.champLevel}</b>
+          </span>
+          <Loadout player={p} />
+          <span className="league-match-name">
             <strong>{p.championName}</strong>
-            <small>
-              {roleNames[p.teamPosition] || 'No assigned lane'} · Lv. {p.champLevel}
-            </small>
-            <Loadout player={p} />
+            <small>{roleNames[p.teamPosition] || 'No lane'}</small>
           </span>
         </div>
-        <div className="league-match-stat">
+        <div className="league-match-kda">
           <strong>
-            {p.kills} / {p.deaths} / {p.assists}
+            {p.kills} / <b>{p.deaths}</b> / {p.assists}
           </strong>
           <small>{kda(p)} KDA</small>
-          <ItemBuild player={p} version={g.gameVersion} />
         </div>
-        <div className="league-match-stat">
-          <strong>
-            {cs(p)} CS · {number(cs(p) / Math.max(g.gameDuration / 60, 1))}/m
-          </strong>
-          <small>
-            {percent(teamKills ? (p.kills + p.assists) / teamKills : null)} KP ·{' '}
-            {number(p.goldEarned / 1000)}k gold
-          </small>
-        </div>
-        {g.opponent && (
+        <ItemBuild player={p} version={g.gameVersion} size={26} />
+        {g.opponent ? (
           <div className="league-opponent">
             <span className="muted">vs</span>
-            <Champion id={g.opponent.championId} name={g.opponent.championName} size={28} />
+            <Champion id={g.opponent.championId} name={g.opponent.championName} size={32} />
             <small>{g.opponent.championName}</small>
           </div>
+        ) : (
+          <span />
         )}
         <span className="league-score-toggle">
           {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
@@ -941,17 +1003,17 @@ function MatchRow({ game: g }: { game: Game }) {
 
 function Scoreboard({ players, game }: { players: Participant[]; game: Game }) {
   const team = players[0].teamId
-  const version = game.gameVersion.split('.').slice(0, 2).join('.') + '.1'
+  const teamKills = players.reduce((n, p) => n + p.kills, 0)
+  const maxDamage = Math.max(1, ...game.participants.map((p) => p.totalDamageDealtToChampions))
   return (
-    <div className="league-team">
+    <div className={`league-team ${players[0].win ? 'win' : 'loss'}`}>
       <div className="league-team-heading">
         <strong>
           {players[0].win ? 'Victory' : 'Defeat'} ·{' '}
           {team === 100 ? 'Blue team' : team === 200 ? 'Red team' : `Team ${team}`}
         </strong>
         <span>
-          {players.reduce((n, p) => n + p.kills, 0)} kills ·{' '}
-          {number(players.reduce((n, p) => n + p.goldEarned, 0) / 1000)}k gold
+          {teamKills} kills · {number(players.reduce((n, p) => n + p.goldEarned, 0) / 1000)}k gold
         </span>
       </div>
       <div className="league-table-wrap">
@@ -960,7 +1022,7 @@ function Scoreboard({ players, game }: { players: Participant[]; game: Game }) {
             <tr>
               <th>Player</th>
               <th>KDA</th>
-              <th>Damage / taken</th>
+              <th>Damage</th>
               <th>Wards</th>
               <th>CS</th>
               <th>Items</th>
@@ -974,24 +1036,41 @@ function Scoreboard({ players, game }: { players: Participant[]; game: Game }) {
               >
                 <td>
                   <div className="league-player">
-                    <Champion id={p.championId} name={p.championName} size={28} />
+                    <span className="league-portrait">
+                      <Champion id={p.championId} name={p.championName} size={36} />
+                      <b>{p.champLevel}</b>
+                    </span>
+                    <Loadout player={p} />
                     <span>
                       <strong>
                         {p.riotIdGameName || p.summonerName || p.championName}
                         {p.riotIdTagline ? `#${p.riotIdTagline}` : ''}
                       </strong>
                       <small>
-                        {p.championName} · Lv. {p.champLevel} · {roleNames[p.teamPosition] || '—'}
+                        {p.championName} · {roleNames[p.teamPosition] || '—'}
                       </small>
                     </span>
                   </div>
                 </td>
                 <td>
-                  {p.kills} / {p.deaths} / {p.assists}
-                  <small>{kda(p)}</small>
+                  <strong>
+                    {p.kills} / <b>{p.deaths}</b> / {p.assists}
+                  </strong>
+                  <small>
+                    {kda(p)} · {percent(teamKills ? (p.kills + p.assists) / teamKills : null)} KP
+                  </small>
                 </td>
                 <td>
-                  {number(p.totalDamageDealtToChampions)} / {number(p.totalDamageTaken)}
+                  <div className="league-damage">
+                    <span title={`${number(p.totalDamageTaken, 0)} damage taken`}>
+                      {number(p.totalDamageDealtToChampions, 0)}
+                    </span>
+                    <i>
+                      <b
+                        style={{ width: `${(p.totalDamageDealtToChampions / maxDamage) * 100}%` }}
+                      />
+                    </i>
+                  </div>
                 </td>
                 <td>
                   {p.wardsPlaced} / {p.wardsKilled}
@@ -1004,26 +1083,7 @@ function Scoreboard({ players, game }: { players: Participant[]; game: Game }) {
                   <small>{number(cs(p) / Math.max(game.gameDuration / 60, 1))}/m</small>
                 </td>
                 <td>
-                  <div className="league-items">
-                    {[p.item0, p.item1, p.item2, p.item3, p.item4, p.item5, p.item6].map((id, i) =>
-                      id ? (
-                        <img
-                          key={i}
-                          width={22}
-                          height={22}
-                          loading="lazy"
-                          title={`Item ${id}`}
-                          alt={`Item ${id}`}
-                          src={`https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${id}.png`}
-                          onError={(e) => {
-                            e.currentTarget.style.visibility = 'hidden'
-                          }}
-                        />
-                      ) : (
-                        <span key={i} className="league-empty-item" />
-                      ),
-                    )}
-                  </div>
+                  <ItemBuild player={p} version={game.gameVersion} size={22} />
                 </td>
               </tr>
             ))}
