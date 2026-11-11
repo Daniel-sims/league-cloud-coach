@@ -11,6 +11,9 @@ both directions. Video metadata/resolution changes update the fit; audio-only
 fixtures and YouTube retain the 16:9 fallback. No cropping or stretching.
 Validation: 138 unit tests, production build and twelve review browser workflows
 pass, including fitting and centring a non-16:9 capture. Frontend-only change.
+Release `1a3f6e8dcc868cd2590da440ad8ed687a5f9e03d` is pushed and deployed through
+[successful CI/Pages verification](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43083702499),
+including the full browser and database permission suites.
 
 ## Text-only recalls and a centred, plain player
 
