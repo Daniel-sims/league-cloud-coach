@@ -1,6 +1,22 @@
 # League Cloud Coach: current project state
 
-Last reviewed: 10 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+
+## Compact video review layout
+
+Local changes, not yet published: owner video pages use a 48px workspace header
+and a tighter back/title/share row, with the player starting at 100px on desktop.
+The extra seek-button row is hidden on owner and shared review pages; provider
+playback controls and keyboard seeking/playback remain available. Draw lives in
+**Video settings** (the gear beside Timeline), for owners and shared-link viewers.
+When the timeline is collapsed, the gear stays beside its reopen button. The D
+shortcut and explicit YouTube tab-sharing flow remain available. Owner-only game
+attachment and clock settings remain absent for guests. The decorative owner-page
+footer is hidden while reviewing.
+
+Verification: 134 unit/component/handler tests, production build and all five
+review Chrome workflows pass against simulated backend contracts. Desktop and
+mobile screenshots inspected. No backend, native or deployment changes.
 
 ## Independent desktop and web workspaces
 

@@ -193,11 +193,7 @@ export function VideoReview({
       const top = box.getBoundingClientRect().top + window.scrollY
       const wrap = box.querySelector<HTMLElement>('.player-wrap')
       const stage = box.querySelector<HTMLElement>('.player-stage')
-      const drawingControls =
-        box.querySelector<HTMLElement>('.review-draw-controls')?.offsetHeight ?? 0
-      const chrome =
-        (wrap && stage && !stage.hidden ? wrap.offsetHeight - stage.offsetHeight : 64) +
-        drawingControls
+      const chrome = wrap && stage && !stage.hidden ? wrap.offsetHeight - stage.offsetHeight : 0
       box.style.setProperty('--review-top', `${Math.round(top)}px`)
       box.style.setProperty('--review-chrome', `${Math.max(0, chrome)}px`)
     }
@@ -463,6 +459,52 @@ export function VideoReview({
 
   const needsSetup = owner && (!review || !anchor)
   const closeSettings = () => settingsMenu.current?.removeAttribute('open')
+  const videoSettings = data && (
+    <details className="review-filter" ref={settingsMenu}>
+      <summary
+        className={`icon-button ${needsSetup ? 'attention' : ''}`}
+        aria-label={needsSetup ? 'Video settings (setup needed)' : 'Video settings'}
+        title="Video settings"
+      >
+        <Settings size={15} />
+      </summary>
+      <div className="review-filter-menu review-settings-menu">
+        {repository.addCapture && (
+          <div className="review-draw-setting">
+            <button
+              className="button secondary button-small"
+              disabled={!controller?.pause || preparingDrawing}
+              onClick={() => {
+                closeSettings()
+                void startDrawing()
+              }}
+              title="Pause and draw on this frame (D)"
+            >
+              <Pencil size={15} />
+              {preparingDrawing ? 'Freezing frame…' : 'Draw'}
+            </button>
+            {!controller?.captureFrame && controller?.pause && (
+              <p className="field-hint">For YouTube, share this tab when prompted.</p>
+            )}
+          </div>
+        )}
+        {owner && (
+          <ReviewSettings
+            data={data}
+            playerReady={Boolean(controller)}
+            onSync={() => {
+              closeSettings()
+              if (controller) setSyncing(Math.max(0, controller.currentTime()))
+            }}
+            onAttach={() => {
+              closeSettings()
+              setAttaching(true)
+            }}
+          />
+        )}
+      </div>
+    </details>
+  )
   return (
     <div className="review-container" ref={container}>
       <div
@@ -471,22 +513,6 @@ export function VideoReview({
       >
         <div className="review-video">
           {renderPlayer(setController)}
-          {repository.addCapture && (
-            <div className="review-draw-controls">
-              <button
-                className="button secondary button-small"
-                disabled={!controller?.pause || preparingDrawing || !data}
-                onClick={() => void startDrawing()}
-                title="Pause and draw on this frame (D)"
-              >
-                <Pencil size={15} />
-                {preparingDrawing ? 'Freezing frame…' : 'Draw'}
-              </button>
-              {!controller?.captureFrame && controller?.pause && (
-                <span className="field-hint">For YouTube, share this tab when prompted.</span>
-              )}
-            </div>
-          )}
           {!panelOpen && actionError && (
             <p className="notice error" role="alert">
               {actionError}
@@ -494,15 +520,18 @@ export function VideoReview({
           )}
         </div>
         {!panelOpen ? (
-          <button
-            className="review-rail"
-            onClick={() => showPanel(true)}
-            aria-label="Show timeline"
-            title="Show timeline"
-          >
-            <PanelRightOpen size={16} />
-            <span>Timeline</span>
-          </button>
+          <div className="review-collapsed-tools">
+            {videoSettings}
+            <button
+              className="review-rail"
+              onClick={() => showPanel(true)}
+              aria-label="Show timeline"
+              title="Show timeline"
+            >
+              <PanelRightOpen size={16} />
+              <span>Timeline</span>
+            </button>
+          </div>
         ) : (
           <>
             <div
@@ -574,33 +603,7 @@ export function VideoReview({
                       </div>
                     </details>
                   )}
-                  {owner && data && (
-                    <details className="review-filter" ref={settingsMenu}>
-                      <summary
-                        className={`icon-button ${needsSetup ? 'attention' : ''}`}
-                        aria-label={
-                          needsSetup ? 'Timeline settings (setup needed)' : 'Timeline settings'
-                        }
-                        title="Game and clock"
-                      >
-                        <Settings size={15} />
-                      </summary>
-                      <div className="review-filter-menu review-settings-menu">
-                        <ReviewSettings
-                          data={data}
-                          playerReady={Boolean(controller)}
-                          onSync={() => {
-                            closeSettings()
-                            if (controller) setSyncing(Math.max(0, controller.currentTime()))
-                          }}
-                          onAttach={() => {
-                            closeSettings()
-                            setAttaching(true)
-                          }}
-                        />
-                      </div>
-                    </details>
-                  )}
+                  {videoSettings}
                   <button
                     className="icon-button"
                     onClick={() => showPanel(false)}

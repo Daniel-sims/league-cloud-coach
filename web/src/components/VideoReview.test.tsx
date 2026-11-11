@@ -85,7 +85,7 @@ it('asks the owner to sync before the first jump, then makes whole rows seek exa
   expect(repo.setAnchor).toHaveBeenCalledWith({ gameTimeSeconds: 600, videoOffsetSeconds: 700 })
   // The 3:00 kill sits at video 4:40 and seeks exactly there.
   await waitFor(() => expect(player.seekTo).toHaveBeenCalledWith(280))
-  await userEvent.click(screen.getByLabelText('Timeline settings'))
+  await userEvent.click(screen.getByLabelText('Video settings'))
   expect(screen.getByText('10:00 at 11:40 in the video')).toBeInTheDocument()
   // Lane checkpoints and purchases open exactly on their time: the 4:00
   // matchup is video 5:40 and the 0:10 opening buy is video 1:50.
@@ -202,7 +202,7 @@ it('lets the owner remove but not rewrite a coach comment, and keeps comments wi
   expect(within(row).getByText('Coach')).toBeVisible()
   expect(within(row).getByText('video')).toBeVisible()
   expect(within(row).queryByRole('button', { name: 'Edit comment' })).toBeNull()
-  await userEvent.click(screen.getByLabelText('Timeline settings (setup needed)'))
+  await userEvent.click(screen.getByLabelText('Video settings (setup needed)'))
   expect(screen.getByText('No game attached')).toBeVisible()
   expect(screen.getByRole('button', { name: 'Attach game' })).toBeVisible()
   expect(screen.queryByRole('button', { name: 'Sync clock' })).toBeNull()

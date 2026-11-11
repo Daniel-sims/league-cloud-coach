@@ -265,7 +265,7 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const timeline = page.getByRole('region', { name: 'Review timeline' })
   await expect(timeline.getByText('No comments yet')).toBeVisible()
 
-  await timeline.getByLabel('Timeline settings (setup needed)').click()
+  await timeline.getByLabel('Video settings (setup needed)').click()
   await timeline.getByRole('button', { name: 'Attach game' }).click()
   const attach = page.getByRole('dialog')
   // The only synced game on the recording date is preselected.
@@ -291,9 +291,9 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await sync.getByRole('button', { name: 'Sync', exact: true }).click()
   // 10:00 fight sits at video 1:00; it seeks exactly there.
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(60)
-  await timeline.getByLabel('Timeline settings', { exact: true }).click()
+  await timeline.getByLabel('Video settings', { exact: true }).click()
   await expect(timeline.getByText('10:00 at 1:00 in the video')).toBeVisible()
-  await timeline.getByLabel('Timeline settings', { exact: true }).click()
+  await timeline.getByLabel('Video settings', { exact: true }).click()
   await expect(timeline.getByRole('button', { name: 'Killed Ahri', exact: true })).toBeDisabled()
 
   await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 70))
@@ -333,7 +333,8 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const stage = await video.evaluate((v) => v.parentElement!.getBoundingClientRect())
   const wrap = await video.evaluate((v) => v.closest('.player-wrap')!.getBoundingClientRect())
   const panel = await timeline.boundingBox()
-  // The whole player, seek controls included, fits in the window.
+  // The compact header leaves the player at 100px; no extra transport rows.
+  expect(stage.y).toBeLessThanOrEqual(100)
   expect(wrap.bottom).toBeLessThanOrEqual(958)
   expect(Math.abs(panel!.y + panel!.height - (958 - 24))).toBeLessThan(2)
   expect(Math.round((stage.width / stage.height) * 9)).toBe(16)
@@ -352,16 +353,17 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   expect(
     await page.evaluate(() => Number(localStorage.getItem('league-cloud-coach-timeline-width'))),
   ).toBeGreaterThan(panel!.width + 140)
-  await page.getByRole('button', { name: 'Back 30 seconds' }).click()
-  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect(page.getByRole('group', { name: 'Video seek controls' })).toHaveCount(0)
+  await page.locator('body').click({ position: { x: 10, y: 10 } })
+  await page.keyboard.press('Space')
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(false)
-  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await page.keyboard.press('Space')
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
-  await page
-    .getByRole('group', { name: 'Video seek controls' })
-    .screenshot({ path: testInfo.outputPath('seek-controls.png') })
   await page.getByRole('button', { name: 'Hide timeline' }).click()
   await expect(timeline).toHaveCount(0)
+  await page.getByLabel('Video settings', { exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
+  await page.getByLabel('Video settings', { exact: true }).click()
   await page.screenshot({ path: testInfo.outputPath('review-timeline-hidden.png') })
   await page.getByRole('button', { name: 'Show timeline' }).click()
   await expect(timeline).toBeVisible()
@@ -379,7 +381,10 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const question = guestTimeline.getByRole('listitem').filter({ hasText: 'Should I have backed' })
   await expect(question.getByText('Player')).toBeVisible()
   await expect(question.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
-  await expect(guestTimeline.getByLabel(/Timeline settings/)).toHaveCount(0)
+  await guestTimeline.getByLabel(/Video settings/).click()
+  await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
+  await expect(guestTimeline.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
+  await guestTimeline.getByLabel(/Video settings/).click()
   await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
   await seekVideo(guest, 'Ranked mid review', 72)
   await guestTimeline.getByRole('button', { name: 'Comment', exact: true }).click()
@@ -575,6 +580,7 @@ test('drawing freezes a real frame, keeps failed saves, and persists a capture o
     await seeked
     await v.play()
   })
+  await page.getByLabel(/Video settings/).click()
   await page.getByRole('button', { name: 'Draw', exact: true }).click()
   const editor = page.getByRole('dialog', { name: /^Draw at/ })
   await expect(editor.getByAltText('Frozen video frame')).toBeVisible()
@@ -667,6 +673,7 @@ test('signed-out coaches can draw, capture and delete their own stills while pla
   await page.getByRole('button', { name: 'Start session' }).click()
   const video = page.getByLabel('Ranked mid review', { exact: true })
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBe(640)
+  await page.getByLabel(/Video settings/).click()
   await page.getByRole('button', { name: 'Draw', exact: true }).click()
   const editor = page.getByRole('dialog', { name: /^Draw at/ })
   await expect(editor.getByAltText('Frozen video frame')).toBeVisible()

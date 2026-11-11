@@ -252,7 +252,9 @@ export function App({ authError = null }: { authError?: string | null }) {
     session?.user.user_metadata?.full_name || session?.user.email?.split('@')[0] || 'Your account'
   const ownVideoId = route.match(/^\/(?:preview\/)?video\/([a-f0-9-]+)$/)?.[1]
   return (
-    <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
+    <div
+      className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''} ${ownVideoId ? 'video-workspace' : ''}`}
+    >
       <aside className="sidebar" id="app-sidebar">
         <Brand />
         <div className="workspace-label">YOUR WORKSPACE</div>
@@ -1603,12 +1605,14 @@ function OwnVideo({
                     recordingId={record.id}
                     title={record.title}
                     onController={onController}
+                    showSeekControls={false}
                   />
                 ) : (
                   <Player
                     videoId={record.youtube_video_id!}
                     title={record.title}
                     onController={onController}
+                    showSeekControls={false}
                   />
                 )
               }
@@ -1725,12 +1729,14 @@ function Watch({ token }: { token: string }) {
                     shareToken={token}
                     title={video.title}
                     onController={onController}
+                    showSeekControls={false}
                   />
                 ) : (
                   <Player
                     videoId={video.youtube_video_id!}
                     title={video.title}
                     onController={onController}
+                    showSeekControls={false}
                   />
                 )
               }

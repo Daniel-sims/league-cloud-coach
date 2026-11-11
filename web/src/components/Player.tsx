@@ -55,10 +55,12 @@ export function Player({
   videoId,
   title,
   onController,
+  showSeekControls = true,
 }: {
   videoId: string
   title: string
   onController?: (controller: PlayerController | null) => void
+  showSeekControls?: boolean
 }) {
   const host = useRef<HTMLDivElement>(null)
   const instance = useRef<PlayerInstance | null>(null)
@@ -176,12 +178,14 @@ export function Player({
           </div>
         )}
       </div>
-      <SeekControls
-        seek={seek}
-        disabled={state !== 'ready'}
-        playing={playing}
-        onTogglePlay={togglePlay}
-      />
+      {showSeekControls && (
+        <SeekControls
+          seek={seek}
+          disabled={state !== 'ready'}
+          playing={playing}
+          onTogglePlay={togglePlay}
+        />
+      )}
       <a
         className="text-link player-external"
         href={youtubeURL(videoId)}

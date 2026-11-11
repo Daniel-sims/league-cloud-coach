@@ -16,11 +16,13 @@ export function StreamPlayer({
   recordingId,
   shareToken,
   onController,
+  showSeekControls = true,
 }: {
   title: string
   recordingId?: string
   shareToken?: string
   onController?: (controller: PlayerController | null) => void
+  showSeekControls?: boolean
 }) {
   const video = useRef<HTMLVideoElement>(null)
   const [started, setStarted] = useState(Boolean(recordingId))
@@ -288,7 +290,7 @@ export function StreamPlayer({
               </div>
             )}
           </div>
-          {!stopped && (
+          {!stopped && showSeekControls && (
             <SeekControls
               seek={seek}
               disabled={!canSeek}

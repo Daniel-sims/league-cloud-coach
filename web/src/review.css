@@ -46,7 +46,7 @@
 .review-video .player-wrap {
   max-width: max(
     480px,
-    calc((100dvh - var(--review-top, 220px) - var(--review-chrome, 64px) - 24px) * 16 / 9)
+    calc((100dvh - var(--review-top, 220px) - var(--review-chrome, 0px) - 24px) * 16 / 9)
   );
   margin: 0 auto;
 }
@@ -975,12 +975,19 @@
 }
 
 /* Frozen-frame drawing and saved review stills. */
-.review-draw-controls {
+.review-draw-setting + .review-settings {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.review-collapsed-tools {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  flex-wrap: wrap;
+  gap: 8px;
+}
+.review-collapsed-tools .review-rail {
+  flex: 1;
 }
 .drawing-toolbar {
   display: flex;
