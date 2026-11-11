@@ -2,6 +2,29 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Timeline controls and larger drawing editor
+
+Current control placement supersedes the older Video tools placement below:
+the settings cog and cinema toggle live in the timeline header, including
+Exit cinema mode. Draw remains directly over the upper-right of the video.
+Collapsed timelines keep the settings/cinema controls beside the reopen rail.
+Narrow panels use an icon-only Comment action with an accessible name. Settings
+and Filter retain shared state and full-panel dropdown alignment. Preserve the
+new Simple/Detailed timeline preference for both owners and shared viewers.
+
+The drawing editor now fills almost the whole window: a large frozen frame on
+the left, and a 300px right pane containing tools, colour, width, opacity, notes
+and save/cancel. Phones stack the image above the controls. Ink opacity ranges
+from 0–100%, separately remembered during editing for pen/highlighter/arrow
+(defaults 100/35/100). Opacity belongs to each stroke and survives undo/redo and
+flattened JPEG saving. Erasing remains fully effective regardless of opacity;
+source frames and capture size/security limits are unchanged.
+
+Verification: 135 unit tests, production build and seven review Chrome workflows
+pass. A real-canvas pixel check verifies 50% ink alpha and its preservation
+through history actions; desktop checks verify the image exceeds 1000px at a
+1440px viewport with controls to its right. Desktop/mobile screenshots inspected.
+
 ## Cinema mode
 
 The button beside Video tools switches owner and shared watch pages to a view

@@ -49,7 +49,12 @@ it('scales coordinates to the image and erases only the ink layer', () => {
   expect(context.moveTo).toHaveBeenCalledWith(200, 150)
   expect(context.lineTo).toHaveBeenCalledWith(800, 450)
   expect(context.lineWidth).toBe(10)
-  paintStrokes(context, [{ ...strokes[0], tool: 'eraser' }])
+  paintStrokes(context, [{ ...strokes[0], opacity: 0.5 }])
+  expect(context.globalAlpha).toBe(0.5)
+  paintStrokes(context, [{ ...strokes[0], tool: 'highlighter' }])
+  expect(context.globalAlpha).toBe(0.35)
+  paintStrokes(context, [{ ...strokes[0], tool: 'eraser', opacity: 0.5 }])
+  expect(context.globalAlpha).toBe(1)
   expect(context.globalCompositeOperation).toBe('destination-out')
 })
 

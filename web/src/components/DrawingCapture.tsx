@@ -54,6 +54,8 @@ export function DrawingCapture({
   const [tool, setTool] = useState<DrawingTool>('pen')
   const [color, setColor] = useState(colors[0])
   const [width, setWidth] = useState(4)
+  const [opacities, setOpacities] = useState({ pen: 100, highlighter: 35, arrow: 100 })
+  const opacity = tool === 'eraser' ? 100 : opacities[tool]
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [redo, setRedo] = useState<Stroke[][]>([])
   const [history, setHistory] = useState<Stroke[][]>([])
@@ -108,197 +110,229 @@ export function DrawingCapture({
   return (
     <Dialog
       title={`Draw at ${timeLabel}`}
-      className="dialog-capture"
+      className="dialog-capture drawing-editor"
       onClose={() => {
         if (!saving) onClose()
       }}
     >
-      <p className="field-hint">
-        Video paused. Draw on this frozen frame, then capture it to the timeline. Check that the
-        frame is correct before saving.
-      </p>
-      <div className="drawing-toolbar" role="toolbar" aria-label="Drawing tools">
-        {tools.map(({ id, name, Icon }) => (
-          <button
-            key={id}
-            className="icon-button"
-            aria-label={name}
-            title={name}
-            aria-pressed={tool === id}
-            onClick={() => setTool(id)}
-            disabled={saving || drawing}
+      <div className="drawing-workspace">
+        <div className="drawing-view">
+          <div
+            className="drawing-stage"
+            style={{
+              maxWidth: `min(100%, calc((100dvh - 100px) * ${size.width / size.height}))`,
+              marginInline: 'auto',
+            }}
           >
-            <Icon size={18} />
-          </button>
-        ))}
-        <span className="drawing-colors" role="group" aria-label="Ink color">
-          {colors.map((value, index) => (
-            <button
-              key={value}
-              className="drawing-color"
-              aria-label={colorNames[index]}
-              title={colorNames[index]}
-              aria-pressed={color === value}
-              style={{ backgroundColor: value }}
-              onClick={() => setColor(value)}
-              disabled={saving || drawing}
+            <img
+              ref={image}
+              src={frame}
+              alt="Frozen video frame"
+              draggable={false}
+              onLoad={(event) => {
+                setSize({
+                  width: event.currentTarget.naturalWidth,
+                  height: event.currentTarget.naturalHeight,
+                })
+                setReady(true)
+              }}
+              onError={() =>
+                setError('The frozen frame could not load. Close this dialog and try again.')
+              }
             />
-          ))}
-        </span>
-        <label className="drawing-width">
-          Width{' '}
-          <select
-            value={width}
-            onChange={(event) => setWidth(Number(event.target.value))}
-            disabled={saving || drawing}
-          >
-            <option value={2}>Thin</option>
-            <option value={4}>Medium</option>
-            <option value={8}>Thick</option>
-          </select>
-        </label>
-        <button
-          className="icon-button"
-          aria-label="Undo"
-          title="Undo"
-          disabled={!history.length || saving || drawing}
-          onClick={() => {
-            setRedo((all) => [...all, strokes])
-            setStrokes(history.at(-1)!)
-            setHistory((all) => all.slice(0, -1))
-          }}
-        >
-          <Undo2 size={18} />
-        </button>
-        <button
-          className="icon-button"
-          aria-label="Redo"
-          title="Redo"
-          disabled={!redo.length || saving || drawing}
-          onClick={() => {
-            setHistory((all) => [...all, strokes])
-            setStrokes(redo.at(-1)!)
-            setRedo((all) => all.slice(0, -1))
-          }}
-        >
-          <Redo2 size={18} />
-        </button>
-        <button
-          className="icon-button"
-          aria-label="Clear drawing"
-          title="Clear drawing"
-          disabled={!strokes.length || saving || drawing}
-          onClick={() => commit([])}
-        >
-          <Trash2 size={18} />
-        </button>
-      </div>
-      <div
-        className="drawing-stage"
-        style={{
-          maxWidth: `min(100%, calc(55dvh * ${size.width / size.height}))`,
-          marginInline: 'auto',
-        }}
-      >
-        <img
-          ref={image}
-          src={frame}
-          alt="Frozen video frame"
-          draggable={false}
-          onLoad={(event) => {
-            setSize({
-              width: event.currentTarget.naturalWidth,
-              height: event.currentTarget.naturalHeight,
-            })
-            setReady(true)
-          }}
-          onError={() =>
-            setError('The frozen frame could not load. Close this dialog and try again.')
-          }
-        />
-        <canvas
-          ref={canvas}
-          width={size.width}
-          height={size.height}
-          aria-label="Draw on the frozen video frame"
-          onPointerDown={(event) => {
-            if (!ready || saving || event.button !== 0 || active.current) return
-            event.preventDefault()
-            event.currentTarget.setPointerCapture(event.pointerId)
-            active.current = {
-              tool,
-              color,
-              width: (width / 1280) * (tool === 'highlighter' ? 5 : tool === 'eraser' ? 6 : 1),
-              points: [point(event)],
-            }
-            setDrawing(true)
-            repaint()
-          }}
-          onPointerMove={(event) => {
-            if (!active.current || !event.currentTarget.hasPointerCapture(event.pointerId)) return
-            if (active.current.points.length < 10000) active.current.points.push(point(event))
-            repaint()
-          }}
-          onPointerUp={(event) => finish(event)}
-          onPointerCancel={(event) => finish(event, true)}
-          onLostPointerCapture={() => {
-            if (active.current) {
-              active.current = null
-              setDrawing(false)
-              repaint()
-            }
-          }}
-        />
-      </div>
-      <form
-        className="drawing-form"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void save()
-        }}
-      >
-        {role === 'coach' && (
-          <label>
-            Your name
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              maxLength={60}
-              required
-              disabled={saving}
-              autoComplete="name"
+            <canvas
+              ref={canvas}
+              width={size.width}
+              height={size.height}
+              aria-label="Draw on the frozen video frame"
+              onPointerDown={(event) => {
+                if (!ready || saving || event.button !== 0 || active.current) return
+                event.preventDefault()
+                event.currentTarget.setPointerCapture(event.pointerId)
+                active.current = {
+                  tool,
+                  color,
+                  opacity: opacity / 100,
+                  width: (width / 1280) * (tool === 'highlighter' ? 5 : tool === 'eraser' ? 6 : 1),
+                  points: [point(event)],
+                }
+                setDrawing(true)
+                repaint()
+              }}
+              onPointerMove={(event) => {
+                if (!active.current || !event.currentTarget.hasPointerCapture(event.pointerId))
+                  return
+                if (active.current.points.length < 10000) active.current.points.push(point(event))
+                repaint()
+              }}
+              onPointerUp={(event) => finish(event)}
+              onPointerCancel={(event) => finish(event, true)}
+              onLostPointerCapture={() => {
+                if (active.current) {
+                  active.current = null
+                  setDrawing(false)
+                  repaint()
+                }
+              }}
             />
-          </label>
-        )}
-        <label>
-          Note (optional)
-          <textarea
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            maxLength={2000}
-            rows={2}
-            disabled={saving}
-            placeholder="What should we notice here?"
-          />
-        </label>
-        {error && (
-          <p className="notice error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="drawing-actions">
-          <button type="button" className="button secondary" onClick={onClose} disabled={saving}>
-            Cancel
-          </button>
-          <button
-            className="button"
-            disabled={!ready || saving || drawing || (role === 'coach' && !name.trim())}
-          >
-            <Camera size={16} />
-            {saving ? 'Saving…' : 'Capture to timeline'}
-          </button>
+          </div>
         </div>
-      </form>
+        <aside className="drawing-sidebar" aria-label="Drawing controls and notes">
+          <p className="field-hint">
+            Video paused. Draw on this frozen frame, then capture it to the timeline. Check that the
+            frame is correct before saving.
+          </p>
+          <div className="drawing-toolbar" role="toolbar" aria-label="Drawing tools">
+            {tools.map(({ id, name, Icon }) => (
+              <button
+                key={id}
+                className="icon-button"
+                aria-label={name}
+                title={name}
+                aria-pressed={tool === id}
+                onClick={() => setTool(id)}
+                disabled={saving || drawing}
+              >
+                <Icon size={18} />
+              </button>
+            ))}
+            <span className="drawing-colors" role="group" aria-label="Ink color">
+              {colors.map((value, index) => (
+                <button
+                  key={value}
+                  className="drawing-color"
+                  aria-label={colorNames[index]}
+                  title={colorNames[index]}
+                  aria-pressed={color === value}
+                  style={{ backgroundColor: value }}
+                  onClick={() => setColor(value)}
+                  disabled={saving || drawing}
+                />
+              ))}
+            </span>
+            <label className="drawing-width">
+              Width{' '}
+              <select
+                value={width}
+                onChange={(event) => setWidth(Number(event.target.value))}
+                disabled={saving || drawing}
+              >
+                <option value={2}>Thin</option>
+                <option value={4}>Medium</option>
+                <option value={8}>Thick</option>
+              </select>
+            </label>
+            <label className="drawing-opacity">
+              <span>
+                Opacity <output>{opacity}%</output>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={opacity}
+                aria-label="Ink opacity"
+                aria-valuetext={`${opacity}%`}
+                disabled={saving || drawing || tool === 'eraser'}
+                onChange={(event) => {
+                  if (tool !== 'eraser')
+                    setOpacities((current) => ({ ...current, [tool]: Number(event.target.value) }))
+                }}
+              />
+            </label>
+            <button
+              className="icon-button"
+              aria-label="Undo"
+              title="Undo"
+              disabled={!history.length || saving || drawing}
+              onClick={() => {
+                setRedo((all) => [...all, strokes])
+                setStrokes(history.at(-1)!)
+                setHistory((all) => all.slice(0, -1))
+              }}
+            >
+              <Undo2 size={18} />
+            </button>
+            <button
+              className="icon-button"
+              aria-label="Redo"
+              title="Redo"
+              disabled={!redo.length || saving || drawing}
+              onClick={() => {
+                setHistory((all) => [...all, strokes])
+                setStrokes(redo.at(-1)!)
+                setRedo((all) => all.slice(0, -1))
+              }}
+            >
+              <Redo2 size={18} />
+            </button>
+            <button
+              className="icon-button"
+              aria-label="Clear drawing"
+              title="Clear drawing"
+              disabled={!strokes.length || saving || drawing}
+              onClick={() => commit([])}
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+          <form
+            className="drawing-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void save()
+            }}
+          >
+            {role === 'coach' && (
+              <label>
+                Your name
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  maxLength={60}
+                  required
+                  disabled={saving}
+                  autoComplete="name"
+                />
+              </label>
+            )}
+            <label>
+              Note (optional)
+              <textarea
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                maxLength={2000}
+                rows={2}
+                disabled={saving}
+                placeholder="What should we notice here?"
+              />
+            </label>
+            {error && (
+              <p className="notice error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="drawing-actions">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={onClose}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                className="button"
+                disabled={!ready || saving || drawing || (role === 'coach' && !name.trim())}
+              >
+                <Camera size={16} />
+                {saving ? 'Saving…' : 'Capture to timeline'}
+              </button>
+            </div>
+          </form>
+        </aside>
+      </div>
     </Dialog>
   )
 }

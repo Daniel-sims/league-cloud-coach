@@ -120,10 +120,10 @@
   margin-bottom: 4px;
   font-variant-numeric: tabular-nums;
 }
-.review-video-settings .attention {
+.review-filter .attention {
   position: relative;
 }
-.review-video-settings .attention::after {
+.review-filter .attention::after {
   content: '';
   position: absolute;
   top: 5px;
@@ -219,12 +219,6 @@
 .review-video-settings > button {
   background: var(--paper);
   box-shadow: 0 2px 8px #00000026;
-}
-.review-video-settings .review-settings-menu {
-  width: min(300px, calc(100vw - 56px));
-  max-height: min(440px, calc(100dvh - 180px));
-  overflow-y: auto;
-  overflow-wrap: anywhere;
 }
 /* Anchor header menus to the panel, not an individual toolbar icon. */
 .review-settings-menu {
@@ -1341,4 +1335,109 @@ body:has(.cinema-mode) .watch-main {
 .timeline-compact.clickable:hover .timeline-icon,
 .timeline-compact.current .timeline-icon {
   border-color: var(--dot);
+}
+
+.review-panel {
+  container-type: inline-size;
+  container-name: timeline;
+}
+.review-tools {
+  gap: 2px;
+}
+@container timeline (max-width: 380px) {
+  .review-tools .icon-button {
+    width: 28px;
+  }
+  .review-comment-label {
+    display: none;
+  }
+  .review-tools .button-small {
+    padding: 8px;
+  }
+}
+.dialog.drawing-editor {
+  width: calc(100vw - 24px);
+  max-width: none;
+  height: calc(100dvh - 24px);
+  max-height: none;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.drawing-editor .dialog-heading {
+  flex-shrink: 0;
+}
+.drawing-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+}
+.drawing-view {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+.drawing-sidebar {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  border-left: 1px solid var(--line);
+}
+.drawing-sidebar .drawing-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.drawing-sidebar .drawing-colors,
+.drawing-sidebar .drawing-width,
+.drawing-opacity {
+  grid-column: 1 / -1;
+}
+.drawing-sidebar .drawing-colors {
+  padding: 8px 0;
+}
+.drawing-opacity {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+.drawing-opacity > span {
+  display: flex;
+  justify-content: space-between;
+}
+.drawing-opacity input {
+  width: 100%;
+  accent-color: var(--gold);
+}
+.drawing-sidebar .drawing-actions {
+  flex-direction: column-reverse;
+}
+@media (max-width: 900px) {
+  .dialog.drawing-editor {
+    width: calc(100vw - 16px);
+    height: auto;
+    max-height: calc(100dvh - 16px);
+    padding: 12px;
+  }
+  .drawing-workspace {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .drawing-view {
+    flex-shrink: 0;
+  }
+  .drawing-view .drawing-stage {
+    max-width: 100% !important;
+  }
+  .drawing-sidebar {
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
 }

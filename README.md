@@ -46,8 +46,8 @@ There is no automatic YouTube/channel integration, match-level notes or AI analy
 
 ### Review timeline
 
-Choose **Cinema mode** beside Video tools to hide navigation, the title/share row
-and footer, leaving the video and timeline. Choose **Exit cinema** or press
+Choose the **Cinema mode** icon in the timeline header to hide navigation, the title/share row
+and footer, leaving the video and timeline. Choose the **Exit cinema mode** icon or press
 **Escape** to return. Playback continues at the same position. This works on
 owner and shared watch pages; phones keep the timeline below the video.
 
@@ -123,9 +123,13 @@ Expanded scoreboards show the complete available roster, champion/level, KDA, da
 
 ## Drawing and timeline captures
 
-On an owner video page or a shared watch page, choose **Video tools → Draw** at the upper-right of the video
+On an owner video page or a shared watch page, choose **Draw** at the upper-right of the video
 (or press **D** outside a text field). Playback pauses and an editor opens on a
-frozen frame. Draw with the pen, highlighter, arrow or eraser; choose ink colour
+frozen frame. On desktop the image fills the left pane, with tools and notes on
+the right; smaller screens stack them. Set **Opacity** from 0–100% for new ink
+strokes (remembered separately for pen, highlighter and arrow). Undo/redo and
+saved stills retain each stroke’s opacity. Draw with the pen, highlighter, arrow
+or eraser; choose ink colour
 and width, undo/redo or clear. Add an optional note, then choose **Capture to
 timeline**. Coaches enter a display name, as they do for comments. Cancel
 returns to the paused video without saving.

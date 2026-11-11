@@ -382,9 +382,10 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await expect(question.getByText('Player')).toBeVisible()
   await expect(question.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
   await guest.getByLabel(/Video settings/).click()
-  await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
-  await expect(guest.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
+  await expect(guest.getByRole('radiogroup', { name: 'Timeline detail' })).toBeVisible()
+  await expect(guest.getByRole('button', { name: 'Change game' })).toHaveCount(0)
   await guest.getByLabel(/Video settings/).click()
+  await expect(guest.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
   await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
   await seekVideo(guest, 'Ranked mid review', 72)
   await guestTimeline.getByRole('button', { name: 'Comment', exact: true }).click()
@@ -636,7 +637,6 @@ test('drawing freezes a real frame, keeps failed saves, and persists a capture o
     await seeked
     await v.play()
   })
-  await page.getByLabel(/Video settings/).click()
   await page.getByRole('button', { name: 'Draw', exact: true }).click()
   const editor = page.getByRole('dialog', { name: /^Draw at/ })
   await expect(editor.getByAltText('Frozen video frame')).toBeVisible()
@@ -645,6 +645,28 @@ test('drawing freezes a real frame, keeps failed saves, and persists a capture o
   const canvas = editor.locator('canvas')
   const box = (await canvas.boundingBox())!
   await editor.getByRole('button', { name: 'Red', exact: true }).click()
+  const sidebar = (await editor
+    .getByRole('complementary', { name: 'Drawing controls and notes' })
+    .boundingBox())!
+  expect(box.width).toBeGreaterThan(1000)
+  expect(sidebar.x).toBeGreaterThanOrEqual(box.x + box.width)
+  const opacity = editor.getByRole('slider', { name: 'Ink opacity' })
+  await opacity.focus()
+  await opacity.press('Home')
+  for (let i = 0; i < 10; i++) await opacity.press('ArrowRight')
+  await expect(opacity).toHaveValue('50')
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.25, { steps: 10 })
+  await page.mouse.up()
+  const partialAlpha = () =>
+    canvas.evaluate(
+      (c: HTMLCanvasElement) =>
+        c.getContext('2d')!.getImageData(c.width / 2, Math.floor(c.height * 0.25), 1, 1).data[3],
+    )
+  expect(await partialAlpha()).toBeGreaterThanOrEqual(126)
+  expect(await partialAlpha()).toBeLessThanOrEqual(129)
+  await opacity.press('End')
   await editor.getByLabel('Width').selectOption('8')
   await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.35)
   await page.mouse.down()
@@ -670,6 +692,9 @@ test('drawing freezes a real frame, keeps failed saves, and persists a capture o
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.35)
   expect(await hasInk()).toBe(false)
   await editor.getByRole('button', { name: 'Undo', exact: true }).click()
+  expect(await partialAlpha()).toBeGreaterThanOrEqual(126)
+  expect(await partialAlpha()).toBeLessThanOrEqual(129)
+  await editor.getByRole('button', { name: 'Pen', exact: true }).click()
   await editor.getByLabel('Note (optional)').fill('Hold this position')
   await page.screenshot({ path: testInfo.outputPath('drawing-editor.png') })
   state.failCaptureSave = true
@@ -729,13 +754,13 @@ test('signed-out coaches can draw, capture and delete their own stills while pla
   await page.getByRole('button', { name: 'Start session' }).click()
   const video = page.getByLabel('Ranked mid review', { exact: true })
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBe(640)
-  await page.getByLabel(/Video settings/).click()
   await page.getByRole('button', { name: 'Draw', exact: true }).click()
   const editor = page.getByRole('dialog', { name: /^Draw at/ })
   await expect(editor.getByAltText('Frozen video frame')).toBeVisible()
   await editor.getByLabel('Your name').fill('Coach')
   await editor.getByRole('button', { name: 'Arrow', exact: true }).click()
   await editor.getByRole('button', { name: 'Blue', exact: true }).click()
+  await editor.locator('canvas').scrollIntoViewIfNeeded()
   const canvas = (await editor.locator('canvas').boundingBox())!
   await page.mouse.move(canvas.x + canvas.width * 0.2, canvas.y + canvas.height * 0.2)
   await page.mouse.down()
@@ -791,6 +816,10 @@ for (const owner of [true, false]) {
     ).toHaveCount(0)
     const timeline = page.getByRole('region', { name: 'Review timeline' })
     await expect(timeline).toBeVisible()
+    await expect(timeline.getByRole('button', { name: 'Exit cinema mode' })).toBeVisible()
+    await expect(
+      page.locator('.review-video').getByRole('button', { name: 'Draw', exact: true }),
+    ).toBeVisible()
     const panel = (await timeline.boundingBox())!
     expect(panel.y).toBe(0)
     expect(panel.y + panel.height).toBe(900)
@@ -810,7 +839,7 @@ for (const owner of [true, false]) {
     ).toEqual({ background: 'rgb(0, 0, 0)', radius: '0px' })
     expect(await video.evaluate((v, original) => v === original, originalVideo)).toBe(true)
     expect(await video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(30)
-    await page.getByLabel(/Video settings/).click()
+    await page.getByLabel(owner ? /Video settings/ : /Filter timeline/).click()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: 'Exit cinema mode' })).toBeVisible()
     await expect(page.locator('.review-menu-panel')).toHaveCount(0)

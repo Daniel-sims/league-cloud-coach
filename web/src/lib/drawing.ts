@@ -1,6 +1,12 @@
 export type Point = { x: number; y: number }
 export type DrawingTool = 'pen' | 'highlighter' | 'arrow' | 'eraser'
-export type Stroke = { tool: DrawingTool; color: string; width: number; points: Point[] }
+export type Stroke = {
+  tool: DrawingTool
+  color: string
+  width: number
+  opacity?: number
+  points: Point[]
+}
 export const captureByteLimit = 256 * 1024
 
 /** Coordinates and widths use fractions of the image, independent of display size. */
@@ -11,7 +17,8 @@ export function paintStrokes(context: CanvasRenderingContext2D, strokes: Stroke[
     if (!stroke.points.length) continue
     context.save()
     context.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over'
-    context.globalAlpha = stroke.tool === 'highlighter' ? 0.35 : 1
+    context.globalAlpha =
+      stroke.tool === 'eraser' ? 1 : (stroke.opacity ?? (stroke.tool === 'highlighter' ? 0.35 : 1))
     context.strokeStyle = stroke.color
     context.fillStyle = stroke.color
     context.lineWidth = stroke.width * width

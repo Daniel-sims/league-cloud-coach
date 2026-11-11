@@ -20,7 +20,7 @@ export function Dialog({
     const dialog = ref.current!
     const previous = document.activeElement as HTMLElement | null
     dialog.showModal()
-    dialog.querySelector<HTMLInputElement>('input:not([readonly])')?.focus()
+    dialog.querySelector<HTMLInputElement>('input:not([readonly]):not([type="range"])')?.focus()
     return () => {
       dialog.close()
       previous?.focus()

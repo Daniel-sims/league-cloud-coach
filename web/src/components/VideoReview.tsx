@@ -515,34 +515,34 @@ export function VideoReview({
 
   const needsSetup = owner && (!review || !anchor)
   const closeSettings = () => setOpenMenu(null)
+  const cinemaToggle = (
+    <button
+      ref={cinemaButton}
+      type="button"
+      className="icon-button"
+      aria-label={cinema ? 'Exit cinema mode' : 'Enter cinema mode'}
+      aria-pressed={cinema}
+      title={cinema ? 'Exit cinema mode (Escape)' : 'Cinema mode'}
+      onClick={() => {
+        closeSettings()
+        if (!cinema) showPanel(true)
+        setCinema(!cinema)
+      }}
+    >
+      {cinema ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+    </button>
+  )
   const videoSettings = data && (
-    <div className="review-video-settings review-menu">
-      <button
-        ref={cinemaButton}
-        type="button"
-        className="button secondary button-small"
-        aria-label={cinema ? 'Exit cinema mode' : 'Enter cinema mode'}
-        aria-pressed={cinema}
-        title={cinema ? 'Exit cinema mode (Escape)' : 'Cinema mode'}
-        onClick={() => {
-          closeSettings()
-          if (!cinema) showPanel(true)
-          setCinema(!cinema)
-        }}
-      >
-        {cinema ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-        {cinema ? 'Exit cinema' : 'Cinema mode'}
-      </button>
+    <div className="review-filter review-menu">
       <button
         type="button"
         aria-expanded={openMenu === 'settings'}
         onClick={() => setOpenMenu(openMenu === 'settings' ? null : 'settings')}
-        className={`button secondary button-small ${needsSetup ? 'attention' : ''}`}
+        className={`icon-button ${needsSetup ? 'attention' : ''}`}
         aria-label={needsSetup ? 'Video settings (setup needed)' : 'Video settings'}
         title="Video settings"
       >
         <Settings size={15} />
-        Video tools
       </button>
       {openMenu === 'settings' && (
         <div className="review-filter-menu review-settings-menu review-menu-panel">
@@ -568,25 +568,6 @@ export function VideoReview({
               ))}
             </div>
           </div>
-          {repository.addCapture && (
-            <div className="review-draw-setting">
-              <button
-                className="button secondary button-small"
-                disabled={!controller?.pause || preparingDrawing}
-                onClick={() => {
-                  closeSettings()
-                  void startDrawing()
-                }}
-                title="Pause and draw on this frame (D)"
-              >
-                <Pencil size={15} />
-                {preparingDrawing ? 'Freezing frame…' : 'Draw'}
-              </button>
-              {!controller?.captureFrame && controller?.pause && (
-                <p className="field-hint">For YouTube, share this tab when prompted.</p>
-              )}
-            </div>
-          )}
           {owner && (
             <ReviewSettings
               data={data}
@@ -613,7 +594,22 @@ export function VideoReview({
       >
         <div className="review-video">
           {renderPlayer(setController)}
-          {videoSettings}
+          {data && repository.addCapture && (
+            <div className="review-video-settings">
+              <button
+                className="button secondary button-small"
+                disabled={!controller?.pause || preparingDrawing}
+                onClick={() => {
+                  closeSettings()
+                  void startDrawing()
+                }}
+                title="Pause and draw on this frame (D); YouTube prompts you to share this tab"
+              >
+                <Pencil size={15} />
+                {preparingDrawing ? 'Freezing frame…' : 'Draw'}
+              </button>
+            </div>
+          )}
           {!panelOpen && actionError && (
             <p className="notice error" role="alert">
               {actionError}
@@ -622,6 +618,8 @@ export function VideoReview({
         </div>
         {!panelOpen ? (
           <div className="review-collapsed-tools">
+            {cinemaToggle}
+            {videoSettings}
             <button
               className="review-rail"
               onClick={() => showPanel(true)}
@@ -658,6 +656,8 @@ export function VideoReview({
                   <h2>Timeline</h2>
                 </div>
                 <div className="review-tools">
+                  {cinemaToggle}
+                  {videoSettings}
                   {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
                     <div className="review-filter review-menu">
                       <button
@@ -720,10 +720,11 @@ export function VideoReview({
                     className="button button-small"
                     onClick={startComment}
                     disabled={!controller || composing !== null}
+                    aria-label="Comment"
                     title={controller ? 'Comment at the playhead' : 'Wait for the video to load'}
                   >
                     <MessageSquarePlus size={15} />
-                    Comment
+                    <span className="review-comment-label">Comment</span>
                   </button>
                 </div>
               </header>
