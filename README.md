@@ -42,7 +42,24 @@ Other Google users may authenticate, but signing in does not automatically grant
 
 ### Outside the current release
 
-There is no automatic YouTube/channel integration, match-level notes or AI analysis in this web release. The existing League Helper desktop app supplies Push to web from its separate repository.
+There is no automatic YouTube/channel integration or AI analysis in this web release. The existing League Helper desktop app supplies Push to web from its separate repository.
+
+### Running review notes
+
+Choose **Add notes** beside Share video to jot down observations while watching.
+The notes panel replaces the timeline without restarting playback; use **Timeline**
+to switch back. Notes autosave as a private draft, including after a reload.
+**Insert time** adds the current game clock (or video time if unsynced). In cinema
+mode, the notes icon in the timeline header opens the same panel.
+
+Choose **Complete review** when ready. It opens your notes for final editing;
+completing shares a finished copy with the player and anyone with a valid watch
+link. Both players and coaches have their own draft. Draft edits made afterwards
+stay private until completed again, while the previous finished review remains
+visible. Completed reviews are listed below the notes. A coach's draft/editing
+rights use the same browser author key as their comments; another browser cannot
+read that private draft. Failed saves keep the text on screen and offer retry/copy;
+conflicting edits from another tab cannot silently overwrite saved notes.
 
 ### Review timeline
 
@@ -325,6 +342,7 @@ psql -v ON_ERROR_STOP=1 -f supabase/tests/security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/stream-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/review-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/event-comment-security.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/review-notes-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/companion-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/capture-security.sql
 ```

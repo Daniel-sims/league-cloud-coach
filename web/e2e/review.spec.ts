@@ -28,7 +28,19 @@ type Comment = {
   author: string | null
   key?: string
 }
+type NotesRecord = {
+  id: string
+  role: 'owner' | 'coach'
+  key?: string
+  author: string | null
+  body: string
+  version: number
+  published: string | null
+  completedAt: string | null
+}
 type State = {
+  notes?: NotesRecord[]
+  failNotesSave?: boolean
   review: ReturnType<typeof reviewPayload> | null
   anchor: { gameTimeSeconds: number; videoOffsetSeconds: number } | null
   comments: Comment[]
@@ -99,7 +111,72 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
         }))
         .sort((a, b) => a.videoMs - b.videoMs),
     })
+    const notesView = () => {
+      const own = (note: NotesRecord) =>
+        name.includes('recording_notes')
+          ? note.role === 'owner'
+          : note.role === 'coach' && note.key === args.p_author_key
+      const draft = state.notes?.find(own)
+      return {
+        draft: draft ? { body: draft.body, version: draft.version, author: draft.author } : null,
+        reviews: (state.notes ?? [])
+          .filter((note) => note.published !== null)
+          .map((note) => ({
+            id: note.id,
+            body: note.published,
+            role: note.role,
+            author: note.author,
+            completedAt: note.completedAt,
+            mine: own(note),
+          })),
+      }
+    }
     let result: unknown = null
+    if (name === 'get_recording_notes' || name === 'get_shared_notes') result = notesView()
+    if (name === 'save_recording_notes' || name === 'save_shared_notes') {
+      if (state.failNotesSave)
+        return route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: 'Could not save review notes. Your draft is still here.',
+            code: '22023',
+          }),
+        })
+      state.notes ??= []
+      let note = state.notes.find((note) =>
+        name === 'save_recording_notes'
+          ? note.role === 'owner'
+          : note.role === 'coach' && note.key === args.p_author_key,
+      )
+      if ((note?.version ?? 0) !== args.p_version)
+        return route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'These notes changed in another tab.', code: '40001' }),
+        })
+      if (!note) {
+        note = {
+          id: `r${state.notes.length + 1}`,
+          role: name === 'save_recording_notes' ? 'owner' : 'coach',
+          key: args.p_author_key as string | undefined,
+          author: (args.p_author_name as string) ?? null,
+          body: '',
+          version: 0,
+          published: null,
+          completedAt: null,
+        }
+        state.notes.push(note)
+      }
+      note.body = String(args.p_body)
+      note.version++
+      note.author = (args.p_author_name as string) ?? null
+      if (args.p_complete) {
+        note.published = note.body.trim()
+        note.completedAt = new Date().toISOString()
+      }
+      result = notesView()
+    }
     if (name === 'list_recording_captures')
       result = (state.captures ?? []).map(({ image: _image, key, ...capture }) => ({
         ...capture,
@@ -1034,5 +1111,96 @@ test('event discussions group player and coach comments at the event timestamp',
     path: testInfo.outputPath('event-discussion-mobile.png'),
     fullPage: true,
   })
+  await guestContext.close()
+})
+
+test('running notes autosave privately, survive reload, and publish the polished review on completion', async ({
+  page,
+  browser,
+}, testInfo) => {
+  const state: State = {
+    review: reviewPayload(),
+    anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 0 },
+    comments: [],
+    calls: [],
+  }
+  await mock(page.context(), state, true)
+  await signIn(page.context())
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/#/video/${recordingId}`)
+  const video = await seekVideo(page, 'Ranked mid review', 30)
+  const originalVideo = await video.elementHandle()
+  await video.evaluate((v: HTMLVideoElement) => v.play())
+  await page.getByRole('button', { name: 'Add notes', exact: true }).click()
+  const notes = page.getByRole('region', { name: 'Review notes', exact: true })
+  await notes.getByLabel('Running notes').fill('Push the wave before roaming.')
+  await expect(notes.getByText('Private draft saved', { exact: true })).toBeVisible()
+  expect(state.notes?.[0].published).toBeNull()
+  expect(await video.evaluate((v, original) => v === original, originalVideo)).toBe(true)
+  expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(false)
+  await page.reload()
+  await page.getByRole('button', { name: 'Add notes', exact: true }).click()
+  await expect(notes.getByLabel('Running notes')).toHaveValue('Push the wave before roaming.')
+  await page.screenshot({ path: testInfo.outputPath('running-notes-desktop.png') })
+  const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  await mock(guestContext, state, false)
+  const guest = await guestContext.newPage()
+  await guest.goto(`/#/watch/${token}`)
+  await guest.getByRole('button', { name: 'Add notes', exact: true }).click()
+  const guestNotes = guest.getByRole('region', { name: 'Review notes', exact: true })
+  await expect(guestNotes.getByLabel('Running notes')).toHaveValue('')
+  await expect(guest.getByText('Push the wave before roaming.', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Complete review', exact: true }).first().click()
+  const finish = page.getByRole('dialog', { name: 'Complete review' })
+  await expect(finish.getByLabel('Review notes')).toHaveValue('Push the wave before roaming.')
+  await finish
+    .getByLabel('Review notes')
+    .fill('Push the wave before roaming. Track the jungler before committing.')
+  await page.screenshot({ path: testInfo.outputPath('complete-review-desktop.png') })
+  await finish.getByRole('button', { name: 'Complete review', exact: true }).click()
+  await expect(finish).toHaveCount(0)
+  await expect(notes.getByRole('region', { name: 'Completed reviews' })).toContainText(
+    'Track the jungler',
+  )
+  await guest.reload()
+  await guest.getByRole('button', { name: 'Add notes', exact: true }).click()
+  await expect(guestNotes.getByRole('region', { name: 'Completed reviews' })).toContainText(
+    'Track the jungler',
+  )
+  await guestNotes.getByLabel('Your name').fill('Coach')
+  await guestNotes.getByLabel('Running notes').fill('Private coach observations.')
+  await expect(guestNotes.getByText('Private draft saved', { exact: true })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Add notes', exact: true }).click()
+  await expect(page.getByText('Private coach observations.', { exact: true })).toHaveCount(0)
+  await guest.getByRole('button', { name: 'Complete review', exact: true }).first().click()
+  const guestFinish = guest.getByRole('dialog', { name: 'Complete review' })
+  await guestFinish.getByLabel('Review notes').fill('Focus on wave control before river fights.')
+  await guestFinish.getByRole('button', { name: 'Complete review', exact: true }).click()
+  await expect(guestFinish).toHaveCount(0)
+  await guestNotes.getByLabel('Running notes').fill('A private revision, not ready to share.')
+  await expect(guestNotes.getByText('Private draft saved', { exact: true })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Add notes', exact: true }).click()
+  await expect(notes.getByRole('region', { name: 'Completed reviews' })).toContainText(
+    'Focus on wave control',
+  )
+  await expect(
+    page.getByText('A private revision, not ready to share.', { exact: true }),
+  ).toHaveCount(0)
+  await guest.screenshot({ path: testInfo.outputPath('running-notes-mobile.png'), fullPage: true })
+  expect(await guest.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await notes.getByRole('button', { name: 'Timeline', exact: true }).click()
+  await seekVideo(page, 'Ranked mid review', 30)
+  await page.getByRole('button', { name: 'Enter cinema mode' }).click()
+  await page.getByRole('button', { name: 'Add review notes' }).click()
+  await expect(notes).toBeVisible()
+  await expect(page.locator('.topbar')).toBeHidden()
+  await notes.getByRole('button', { name: 'Insert time', exact: true }).click()
+  await expect(notes.getByLabel('Running notes')).toHaveValue(/0:30 — /)
+  await expect(notes.getByText('Private draft saved', { exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('running-notes-cinema.png') })
+  await notes.getByRole('button', { name: 'Exit cinema mode' }).click()
+  await expect(page.locator('.topbar')).toBeVisible()
   await guestContext.close()
 })

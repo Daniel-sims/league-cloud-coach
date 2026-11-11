@@ -2,6 +2,38 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Running notes and review completion
+
+Add notes and Complete review sit beside Share video (and on shared watch pages).
+Add notes opens an autosaving right-hand panel, keeping the same video mounted;
+Timeline returns to events. A notes icon keeps the workflow available in cinema
+mode. Insert time appends the current game/video clock. Complete review opens a
+prefilled finishing dialog and publishes only after its explicit completion action.
+Finished reviews appear beneath the notes; later draft edits leave the previous
+published snapshot intact until completed again. Players and coaches each have
+one private draft per recording; guests use the existing browser author key.
+
+Migration `202611110002_running_reviews.sql` is applied remotely. It adds a private
+RLS-protected notes table and
+narrow owner/share getters and savers. Read responses contain only the caller's
+draft plus completed snapshots, with no identity/key hashes. Existing enabled-owner,
+share validity/expiry and author-key rules apply. Revisions reject stale writes;
+frontend saves are serialized and completion waits behind an in-flight autosave.
+Text is bounded to 20,000 characters; at most 49 coach documents plus the owner's
+are stored per recording. Completed content is plain text. Failed saves keep the
+draft in memory with copy/retry controls; no note body or share capability is put
+in browser persistence. Pending changes protect against accidental page unload;
+SPA unmounts flush the latest draft. Coach author names use the existing convenience
+preference. No native or companion HTTP contract changes.
+
+Validation: 138 unit/component tests, production build and eleven review Chrome
+workflows pass, including reload persistence, paused-state/player identity,
+owner/coach draft privacy, polishing/completing, and private revisions after
+completion. Queue-order and failed-autosave unit tests pass. All ten permission
+suites pass against an isolated PostgreSQL 16 database; CI runs them on 17.
+Desktop/mobile notes and finish-dialog screenshots inspected. Browser backend
+contracts are simulated; no real review content was added during testing.
+
 ## Event-linked discussions
 
 Each timeline event has a Comment action (Reply plus a count once discussed).

@@ -119,3 +119,10 @@ Companion capabilities: only SHA-256 hashes are stored in private `companion_dev
 Drawing captures: `DrawingCapture.tsx` and `lib/drawing.ts` implement frozen-frame editing. Stream uses decoded video pixels; YouTube uses an explicit one-frame tab share. Never silently request display capture. `recording_captures` stores bounded private JPEG bytes (256 KiB each, 50 per recording); list metadata separately and fetch images only through capability/owner RPCs. Preserve coach author-key deletion rules and reject revoked/expired links. Saved captures are flattened stills; originals are unchanged. Include `capture-security.sql` in disposable permission checks. The generated base64 test video in `web/e2e/fixtures/` contains no personal recording and belongs to this web repository.
 
 Library browser cache: `web/src/lib/library-cache.ts` holds only explicitly allowlisted recording display metadata and bounded image blobs, scoped to project/account. Keep normal session/membership checks before reading it. Never persist signed image/playback URLs, share capabilities or credentials here. Clear on sign-out/account switch/explicit access denial; reject stale in-flight metadata writes after mutations/logout and prune removed recording previews. Library list metadata must render independently of upload reconciliation.
+
+Running review notes: `ReviewNotebook.tsx` autosaves per-reviewer private drafts;
+only explicit completion publishes a separate snapshot. Keep guest author-key
+isolation, optimistic revisions, bounded text/reviewer counts, and existing
+share revocation/expiry checks. Never return another reviewer's draft or author
+hash in notes RPCs. Run `review-notes-security.sql` with disposable permission
+checks. Browser caches must not store draft bodies or share capabilities.

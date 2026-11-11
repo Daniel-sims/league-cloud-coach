@@ -19,6 +19,7 @@ import {
   LoaderCircle,
   MessageSquarePlus,
   Maximize2,
+  NotebookPen,
   Minimize2,
   Pencil,
   PanelRightClose,
@@ -27,6 +28,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
+import { CompleteReview, ReviewNotebook, type ReviewNotebookModel } from './ReviewNotebook'
 import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
 import { CaptureRow, CommentRow, EventRow, patchOf } from './TimelineRows'
@@ -111,11 +113,13 @@ export function VideoReview({
   repository,
   league,
   recordedOn,
+  notebook,
   renderPlayer,
 }: {
   repository: ReviewRepository
   league?: LeagueRepository
   recordedOn?: string | null
+  notebook?: ReviewNotebookModel
   renderPlayer(onController: (controller: PlayerController | null) => void): ReactNode
 }) {
   const [cinema, setCinema] = useState(false)
@@ -205,6 +209,12 @@ export function VideoReview({
     return Number.isFinite(saved) && saved >= minPanel ? saved : defaultPanel
   })
   const [panelOpen, setPanelOpen] = useState(() => stored(openStorage) !== 'closed')
+  useEffect(() => {
+    if (notebook?.view === 'notes') {
+      setPanelOpen(true)
+      setOpenMenu(null)
+    }
+  }, [notebook?.view])
   function showPanel(open: boolean) {
     setPanelOpen(open)
     store(openStorage, open ? 'open' : 'closed')
@@ -427,10 +437,11 @@ export function VideoReview({
   const startComment = useCallback(() => {
     if (!controller) return
     showPanel(true)
+    notebook?.setView('timeline')
     setEditing(null)
     setCommentEvent(null)
     setComposing(Math.max(0, Math.round(controller.currentTime() * 1000)))
-  }, [controller])
+  }, [controller, notebook?.setView])
   const commentOnEvent = (entry: TimelineEntry) => {
     if (!controller || !anchor || !review || !seekable(entry.gameTimeMs)) return
     controller.pause?.()
@@ -697,6 +708,7 @@ export function VideoReview({
   )
   return (
     <div className={`review-container ${cinema ? 'cinema-mode' : ''}`} ref={container}>
+      {notebook && <CompleteReview notebook={notebook} />}
       <div
         className={`review-layout ${panelOpen ? '' : 'timeline-collapsed'}`}
         style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}
@@ -759,243 +771,270 @@ export function VideoReview({
                 event.preventDefault()
               }}
             />
-            <section className="review-panel" aria-label="Review timeline">
-              <header className="review-header">
-                <div className="review-title">
-                  <h2>Timeline</h2>
-                </div>
-                <div className="review-tools">
-                  {cinemaToggle}
-                  {videoSettings}
-                  {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
-                    <div className="review-filter review-menu">
-                      <button
-                        type="button"
-                        aria-expanded={openMenu === 'filter'}
-                        onClick={() => setOpenMenu(openMenu === 'filter' ? null : 'filter')}
-                        className={`icon-button ${filtered ? 'active' : ''}`}
-                        aria-label="Filter timeline"
-                        title="Filter timeline"
-                      >
-                        <Filter size={15} />
-                      </button>
-                      {openMenu === 'filter' && (
-                        <div className="review-filter-menu review-menu-panel">
-                          {presentKinds.map((k) => (
-                            <label key={k.kind}>
-                              <input
-                                type="checkbox"
-                                checked={!hidden.has(k.kind)}
-                                onChange={() => toggle(k.kind)}
-                              />
-                              <i className={`kind-dot kind-${k.kind}`} />
-                              {k.name}
-                              <small>{entries.filter((e) => e.kind === k.kind).length}</small>
-                            </label>
-                          ))}
-                          <label>
-                            <input
-                              type="checkbox"
-                              checked={!hidden.has(commentsKey)}
-                              onChange={() => toggle(commentsKey)}
-                            />
-                            <i className="kind-dot kind-comment" />
-                            Comments
-                            <small>{comments.length}</small>
-                          </label>
-                          <label>
-                            <input
-                              type="checkbox"
-                              checked={!hidden.has(capturesKey)}
-                              onChange={() => toggle(capturesKey)}
-                            />
-                            <i className="kind-dot kind-comment" />
-                            Captures
-                            <small>{captures.length}</small>
-                          </label>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <button
-                    className="icon-button"
-                    onClick={() => showPanel(false)}
-                    aria-label="Hide timeline"
-                    title="Hide timeline"
-                  >
-                    <PanelRightClose size={15} />
-                  </button>
-                  <button
-                    className="button button-small"
-                    onClick={startComment}
-                    disabled={!controller || composing !== null || editing !== null}
-                    aria-label="Comment"
-                    title={controller ? 'Comment at the playhead' : 'Wait for the video to load'}
-                  >
-                    <MessageSquarePlus size={15} />
-                    <span className="review-comment-label">Comment</span>
-                  </button>
-                </div>
-              </header>
-              {!owner && review && !anchor && (
-                <p className="review-note">
-                  <Clock3 size={13} aria-hidden="true" />
-                  Events can't jump to the video until the player syncs the game clock.
-                </p>
-              )}
-              {actionError && (
-                <div className="notice error review-notice" role="alert">
-                  {actionError}
-                </div>
-              )}
-              {syncing !== null && repository.setAnchor && controller && (
-                <SyncClockPanel
-                  key={syncing}
-                  initialSeconds={syncing}
-                  liveSeconds={(playheadMs ?? syncing * 1000) / 1000}
-                  readSeconds={() => controller.currentTime()}
-                  anchor={anchor}
-                  target={pendingSeek?.ms}
-                  onClose={() => setSyncing(null)}
-                  onSave={(next) => act(() => repository.setAnchor!(next))}
+            <section
+              className="review-panel"
+              aria-label={notebook?.view === 'notes' ? 'Review notes' : 'Review timeline'}
+            >
+              {notebook?.view === 'notes' && (
+                <ReviewNotebook
+                  notebook={notebook}
+                  timeLabel={
+                    controller
+                      ? () =>
+                          `${commentTime(Math.round(controller.currentTime() * 1000))}${anchor ? '' : ' video'}`
+                      : undefined
+                  }
+                  cinemaControl={cinemaToggle}
                 />
               )}
-              {composing !== null &&
-                (!commentEvent ||
-                  !items.some((item) => item.type === 'event' && item.id === commentEvent.id)) &&
-                compose}
-              {state === 'loading' ? (
-                <div className="review-empty" role="status">
-                  <LoaderCircle className="spin" size={18} />
-                  Loading the timeline…
-                </div>
-              ) : state === 'error' ? (
-                <div className="review-empty" role="alert">
-                  <p>{error}</p>
-                  <button className="button secondary button-small" onClick={() => void reload()}>
-                    <RefreshCw size={14} />
-                    Try again
-                  </button>
-                </div>
-              ) : items.length === 0 ? (
-                <div className="review-empty">
-                  {entries.length || comments.length || captures.length ? (
-                    <>
-                      <p>Everything on this timeline is hidden by the filter.</p>
+              <div className="review-timeline-content" hidden={notebook?.view === 'notes'}>
+                <header className="review-header">
+                  <div className="review-title">
+                    <h2>Timeline</h2>
+                  </div>
+                  <div className="review-tools">
+                    {notebook?.view !== 'notes' && cinemaToggle}
+                    {notebook?.supported && (
                       <button
-                        className="button secondary button-small"
-                        onClick={() => {
-                          setHidden(new Set())
-                          try {
-                            localStorage.removeItem(hiddenStorage)
-                          } catch {
-                            // Nothing saved.
-                          }
-                        }}
+                        className="icon-button"
+                        aria-label="Add review notes"
+                        title="Add notes"
+                        onClick={notebook.open}
                       >
-                        Reset filter
+                        <NotebookPen size={15} />
                       </button>
-                    </>
-                  ) : (
-                    <>
-                      <strong>No comments yet</strong>
-                      <p>
-                        {owner
-                          ? 'Add a comment or question at the playhead. Your coach sees it on the watch page and can reply with their own.'
-                          : 'Add a comment at the playhead. The player sees it straight away.'}
-                      </p>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="review-list-wrap">
-                  <ol
-                    className="review-list"
-                    ref={list}
-                    // The reader taking over the list stops it following the playhead.
-                    onWheel={() => playheadMs !== null && setFollow(false)}
-                    onTouchMove={() => playheadMs !== null && setFollow(false)}
-                    onKeyDown={(event) => {
-                      if (
-                        ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].includes(
-                          event.key,
-                        ) &&
-                        playheadMs !== null
-                      )
-                        setFollow(false)
-                    }}
-                  >
-                    {items.map((item) =>
-                      item.type === 'event' ? (
-                        <EventRow
-                          key={item.id}
-                          entry={item.entry}
-                          patch={patch}
-                          current={item.id === currentId}
-                          seekable={seekable(item.entry.gameTimeMs)}
-                          dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
-                          compact={simple}
-                          commentCount={eventComments.get(item.id)?.length ?? 0}
-                          commentDisabled={
-                            !anchor ||
-                            !controller ||
-                            !seekable(item.entry.gameTimeMs) ||
-                            editing !== null ||
-                            (composing !== null && commentEvent?.id !== item.id)
-                          }
-                          commentDisabledHint={
-                            editing !== null || composing !== null
-                              ? 'Finish your current comment first'
-                              : undefined
-                          }
-                          onComment={() => commentOnEvent(item.entry)}
-                          onSeek={() =>
-                            seekGame(item.entry.gameTimeMs, seekLeadMs(item.entry.kind))
-                          }
-                          onSeekTime={(ms, kind) => seekGame(ms, seekLeadMs(kind))}
-                        >
-                          {((eventComments.get(item.id)?.length ?? 0) > 0 ||
-                            commentEvent?.id === item.id) && (
-                            <section
-                              className="event-discussion"
-                              aria-label={`Comments on ${item.entry.label} at ${clock(item.entry.gameTimeMs)}`}
-                            >
-                              <strong>Discussion</strong>
-                              <ol>
-                                {eventComments
-                                  .get(item.id)
-                                  ?.map((comment) => renderComment(comment, true))}
-                              </ol>
-                              {commentEvent?.id === item.id && compose}
-                            </section>
-                          )}
-                        </EventRow>
-                      ) : item.type === 'capture' ? (
-                        <CaptureRow
-                          key={item.id}
-                          capture={item.capture}
-                          repository={repository}
-                          timeLabel={commentTime(item.capture.videoMs)}
-                          videoClock={!anchor}
-                          current={item.id === currentId}
-                          onOpen={() => setViewingCapture(item.capture)}
-                        />
-                      ) : (
-                        renderComment(item.comment)
-                      ),
                     )}
-                  </ol>
-                  {!follow && playheadMs !== null && (
+                    {videoSettings}
+                    {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
+                      <div className="review-filter review-menu">
+                        <button
+                          type="button"
+                          aria-expanded={openMenu === 'filter'}
+                          onClick={() => setOpenMenu(openMenu === 'filter' ? null : 'filter')}
+                          className={`icon-button ${filtered ? 'active' : ''}`}
+                          aria-label="Filter timeline"
+                          title="Filter timeline"
+                        >
+                          <Filter size={15} />
+                        </button>
+                        {openMenu === 'filter' && (
+                          <div className="review-filter-menu review-menu-panel">
+                            {presentKinds.map((k) => (
+                              <label key={k.kind}>
+                                <input
+                                  type="checkbox"
+                                  checked={!hidden.has(k.kind)}
+                                  onChange={() => toggle(k.kind)}
+                                />
+                                <i className={`kind-dot kind-${k.kind}`} />
+                                {k.name}
+                                <small>{entries.filter((e) => e.kind === k.kind).length}</small>
+                              </label>
+                            ))}
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={!hidden.has(commentsKey)}
+                                onChange={() => toggle(commentsKey)}
+                              />
+                              <i className="kind-dot kind-comment" />
+                              Comments
+                              <small>{comments.length}</small>
+                            </label>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={!hidden.has(capturesKey)}
+                                onChange={() => toggle(capturesKey)}
+                              />
+                              <i className="kind-dot kind-comment" />
+                              Captures
+                              <small>{captures.length}</small>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <button
-                      className="button secondary button-small review-follow"
-                      onClick={() => setFollow(true)}
+                      className="icon-button"
+                      onClick={() => showPanel(false)}
+                      aria-label="Hide timeline"
+                      title="Hide timeline"
                     >
-                      <ArrowDownToLine size={14} />
-                      Return to playhead
+                      <PanelRightClose size={15} />
                     </button>
-                  )}
-                </div>
-              )}
+                    <button
+                      className="button button-small"
+                      onClick={startComment}
+                      disabled={!controller || composing !== null || editing !== null}
+                      aria-label="Comment"
+                      title={controller ? 'Comment at the playhead' : 'Wait for the video to load'}
+                    >
+                      <MessageSquarePlus size={15} />
+                      <span className="review-comment-label">Comment</span>
+                    </button>
+                  </div>
+                </header>
+                {!owner && review && !anchor && (
+                  <p className="review-note">
+                    <Clock3 size={13} aria-hidden="true" />
+                    Events can't jump to the video until the player syncs the game clock.
+                  </p>
+                )}
+                {actionError && (
+                  <div className="notice error review-notice" role="alert">
+                    {actionError}
+                  </div>
+                )}
+                {syncing !== null && repository.setAnchor && controller && (
+                  <SyncClockPanel
+                    key={syncing}
+                    initialSeconds={syncing}
+                    liveSeconds={(playheadMs ?? syncing * 1000) / 1000}
+                    readSeconds={() => controller.currentTime()}
+                    anchor={anchor}
+                    target={pendingSeek?.ms}
+                    onClose={() => setSyncing(null)}
+                    onSave={(next) => act(() => repository.setAnchor!(next))}
+                  />
+                )}
+                {composing !== null &&
+                  (!commentEvent ||
+                    !items.some((item) => item.type === 'event' && item.id === commentEvent.id)) &&
+                  compose}
+                {state === 'loading' ? (
+                  <div className="review-empty" role="status">
+                    <LoaderCircle className="spin" size={18} />
+                    Loading the timeline…
+                  </div>
+                ) : state === 'error' ? (
+                  <div className="review-empty" role="alert">
+                    <p>{error}</p>
+                    <button className="button secondary button-small" onClick={() => void reload()}>
+                      <RefreshCw size={14} />
+                      Try again
+                    </button>
+                  </div>
+                ) : items.length === 0 ? (
+                  <div className="review-empty">
+                    {entries.length || comments.length || captures.length ? (
+                      <>
+                        <p>Everything on this timeline is hidden by the filter.</p>
+                        <button
+                          className="button secondary button-small"
+                          onClick={() => {
+                            setHidden(new Set())
+                            try {
+                              localStorage.removeItem(hiddenStorage)
+                            } catch {
+                              // Nothing saved.
+                            }
+                          }}
+                        >
+                          Reset filter
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <strong>No comments yet</strong>
+                        <p>
+                          {owner
+                            ? 'Add a comment or question at the playhead. Your coach sees it on the watch page and can reply with their own.'
+                            : 'Add a comment at the playhead. The player sees it straight away.'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="review-list-wrap">
+                    <ol
+                      className="review-list"
+                      ref={list}
+                      // The reader taking over the list stops it following the playhead.
+                      onWheel={() => playheadMs !== null && setFollow(false)}
+                      onTouchMove={() => playheadMs !== null && setFollow(false)}
+                      onKeyDown={(event) => {
+                        if (
+                          ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].includes(
+                            event.key,
+                          ) &&
+                          playheadMs !== null
+                        )
+                          setFollow(false)
+                      }}
+                    >
+                      {items.map((item) =>
+                        item.type === 'event' ? (
+                          <EventRow
+                            key={item.id}
+                            entry={item.entry}
+                            patch={patch}
+                            current={item.id === currentId}
+                            seekable={seekable(item.entry.gameTimeMs)}
+                            dim={Boolean(coverage) && !seekable(item.entry.gameTimeMs)}
+                            compact={simple}
+                            commentCount={eventComments.get(item.id)?.length ?? 0}
+                            commentDisabled={
+                              !anchor ||
+                              !controller ||
+                              !seekable(item.entry.gameTimeMs) ||
+                              editing !== null ||
+                              (composing !== null && commentEvent?.id !== item.id)
+                            }
+                            commentDisabledHint={
+                              editing !== null || composing !== null
+                                ? 'Finish your current comment first'
+                                : undefined
+                            }
+                            onComment={() => commentOnEvent(item.entry)}
+                            onSeek={() =>
+                              seekGame(item.entry.gameTimeMs, seekLeadMs(item.entry.kind))
+                            }
+                            onSeekTime={(ms, kind) => seekGame(ms, seekLeadMs(kind))}
+                          >
+                            {((eventComments.get(item.id)?.length ?? 0) > 0 ||
+                              commentEvent?.id === item.id) && (
+                              <section
+                                className="event-discussion"
+                                aria-label={`Comments on ${item.entry.label} at ${clock(item.entry.gameTimeMs)}`}
+                              >
+                                <strong>Discussion</strong>
+                                <ol>
+                                  {eventComments
+                                    .get(item.id)
+                                    ?.map((comment) => renderComment(comment, true))}
+                                </ol>
+                                {commentEvent?.id === item.id && compose}
+                              </section>
+                            )}
+                          </EventRow>
+                        ) : item.type === 'capture' ? (
+                          <CaptureRow
+                            key={item.id}
+                            capture={item.capture}
+                            repository={repository}
+                            timeLabel={commentTime(item.capture.videoMs)}
+                            videoClock={!anchor}
+                            current={item.id === currentId}
+                            onOpen={() => setViewingCapture(item.capture)}
+                          />
+                        ) : (
+                          renderComment(item.comment)
+                        ),
+                      )}
+                    </ol>
+                    {!follow && playheadMs !== null && (
+                      <button
+                        className="button secondary button-small review-follow"
+                        onClick={() => setFollow(true)}
+                      >
+                        <ArrowDownToLine size={14} />
+                        Return to playhead
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </section>
           </>
         )}

@@ -46,6 +46,7 @@ import { Home } from './components/Home'
 import { Settings } from './components/Settings'
 import { CompanionConnection } from './components/CompanionConnection'
 import { VideoReview } from './components/VideoReview'
+import { NotebookActions, useReviewNotebook } from './components/ReviewNotebook'
 import { ownerReview, sharedReview } from './lib/review'
 import { leagueRepository } from './lib/league-repository'
 import { useTheme } from './lib/theme'
@@ -1540,6 +1541,7 @@ function OwnVideo({
   const [error, setError] = useState('')
   const [share, setShare] = useState(false)
   const review = useMemo(() => (local ? null : ownerReview(id)), [id, local])
+  const notebook = useReviewNotebook(review)
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -1586,16 +1588,20 @@ function OwnVideo({
             {record.recorded_on && (
               <span className="video-date">{formatDate(record.recorded_on)}</span>
             )}
-            <button className="button button-small video-share" onClick={() => setShare(true)}>
-              <Link2 size={15} />
-              Share video
-            </button>
+            <div className="video-actions">
+              <NotebookActions notebook={notebook} />
+              <button className="button button-small" onClick={() => setShare(true)}>
+                <Link2 size={15} />
+                Share video
+              </button>
+            </div>
           </div>
           {local ? (
             <Player videoId={record.youtube_video_id!} title={record.title} />
           ) : (
             <VideoReview
               repository={review!}
+              notebook={notebook}
               league={leagueRepository}
               recordedOn={record.recorded_on}
               renderPlayer={(onController) =>
@@ -1654,6 +1660,7 @@ function Watch({ token }: { token: string }) {
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
   const review = useMemo(() => sharedReview(token), [token])
+  const notebook = useReviewNotebook(review)
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -1715,13 +1722,17 @@ function Watch({ token }: { token: string }) {
               {video.recorded_on && (
                 <span className="video-date">{formatDate(video.recorded_on)}</span>
               )}
-              <span className="watch-badge video-share">
-                <Link2 size={13} />
-                Shared with you
-              </span>
+              <div className="video-actions">
+                <NotebookActions notebook={notebook} />
+                <span className="watch-badge">
+                  <Link2 size={13} />
+                  Shared with you
+                </span>
+              </div>
             </div>
             <VideoReview
               repository={review}
+              notebook={notebook}
               renderPlayer={(onController) =>
                 video.provider === 'stream' ? (
                   <StreamPlayer

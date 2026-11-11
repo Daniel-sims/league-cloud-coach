@@ -1537,3 +1537,139 @@ body:has(.cinema-mode) .watch-main {
 .event-comment .comment-body {
   width: 100%;
 }
+
+.review-timeline-content {
+  display: contents;
+}
+.review-timeline-content[hidden] {
+  display: none;
+}
+.video-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.video-actions .watch-badge {
+  margin: 0;
+}
+.review-notebook {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.review-notebook h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.notebook-scroll {
+  padding: 0 16px 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.notebook-field {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.notebook-field textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.55;
+}
+.notebook-save-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.notebook-save-row .text-link {
+  font-size: 11px;
+}
+.notebook-complete {
+  margin-top: 16px;
+  width: 100%;
+}
+.notebook-complete-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  margin-top: 12px;
+  font-size: 12px;
+}
+.notebook-error {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.notebook-error p {
+  width: 100%;
+}
+.completed-reviews {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.completed-reviews h3 {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.completed-review {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 10px;
+}
+.completed-review > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.completed-review small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.completed-review p {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+}
+@media (max-width: 700px) {
+  .video-bar:has(.video-actions) {
+    flex-wrap: wrap;
+  }
+  .video-actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .video-actions .button-small {
+    padding: 8px;
+    gap: 5px;
+  }
+}
+
+.dialog-complete-review .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}

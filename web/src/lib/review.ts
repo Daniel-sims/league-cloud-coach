@@ -46,9 +46,25 @@ export type CommentInput = {
   event?: CommentEvent
 }
 
+export type CompletedReview = {
+  id: string
+  body: string
+  role: 'owner' | 'coach'
+  author: string | null
+  completedAt: string
+  mine: boolean
+}
+export type ReviewNotes = {
+  draft: { body: string; version: number; author: string | null } | null
+  reviews: CompletedReview[]
+}
+export type NotesInput = { body: string; version: number; complete: boolean; author?: string }
+
 /// What the review panel can do. Owner-only capabilities are absent for guests.
 export interface ReviewRepository {
   role: 'owner' | 'coach'
+  loadNotes?(): Promise<ReviewNotes | null>
+  saveNotes?(input: NotesInput): Promise<ReviewNotes>
   load(): Promise<ReviewData | null>
   addComment(input: CommentInput, authorName?: string): Promise<void>
   updateComment(id: string, input: Omit<CommentInput, 'videoMs'>): Promise<void>
@@ -64,6 +80,14 @@ export interface ReviewRepository {
 export function ownerReview(recordingId: string): ReviewRepository {
   return {
     role: 'owner',
+    loadNotes: () => rpc<ReviewNotes>('get_recording_notes', { p_id: recordingId }),
+    saveNotes: ({ body, version, complete }) =>
+      rpc<ReviewNotes>('save_recording_notes', {
+        p_id: recordingId,
+        p_body: body,
+        p_version: version,
+        p_complete: complete,
+      }),
     load: async () => {
       const [review, captures] = await Promise.all([
         rpc<ReviewData>('get_recording_review', { p_id: recordingId }),
@@ -108,6 +132,16 @@ export function sharedReview(token: string): ReviewRepository {
   const key = authorKey()
   return {
     role: 'coach',
+    loadNotes: () => rpc<ReviewNotes>('get_shared_notes', { p_token: token, p_author_key: key }),
+    saveNotes: ({ body, version, complete, author }) =>
+      rpc<ReviewNotes>('save_shared_notes', {
+        p_token: token,
+        p_author_key: key,
+        p_author_name: author,
+        p_body: body,
+        p_version: version,
+        p_complete: complete,
+      }),
     load: async () => {
       const review = await rpc<ReviewData | null>('get_shared_review', {
         p_token: token,
