@@ -24,6 +24,9 @@ Verification: 135 unit tests, production build and seven review Chrome workflows
 pass. A real-canvas pixel check verifies 50% ink alpha and its preservation
 through history actions; desktop checks verify the image exceeds 1000px at a
 1440px viewport with controls to its right. Desktop/mobile screenshots inspected.
+Release `ecc7b658f8e315518e0f390ce25de831e1800212` is deployed through the
+[successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43003092370),
+including the full browser and database suites.
 
 ## Cinema mode
 
