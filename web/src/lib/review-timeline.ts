@@ -361,7 +361,7 @@ export function buildTimeline(payload: ReviewPayload): TimelineEntry[] {
 }
 
 /// The simple timeline: every one of the player's deaths (teamfight or not)
-/// and their ultimate casts, nothing else.
+/// ultimate casts and neutral objectives, rendered as compact icons.
 export function simpleEntries(payload: ReviewPayload, anchor: ClockAnchor | null): TimelineEntry[] {
   const c = context(payload)
   const deaths = payload.kills.flatMap((kill): TimelineEntry[] => {
@@ -377,7 +377,7 @@ export function simpleEntries(payload: ReviewPayload, anchor: ClockAnchor | null
       },
     ]
   })
-  return [...deaths, ...ultimateEntries(payload, anchor)].sort(
+  return [...deaths, ...ultimateEntries(payload, anchor), ...objectiveEntries(c)].sort(
     (a, b) => a.gameTimeMs - b.gameTimeMs,
   )
 }

@@ -109,13 +109,20 @@ export function EventRow({
         </span>
         <div className="timeline-body">
           <button
-            className="timeline-icon"
+            className={`timeline-icon ${entry.objective ? (entry.objective.mine ? 'objective-ours' : 'objective-theirs') : ''}`}
             onClick={onSeek}
             disabled={!seekable}
             aria-label={`${entry.label} at ${clock(entry.gameTimeMs)}`}
             title={entry.detail ? `${entry.label} · ${entry.detail}` : entry.label}
           >
-            <Icon size={15} aria-hidden="true" />
+            {entry.objective ? (
+              <img
+                src={`${import.meta.env.BASE_URL}objectives/${entry.objective.icon}.png`}
+                alt=""
+              />
+            ) : (
+              <Icon size={15} aria-hidden="true" />
+            )}
           </button>
         </div>
       </li>

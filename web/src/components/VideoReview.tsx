@@ -559,7 +559,7 @@ export function VideoReview({
                   onClick={() => chooseDetail(value)}
                   title={
                     value === 'simple'
-                      ? 'Only your deaths and ultimate casts, as icons'
+                      ? 'Your deaths, ultimate casts and objectives, as icons'
                       : 'Fights, kills, objectives, matchups and more'
                   }
                 >

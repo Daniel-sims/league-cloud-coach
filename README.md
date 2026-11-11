@@ -46,6 +46,12 @@ There is no automatic YouTube/channel integration, match-level notes or AI analy
 
 ### Review timeline
 
+Choose **Simple** in the timeline cog for compact icons showing your deaths,
+ultimate casts and neutral objectives (dragons, Baron, Herald and grubs where
+present). Objective icons show the securing team in their tooltip and border
+colour; they seek to the exact event time. Scuttle timestamps are not available
+in the data currently stored by this app.
+
 Choose the **Cinema mode** icon in the timeline header to hide navigation, the title/share row
 and footer, leaving the video and timeline. Choose the **Exit cinema mode** icon or press
 **Escape** to return. Playback continues at the same position. This works on

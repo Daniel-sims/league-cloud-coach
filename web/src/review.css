@@ -1441,3 +1441,15 @@ body:has(.cinema-mode) .watch-main {
     border-top: 1px solid var(--line);
   }
 }
+
+.timeline-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+.timeline-icon.objective-ours {
+  border-color: var(--ahead);
+}
+.timeline-icon.objective-theirs {
+  border-color: var(--behind);
+}

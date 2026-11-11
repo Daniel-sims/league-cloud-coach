@@ -2,6 +2,20 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Objectives in Simple timeline
+
+Simple now includes neutral-objective events alongside the player's deaths and
+ultimate casts. It reuses the stored objective data and bundled monster icons
+(dragon variants, Baron, Herald, grubs and Atakhan where present), with a team
+border colour and full event/team/time accessibility label. Rows stay compact;
+no objective cards are shown in Simple. Objectives respect the existing filter
+and seek exactly, preserving the five-second lead only for deaths/ultimates.
+Scuttle timestamps are not available from the currently stored reduced payload;
+no jungle-CS inference or synthetic events are added. No backend/native changes.
+Validation: 135 unit tests, production build and nine review Chrome workflows
+pass, including objective icon assets, allied/enemy labels, exact objective seeking
+and filtering in Simple for both owner and shared-viewer routes. Screenshot inspected.
+
 ## Timeline controls and larger drawing editor
 
 Current control placement supersedes the older Video tools placement below:

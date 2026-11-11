@@ -125,11 +125,28 @@ it('gives objectives an icon, taker and running count per team', () => {
   expect(entries[1].objective?.killer).toBeUndefined()
 })
 
-it('keeps the simple timeline to the player’s deaths and ultimate casts', () => {
+it('keeps the simple timeline to deaths, ultimate casts and objective icons', () => {
   const payload = reviewPayload()
   const simple = simpleEntries(payload, null)
   const deaths = payload.kills.filter((k) => k.victim === payload.playerId)
-  expect(simple.length).toBe(deaths.length)
-  expect(simple.every((e) => e.kind === 'death' || e.kind === 'ultimate')).toBe(true)
-  expect(simple.every((e) => !e.fight && !e.objective)).toBe(true)
+  expect(simple.length).toBe(deaths.length + payload.monsters.length)
+  expect(
+    simple.every((e) => e.kind === 'death' || e.kind === 'ultimate' || e.kind === 'objective'),
+  ).toBe(true)
+  expect(simple.every((e) => !e.fight && !e.matchup)).toBe(true)
+  expect(simple.find((e) => e.kind === 'objective')?.objective?.icon).toBe('dragon_infernal')
+  payload.monsters.push(
+    { t: 750000, killer: 7, team: 200, assists: [], type: 'BARON_NASHOR', subType: null },
+    { t: 900000, killer: 2, team: 100, assists: [], type: 'RIFTHERALD', subType: null },
+    { t: 300000, killer: 2, team: 100, assists: [], type: 'HORDE', subType: null },
+  )
+  const objectives = simpleEntries(payload, null).filter((e) => e.kind === 'objective')
+  expect(objectives.map((e) => e.objective?.icon)).toEqual([
+    'grub',
+    'dragon_infernal',
+    'baron',
+    'riftherald',
+  ])
+  expect(objectives[2].label).toBe('Baron Nashor taken by the enemy team')
+  expect(objectives[2].objective?.mine).toBe(false)
 })

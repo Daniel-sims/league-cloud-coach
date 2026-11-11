@@ -867,3 +867,53 @@ for (const owner of [true, false]) {
     await expect(page.locator(owner ? '.topbar' : '.watch-header')).toBeVisible()
   })
 }
+
+for (const owner of [true, false]) {
+  test(`simple objective icons seek exactly for ${owner ? 'owners' : 'shared viewers'}`, async ({
+    page,
+  }, testInfo) => {
+    const payload = reviewPayload()
+    payload.monsters.push({
+      t: 750000,
+      killer: 7,
+      team: 200,
+      assists: [],
+      type: 'BARON_NASHOR',
+      subType: null,
+    })
+    const state: State = {
+      review: payload,
+      anchor: { gameTimeSeconds: 720, videoOffsetSeconds: 30 },
+      comments: [],
+      calls: [],
+    }
+    await mock(page.context(), state, owner)
+    if (owner) await signIn(page.context())
+    await page.goto(owner ? `/#/video/${recordingId}` : `/#/watch/${token}`)
+    if (!owner) await page.getByRole('button', { name: 'Start session' }).click()
+    const video = await seekVideo(page, 'Ranked mid review', 10)
+    await page.getByLabel(/Video settings/).click()
+    await page.getByRole('radio', { name: 'Simple', exact: true }).click()
+    await page.keyboard.press('Escape')
+    const panel = page.getByRole('region', { name: 'Review timeline' })
+    await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(2)
+    await expect(panel.locator('.objective-card, .matchup-card')).toHaveCount(0)
+    const dragon = panel.getByRole('button', { name: 'Infernal Drake taken by your team at 12:00' })
+    const baron = panel.getByRole('button', {
+      name: 'Baron Nashor taken by the enemy team at 12:30',
+    })
+    await expect(dragon.locator('img')).toHaveAttribute('src', /dragon_infernal.png$/)
+    await expect(baron.locator('img')).toHaveAttribute('src', /baron.png$/)
+    await dragon.click()
+    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(30)
+    await baron.click()
+    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(60)
+    await page.getByLabel('Filter timeline', { exact: true }).click()
+    await panel.getByRole('checkbox', { name: /Objectives/ }).uncheck()
+    await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(0)
+    await panel.getByRole('checkbox', { name: /Objectives/ }).check()
+    await page.keyboard.press('Escape')
+    await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(2)
+    await page.screenshot({ path: testInfo.outputPath('simple-objectives.png') })
+  })
+}
