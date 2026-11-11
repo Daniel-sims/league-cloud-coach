@@ -17,7 +17,9 @@ Draw remains available when the timeline is collapsed. The D shortcut remains.
 Verification: all 134 unit tests, production build and five review Chrome
 workflows pass. Narrow desktop/mobile menu bounds and pointer hits, outside
 clicks, Escape, owner/guest drawing and switching menus are covered. Screenshots
-inspected. Live browser-native menu customization is not implemented.
+inspected. Release `bb63ebe85bed38762a4ab31bbd39b404b4f8821a` is deployed through
+the [successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42998607596).
+Browser-native menu customization is not implemented.
 
 ## Compact video review layout
 
