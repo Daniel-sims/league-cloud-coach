@@ -254,7 +254,7 @@ export function VideoReview({
   }
 
   // The video is as large as fits below the page heading with its controls in
-  // view; CSS reads these two measurements.
+  // view; preserve the recording’s actual proportions rather than adding side bars.
   useLayoutEffect(() => {
     const box = container.current
     if (!box) return
@@ -263,6 +263,12 @@ export function VideoReview({
       const wrap = box.querySelector<HTMLElement>('.player-wrap')
       const stage = box.querySelector<HTMLElement>('.player-stage')
       const chrome = wrap && stage && !stage.hidden ? wrap.offsetHeight - stage.offsetHeight : 0
+      const media = box.querySelector('video')
+      const aspect =
+        media && media.videoWidth > 0 && media.videoHeight > 0
+          ? media.videoWidth / media.videoHeight
+          : 16 / 9
+      box.style.setProperty('--review-aspect', `${aspect}`)
       box.style.setProperty('--review-top', `${Math.round(top)}px`)
       box.style.setProperty('--review-chrome', `${Math.max(0, chrome)}px`)
     }
@@ -271,6 +277,8 @@ export function VideoReview({
     observer?.observe(box)
     const wrap = box.querySelector('.review-video')
     if (wrap) observer?.observe(wrap)
+    const player = box.querySelector('.player-wrap')
+    if (player) observer?.observe(player)
     window.addEventListener('resize', measure)
     return () => {
       observer?.disconnect()

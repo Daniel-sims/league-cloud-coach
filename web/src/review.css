@@ -51,7 +51,7 @@
   border-radius: 0;
   background: #000;
 }
-/* The largest 16:9 video that fits below the page heading with its controls
+/* The largest video that fits below the page heading with its controls
    in view, centred in whatever width the timeline leaves. */
 .review-video .player-wrap {
   width: 100%;
@@ -59,9 +59,12 @@
 .review-video .review-player {
   position: relative;
   width: 100%;
-  max-width: max(
-    480px,
-    calc((100dvh - var(--review-top, 220px) - var(--review-chrome, 0px) - 24px) * 16 / 9)
+  max-width: min(
+    100%,
+    calc(
+      (100dvh - var(--review-top, 220px) - var(--review-chrome, 0px) - 24px) *
+        var(--review-aspect, 1.77777778)
+    )
   );
   margin: 0 auto;
 }
@@ -1284,7 +1287,10 @@ body:has(.cinema-mode) .watch-main {
 }
 .cinema-mode .review-video .review-player {
   width: 100%;
-  max-width: min(100%, calc((100dvh - var(--review-chrome, 0px)) * 16 / 9));
+  max-width: min(
+    100%,
+    calc((100dvh - var(--review-chrome, 0px)) * var(--review-aspect, 1.77777778))
+  );
   margin: auto;
 }
 .cinema-mode .player-stage {

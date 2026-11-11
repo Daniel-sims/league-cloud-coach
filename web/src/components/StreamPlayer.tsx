@@ -33,6 +33,7 @@ export function StreamPlayer({
   const [stopped, setStopped] = useState(false)
   const [canSeek, setCanSeek] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [aspectRatio, setAspectRatio] = useState(16 / 9)
   // Once a frame has been shown, later buffering holds it under a spinner.
   const [hasFrame, setHasFrame] = useState(false)
   // Every seek fires `waiting`, even ones that resolve in a few frames;
@@ -75,6 +76,10 @@ export function StreamPlayer({
     })
     return () => onController(null)
   }, [canSeek, onController])
+  function readAspectRatio(media: HTMLVideoElement) {
+    if (media.videoWidth > 0 && media.videoHeight > 0)
+      setAspectRatio(media.videoWidth / media.videoHeight)
+  }
   function seek(delta: number) {
     const media = video.current
     if (
@@ -244,7 +249,7 @@ export function StreamPlayer({
         </div>
       ) : (
         <>
-          <div className="player-stage" hidden={stopped}>
+          <div className="player-stage" hidden={stopped} style={{ aspectRatio }}>
             <video
               ref={video}
               crossOrigin="anonymous"
@@ -252,11 +257,13 @@ export function StreamPlayer({
               playsInline
               preload="auto"
               aria-label={title}
-              onLoadedMetadata={(event) =>
+              onResize={(event) => readAspectRatio(event.currentTarget)}
+              onLoadedMetadata={(event) => {
+                readAspectRatio(event.currentTarget)
                 setCanSeek(
                   Number.isFinite(event.currentTarget.duration) && event.currentTarget.duration > 0,
                 )
-              }
+              }}
               onLoadedData={() => setHasFrame(true)}
               onEmptied={() => {
                 setHasFrame(false)

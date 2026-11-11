@@ -2,6 +2,16 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Intrinsic recording proportions
+
+Stream players use decoded video dimensions instead of forcing every capture into
+16:9. The review width cap uses the same aspect ratio, fitting the largest complete
+image inside the available desktop/cinema width and height and centring it in
+both directions. Video metadata/resolution changes update the fit; audio-only
+fixtures and YouTube retain the 16:9 fallback. No cropping or stretching.
+Validation: 138 unit tests, production build and twelve review browser workflows
+pass, including fitting and centring a non-16:9 capture. Frontend-only change.
+
 ## Text-only recalls and a centred, plain player
 
 Recall-category rows now show only their text label; purchased items, resulting

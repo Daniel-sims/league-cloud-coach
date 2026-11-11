@@ -654,6 +654,26 @@ test('desktop timeline fills the available window independently of the video hei
     path: testInfo.outputPath('review-tall-timeline-desktop.png'),
     fullPage: true,
   })
+  // A taller game-window capture fills its own aspect ratio without side bars.
+  await video.evaluate((media: HTMLVideoElement) => {
+    Object.defineProperty(media, 'videoWidth', { value: 1500, configurable: true })
+    Object.defineProperty(media, 'videoHeight', { value: 1000, configurable: true })
+    media.dispatchEvent(new Event('resize'))
+  })
+  await expect
+    .poll(async () => {
+      const bounds = (await page.locator('.player-stage').boundingBox())!
+      return Math.abs(bounds.width / bounds.height - 1.5)
+    })
+    .toBeLessThan(0.01)
+  const fitted = (await wrap.boundingBox())!
+  const column = (await page.locator('.review-video').boundingBox())!
+  expect(Math.abs(fitted.y + fitted.height / 2 - (column.y + column.height / 2))).toBeLessThan(2)
+  expect(Math.abs(fitted.x + fitted.width / 2 - (column.x + column.width / 2))).toBeLessThan(2)
+  expect(
+    Math.min(Math.abs(fitted.height - column.height), Math.abs(fitted.width - column.width)),
+  ).toBeLessThan(2)
+  await page.screenshot({ path: testInfo.outputPath('review-intrinsic-aspect.png') })
   await page.evaluate(() => localStorage.setItem('league-cloud-coach-timeline-width', '300'))
   await page.reload()
   await seekVideo(page, 'Ranked mid review', 30)
