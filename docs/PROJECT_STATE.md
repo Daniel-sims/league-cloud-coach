@@ -33,6 +33,10 @@ completion. Queue-order and failed-autosave unit tests pass. All ten permission
 suites pass against an isolated PostgreSQL 16 database; CI runs them on 17.
 Desktop/mobile notes and finish-dialog screenshots inspected. Browser backend
 contracts are simulated; no real review content was added during testing.
+Release `629dc3a48f5df3a964a1de3f25493a9f9a5446ee` is pushed and deployed
+through the [successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43018810286),
+including the full browser suite and all ten PostgreSQL 17 permission suites.
+Remote migration listing confirms local/remote parity.
 
 ## Event-linked discussions
 
