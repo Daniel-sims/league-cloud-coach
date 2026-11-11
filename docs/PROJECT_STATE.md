@@ -15,6 +15,9 @@ Draw stays attached to the player's top-left corner as its position changes.
 Validation: 138 unit tests, production build and twelve review Chrome workflows
 pass, including text-only recalls, centred player geometry, stage styling and
 existing cinema/mobile behavior. Frontend only; no backend or native changes.
+Release `04c81ca9a7cc0c4944f1cc2b93de54bfab1dc52a` is pushed and deployed through
+[successful CI/Pages verification](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43064359044),
+including the full browser and database permission suites.
 
 ## Named events, context comments and independent filters
 
