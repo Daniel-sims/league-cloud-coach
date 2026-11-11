@@ -24,7 +24,10 @@ Validation: 138 unit tests, production build and twelve review Chrome workflows
 pass. Browser checks cover named icons, right-click commenting for player/coach,
 keyboard menu/focus behavior, viewport bounds, independent persisted Teamfights
 filtering, and one visible notes entry point per viewing mode. Screenshots
-inspected. Frontend only; no database or native changes.
+inspected. Frontend only; no database or native changes. Release
+`246bd4966b8974a11a85c71ef62111d322180956` is pushed and deployed through the
+[successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43061617208),
+including the full browser and PostgreSQL permission suites.
 
 ## Running notes and review completion
 
