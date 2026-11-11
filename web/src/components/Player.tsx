@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, LoaderCircle, VideoOff } from 'lucide-react'
 import { isVideoId, youtubeURL } from '../lib/youtube'
-import { SeekControls, seekPosition, seekWithKeyboard } from './SeekControls'
+import { SeekControls, seekPosition, seekWithKeyboard, useSeekKeys } from './SeekControls'
 import type { PlayerController } from '../lib/player'
 
 type PlayerInstance = {
@@ -75,6 +75,7 @@ export function Player({
     player.seekTo(seekPosition(position, delta, duration), true)
     return true
   }
+  useSeekKeys(seek)
   useEffect(() => {
     if (!isVideoId(videoId)) return
     let disposed = false

@@ -1,5 +1,5 @@
 import { Pause, Play } from 'lucide-react'
-import type { KeyboardEvent } from 'react'
+import { useEffect, useRef, type KeyboardEvent } from 'react'
 
 type Modifiers = { ctrlKey: boolean; shiftKey: boolean }
 export const jumpSeconds = ({ ctrlKey, shiftKey }: Modifiers) => (ctrlKey ? 30 : shiftKey ? 10 : 1)
@@ -25,6 +25,35 @@ export function seekWithKeyboard(
   if (!seek((event.key === 'ArrowLeft' ? -1 : 1) * jumpSeconds(event))) return
   event.preventDefault()
   event.stopPropagation()
+}
+
+/**
+ * Arrow-key seeking that doesn't depend on focus being inside the player: a
+ * page-level listener, so it works as soon as the page is open. Keys already
+ * claimed (the player's own capture handler, a dialog, a field) are left alone.
+ */
+export function useSeekKeys(seek: (delta: number) => boolean) {
+  const latest = useRef(seek)
+  latest.current = seek
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.metaKey || event.isComposing) return
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest(
+            'input, textarea, select, [contenteditable], [role="textbox"], [role="slider"], dialog[open]',
+          ))
+      )
+        return
+      if (!latest.current((event.key === 'ArrowLeft' ? -1 : 1) * jumpSeconds(event))) return
+      event.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 }
 
 const steps = [-30, -15, -1, 1, 15, 30]

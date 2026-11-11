@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type Hls from 'hls.js'
 import { LoaderCircle } from 'lucide-react'
-import { SeekControls, seekPosition, seekWithKeyboard } from './SeekControls'
+import { SeekControls, seekPosition, seekWithKeyboard, useSeekKeys } from './SeekControls'
 import {
   streamRequest,
   StreamAccessError,
@@ -31,6 +31,8 @@ export function StreamPlayer({
   const [stopped, setStopped] = useState(false)
   const [canSeek, setCanSeek] = useState(false)
   const [playing, setPlaying] = useState(false)
+  // Once a frame has been shown, later buffering holds it under a spinner.
+  const [hasFrame, setHasFrame] = useState(false)
   useEffect(() => {
     const media = video.current
     if (!onController) return
@@ -78,6 +80,7 @@ export function StreamPlayer({
     media.currentTime = seekPosition(media.currentTime, delta, media.duration)
     return true
   }
+  useSeekKeys(seek)
   useEffect(() => {
     if (!started) return
     let disposed = false
@@ -234,7 +237,9 @@ export function StreamPlayer({
                   Number.isFinite(event.currentTarget.duration) && event.currentTarget.duration > 0,
                 )
               }
+              onLoadedData={() => setHasFrame(true)}
               onEmptied={() => {
+                setHasFrame(false)
                 setCanSeek(false)
                 setPlaying(false)
               }}
@@ -255,9 +260,9 @@ export function StreamPlayer({
               }}
             />
             {loading && !stopped && (
-              <div className="player-loading" role="status">
+              <div className={`player-loading${hasFrame ? ' over-video' : ''}`} role="status">
                 <LoaderCircle className="spin" size={26} aria-hidden="true" />
-                <span>Loading video…</span>
+                <span className={hasFrame ? 'sr-only' : undefined}>Loading video…</span>
               </div>
             )}
           </div>

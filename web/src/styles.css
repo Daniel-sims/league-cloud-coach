@@ -1202,6 +1202,9 @@ strong {
   pointer-events: none;
   background: #1c241f;
 }
+.player-loading.over-video {
+  background: rgba(0, 0, 0, 0.35);
+}
 .player-error {
   position: absolute;
   inset: 0;

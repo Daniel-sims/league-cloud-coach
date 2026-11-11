@@ -174,6 +174,21 @@ it('seeks by 1, 10 or 30 seconds in both directions and overrides native arrow d
   fireEvent.keyDown(media, { key: 'ArrowRight', ctrlKey: true })
   expect(media.currentTime).toBe(180)
 })
+it('seeks from arrow keys pressed anywhere on the page and holds the frame while buffering', async () => {
+  await start()
+  const media = screen.getByLabelText('Private game') as HTMLVideoElement
+  Object.defineProperty(media, 'duration', { configurable: true, value: 180 })
+  Object.defineProperty(media, 'readyState', { configurable: true, value: 1 })
+  fireEvent.loadedMetadata(media)
+  media.currentTime = 90
+  fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+  expect(media.currentTime).toBe(91)
+  fireEvent.loadedData(media)
+  fireEvent.waiting(media)
+  const status = screen.getByRole('status')
+  expect(status).toHaveClass('over-video')
+  expect(status.querySelector('span')).toHaveClass('sr-only')
+})
 it('leaves unready media alone and accepts seek shortcuts from the visible seek buttons', async () => {
   await start()
   const media = screen.getByLabelText('Private game') as HTMLVideoElement
