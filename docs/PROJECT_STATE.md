@@ -26,7 +26,9 @@ Settings and Filter dropdowns anchor to the full timeline header with an 8px
 inset on both sides, rather than aligning their right edge to the toolbar icon.
 This keeps their content inside the panel at its 300px minimum width. The header
 uses tighter spacing, and long menu text wraps with bounded vertical scrolling.
-Collapsed-timeline settings retain their separate dropdown. The production build
+Collapsed-timeline settings retain their separate dropdown. Settings and Filter
+share a native exclusive details group, so opening either closes the other.
+Desktop and mobile browser checks cover switching menus in both directions. The production build
 and all five review Chrome workflows pass; regression assertions check menu bounds
 and pointer hits at both edges on narrow desktop and mobile. Both screenshots
 were inspected. No backend or native changes.

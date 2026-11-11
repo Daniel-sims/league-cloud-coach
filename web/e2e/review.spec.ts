@@ -479,6 +479,20 @@ async function expectHeaderMenuFits(page: Page, label: RegExp) {
   await toggle.click()
 }
 
+async function expectOneHeaderMenu(page: Page) {
+  const panel = page.getByRole('region', { name: 'Review timeline' })
+  const settings = panel.getByLabel(/Video settings/)
+  const filter = panel.getByLabel(/Filter timeline/)
+  await settings.click()
+  await filter.click()
+  await expect(panel.locator('details[open]')).toHaveCount(1)
+  await expect(panel.locator('.review-settings-menu')).toBeHidden()
+  await settings.click()
+  await expect(panel.locator('details[open]')).toHaveCount(1)
+  await expect(panel.locator('.review-settings-menu')).toBeVisible()
+  await settings.click()
+}
+
 test('desktop timeline fills the available window independently of the video height', async ({
   page,
 }, testInfo) => {
@@ -522,6 +536,7 @@ test('desktop timeline fills the available window independently of the video hei
   await seekVideo(page, 'Ranked mid review', 30)
   await expectHeaderMenuFits(page, /Video settings/)
   await expectHeaderMenuFits(page, /Filter timeline/)
+  await expectOneHeaderMenu(page)
   await timeline.getByLabel(/Video settings/).click()
   await page.screenshot({ path: testInfo.outputPath('settings-narrow-desktop.png') })
   await timeline.getByLabel(/Video settings/).click()
@@ -542,6 +557,7 @@ test('desktop timeline fills the available window independently of the video hei
   )
   await expectHeaderMenuFits(page, /Video settings/)
   await expectHeaderMenuFits(page, /Filter timeline/)
+  await expectOneHeaderMenu(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await timeline.getByLabel(/Video settings/).click()
   await page.screenshot({ path: testInfo.outputPath('settings-mobile.png') })

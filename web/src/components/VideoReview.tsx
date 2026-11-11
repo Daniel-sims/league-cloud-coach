@@ -113,6 +113,7 @@ export function VideoReview({
   recordedOn?: string | null
   renderPlayer(onController: (controller: PlayerController | null) => void): ReactNode
 }) {
+  const menuGroup = useId()
   const owner = repository.role === 'owner'
   const [controller, setController] = useState<PlayerController | null>(null)
   const [data, setData] = useState<ReviewData | null>(null)
@@ -460,7 +461,7 @@ export function VideoReview({
   const needsSetup = owner && (!review || !anchor)
   const closeSettings = () => settingsMenu.current?.removeAttribute('open')
   const videoSettings = data && (
-    <details className="review-filter" ref={settingsMenu}>
+    <details className="review-filter" name={menuGroup} ref={settingsMenu}>
       <summary
         className={`icon-button ${needsSetup ? 'attention' : ''}`}
         aria-label={needsSetup ? 'Video settings (setup needed)' : 'Video settings'}
@@ -559,7 +560,7 @@ export function VideoReview({
                 </div>
                 <div className="review-tools">
                   {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
-                    <details className="review-filter">
+                    <details className="review-filter" name={menuGroup}>
                       <summary
                         className={`icon-button ${filtered ? 'active' : ''}`}
                         aria-label="Filter timeline"
