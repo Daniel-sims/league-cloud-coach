@@ -25,7 +25,9 @@ the collapsed sidebar preference, and no horizontal overflow. Desktop/mobile
 screenshots inspected. Release `866c57142fbdc0c090f9570e6cc45c9ac6c948ba` is deployed
 through the [successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43000286626),
 including the full browser and database permission suites. No backend or native
-changes.
+changes. The edge-to-edge refinement is deployed as
+`db69bfc0695a7b26980c952ef7628cc682fb0a71` through the
+[successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43001858851).
 
 ## Video tools location and dropdown behavior
 
