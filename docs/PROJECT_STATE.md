@@ -56,6 +56,10 @@ Current control placement supersedes the older Video tools placement below:
 the settings cog and cinema toggle live in the timeline header, including
 Exit cinema mode. Draw sits at the upper-left of the video, clear of the in-game
 clock at the upper-right (12px inset on desktop; 8px on mobile).
+The Draw position change is deployed as `bb61dcb4048c9d24e717d5f3823010c277f63818`
+through the [successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43013721906).
+The production build and four affected local drawing/cinema workflows pass;
+the full CI checks also pass.
 Collapsed timelines keep the settings/cinema controls beside the reopen rail.
 Narrow panels use an icon-only Comment action with an accessible name. Settings
 and Filter retain shared state and full-panel dropdown alignment. Preserve the
