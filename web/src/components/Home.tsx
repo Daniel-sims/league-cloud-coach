@@ -877,10 +877,10 @@ function RankCard({ rank }: { rank: Rank }) {
       <span className="eyebrow">{solo ? 'RANKED SOLO/DUO' : 'RANKED FLEX'}</span>
       <div className="league-rank-body">
         <img
-          src={`https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-${rank.tier.toLowerCase()}.png`}
+          src={`https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/${rank.tier.toLowerCase()}.png`}
           alt=""
-          width={72}
-          height={72}
+          width={64}
+          height={64}
           onError={(e) => {
             e.currentTarget.style.visibility = 'hidden'
           }}
@@ -966,6 +966,10 @@ function MatchRow({ game: g }: { game: Game }) {
             {p.kills} / <b>{p.deaths}</b> / {p.assists}
           </strong>
           <small>{kda(p)} KDA</small>
+          <small>
+            {percent(teamKills ? (p.kills + p.assists) / teamKills : null)} KP ·{' '}
+            {number(cs(p) / Math.max(g.gameDuration / 60, 1))} CS/m
+          </small>
         </div>
         <ItemBuild player={p} version={g.gameVersion} size={26} />
         {g.opponent ? (
