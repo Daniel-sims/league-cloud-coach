@@ -17,7 +17,10 @@ Verification: 134 unit tests, production build and seven review Chrome workflows
 pass, including owner/shared cinema views, unchanged media element/position,
 menu/dialog Escape handling, exit button/focus, hidden mobile navigation with
 the collapsed sidebar preference, and no horizontal overflow. Desktop/mobile
-screenshots inspected. No backend or native changes.
+screenshots inspected. Release `866c57142fbdc0c090f9570e6cc45c9ac6c948ba` is deployed
+through the [successful CI/Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/43000286626),
+including the full browser and database permission suites. No backend or native
+changes.
 
 ## Video tools location and dropdown behavior
 
