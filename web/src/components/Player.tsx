@@ -75,7 +75,13 @@ export function Player({
     player.seekTo(seekPosition(position, delta, duration), true)
     return true
   }
-  useSeekKeys(seek)
+  function togglePlay() {
+    const player = instance.current
+    if (state !== 'ready' || !player) return
+    if (playing) player.pauseVideo()
+    else player.playVideo()
+  }
+  useSeekKeys(seek, togglePlay)
   useEffect(() => {
     if (!isVideoId(videoId)) return
     let disposed = false
@@ -174,12 +180,7 @@ export function Player({
         seek={seek}
         disabled={state !== 'ready'}
         playing={playing}
-        onTogglePlay={() => {
-          const player = instance.current
-          if (state !== 'ready' || !player) return
-          if (playing) player.pauseVideo()
-          else player.playVideo()
-        }}
+        onTogglePlay={togglePlay}
       />
       <a
         className="text-link player-external"

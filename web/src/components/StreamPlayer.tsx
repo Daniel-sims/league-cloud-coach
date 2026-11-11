@@ -80,7 +80,13 @@ export function StreamPlayer({
     media.currentTime = seekPosition(media.currentTime, delta, media.duration)
     return true
   }
-  useSeekKeys(seek)
+  function togglePlay() {
+    const media = video.current
+    if (!media || !canSeek || stopped) return
+    if (media.paused) void media.play().catch(() => {})
+    else media.pause()
+  }
+  useSeekKeys(seek, togglePlay)
   useEffect(() => {
     if (!started) return
     let disposed = false
@@ -271,12 +277,7 @@ export function StreamPlayer({
               seek={seek}
               disabled={!canSeek}
               playing={playing}
-              onTogglePlay={() => {
-                const media = video.current
-                if (!media) return
-                if (media.paused) void media.play().catch(() => {})
-                else media.pause()
-              }}
+              onTogglePlay={togglePlay}
             />
           )}
           {!stopped && remaining !== null && (
