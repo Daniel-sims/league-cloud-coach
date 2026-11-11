@@ -8,6 +8,7 @@ import {
   type FightCard,
   type ItemStack,
   type MatchupCard,
+  type ObjectiveCard,
   type TimelineEntry,
 } from '../lib/review-timeline'
 import {
@@ -121,6 +122,8 @@ export function EventRow({
         </button>
         {entry.matchup ? (
           <Matchup card={entry.matchup} />
+        ) : entry.objective ? (
+          <Objective card={entry.objective} />
         ) : (
           <>
             {entry.items && entry.items.length > 0 && <Items stacks={entry.items} patch={patch} />}
@@ -227,6 +230,45 @@ function Fight({
           <UserX size={13} aria-hidden="true" />
           {card.absence?.label ?? "You weren't credited in this fight"}
         </p>
+      )}
+    </div>
+  )
+}
+
+function Objective({ card }: { card: ObjectiveCard }) {
+  const base = import.meta.env.BASE_URL
+  const who = (p: NonNullable<ObjectiveCard['killer']>) => (
+    <span
+      key={`${p.name}-${p.isPlayer}`}
+      className={`fight-champion ${p.isPlayer ? 'player' : ''}`}
+      title={p.name + (p.isPlayer ? ' (you)' : '')}
+    >
+      {p.championId ? <img src={championIcon(p.championId)} alt={p.name} loading="lazy" /> : p.name}
+    </span>
+  )
+  return (
+    <div className={`timeline-card objective-card ${card.mine ? 'ours' : 'theirs'}`}>
+      <img className="objective-icon" src={`${base}objectives/${card.icon}.png`} alt="" />
+      <div className="objective-text">
+        <strong>{card.name}</strong>
+        <small>{card.mine ? 'Your team' : 'Enemy team'}</small>
+        {card.tally && <span className="objective-tally">{card.tally}</span>}
+      </div>
+      {(card.killer || card.assists.length > 0) && (
+        <div className="objective-people">
+          {card.killer && (
+            <span>
+              <small>Secured</small>
+              {who(card.killer)}
+            </span>
+          )}
+          {card.assists.length > 0 && (
+            <span>
+              <small>Assists</small>
+              {card.assists.map(who)}
+            </span>
+          )}
+        </div>
       )}
     </div>
   )

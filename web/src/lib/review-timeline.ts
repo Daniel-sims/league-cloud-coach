@@ -130,6 +130,19 @@ export type TimelineEntry = {
   inventoryAfter?: ItemStack[]
   fight?: FightCard
   matchup?: MatchupCard
+  objective?: ObjectiveCard
+}
+
+/// An objective takedown: which monster, who got it and who helped, and how
+/// many of that kind the team now holds.
+export type ObjectiveCard = {
+  icon: string
+  name: string
+  mine: boolean
+  killer?: { name: string; championId?: number; isPlayer: boolean }
+  assists: { name: string; championId?: number; isPlayer: boolean }[]
+  /// "2nd Dragon" - a running count per team for dragons, grubs and heralds.
+  tally?: string
 }
 
 // MARK: - Clock anchor (Domain/Recording/GameClockAnchor.swift)
@@ -343,12 +356,7 @@ export function buildTimeline(payload: ReviewPayload): TimelineEntry[] {
     }),
     ...recallEntries(c),
     ...matchupEntries(c),
-    ...payload.monsters.map((m): TimelineEntry => ({
-      id: `objective-${m.t}`,
-      gameTimeMs: m.t,
-      kind: 'objective',
-      label: `${monsterName(m.type, m.subType)} taken by ${m.team === team(c.player) ? 'your team' : 'the enemy team'}`,
-    })),
+    ...objectiveEntries(c),
   ].sort((a, b) => a.gameTimeMs - b.gameTimeMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
@@ -725,6 +733,66 @@ function matchupEntries(c: Context): TimelineEntry[] {
       },
     ]
   })
+}
+
+const ordinal = (n: number) =>
+  `${n}${['th', 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : Math.min(n % 10, 4) % 4]}`
+
+/// Minimap icons, bundled under public/objectives.
+export function monsterIcon(type: string, subType: string | null) {
+  if (type === 'DRAGON')
+    return (
+      {
+        AIR_DRAGON: 'dragon_cloud',
+        EARTH_DRAGON: 'dragon_mountain',
+        FIRE_DRAGON: 'dragon_infernal',
+        WATER_DRAGON: 'dragon_ocean',
+        HEXTECH_DRAGON: 'dragon_hextech',
+        CHEMTECH_DRAGON: 'dragon_chemtech',
+        ELDER_DRAGON: 'dragon_elder',
+      }[subType ?? ''] ?? 'dragon'
+    )
+  return (
+    { RIFTHERALD: 'riftherald', BARON_NASHOR: 'baron', HORDE: 'grub', ATAKHAN: 'atakhan_r' }[
+      type
+    ] ?? null
+  )
+}
+
+function objectiveEntries(c: Context): TimelineEntry[] {
+  const mine = team(c.player)
+  const counts = new Map<string, number>()
+  const person = (id: number) =>
+    id > 0 && c.payload.participants.some((x) => x.id === id)
+      ? { name: c.name(id), championId: c.championId(id), isPlayer: id === c.player }
+      : undefined
+  return [...c.payload.monsters]
+    .sort((a, b) => a.t - b.t)
+    .map((m): TimelineEntry => {
+      const ours = m.team === mine
+      const name = monsterName(m.type, m.subType)
+      const countable = m.type === 'DRAGON' || m.type === 'RIFTHERALD' || m.type === 'HORDE'
+      const family = m.type === 'DRAGON' ? 'Dragon' : name
+      const key = `${m.team}-${m.type}`
+      const n = (counts.get(key) ?? 0) + 1
+      counts.set(key, n)
+      return {
+        id: `objective-${m.t}`,
+        gameTimeMs: m.t,
+        kind: 'objective',
+        label: `${name} taken by ${ours ? 'your team' : 'the enemy team'}`,
+        objective: {
+          icon: monsterIcon(m.type, m.subType) ?? 'dragon',
+          name,
+          mine: ours,
+          killer: person(m.killer),
+          assists: m.assists.flatMap((id) => person(id) ?? []),
+          tally: countable
+            ? `${ordinal(n)} ${family} for ${ours ? 'your team' : 'them'}`
+            : undefined,
+        },
+      }
+    })
 }
 
 export function monsterName(type: string, subType: string | null) {

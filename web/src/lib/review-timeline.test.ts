@@ -103,3 +103,23 @@ it('omits lane-opponent rows when the opponent is unknown', () => {
   const kinds = new Set(buildTimeline(payload).map((e) => e.kind))
   expect(kinds.has('matchup')).toBe(false)
 })
+
+it('gives objectives an icon, taker and running count per team', () => {
+  const payload = reviewPayload()
+  const dragon = (t: number, killer: number, subType: string) => ({
+    t,
+    killer,
+    team: 100,
+    assists: [],
+    type: 'DRAGON',
+    subType,
+  })
+  const entries = buildTimeline({
+    ...payload,
+    monsters: [dragon(300000, payload.playerId, 'WATER_DRAGON'), dragon(600000, 0, 'FIRE_DRAGON')],
+  }).filter((e) => e.kind === 'objective')
+  expect(entries[0].objective?.icon).toBe('dragon_ocean')
+  expect(entries[1].objective?.icon).toBe('dragon_infernal')
+  expect(entries[1].objective?.tally).toMatch(/^2nd Dragon/)
+  expect(entries[1].objective?.killer).toBeUndefined()
+})
