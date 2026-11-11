@@ -83,7 +83,12 @@ const raw = {
             assistingParticipantIds: [7, 99],
             position: { x: 7100, y: 7200 },
             victimDamageReceived: [
-              { type: "TOWER", physicalDamage: 300, magicDamage: 0, trueDamage: 20 },
+              {
+                type: "TOWER",
+                physicalDamage: 300,
+                magicDamage: 0,
+                trueDamage: 20,
+              },
               { type: "OTHER", participantId: 8, magicDamage: 400 },
             ],
           },
@@ -116,28 +121,57 @@ it("reduces a Riot timeline to the review payload without account identities", (
   const payload = reduceTimeline(raw, match, "me");
   expect(payload.playerId).toBe(3);
   expect(payload.participants).toEqual([
-    { id: 3, championId: 4, championName: "TwistedFate", teamId: 100, position: "MIDDLE" },
-    { id: 8, championId: 103, championName: "Ahri", teamId: 200, position: "MIDDLE" },
+    {
+      id: 3,
+      championId: 4,
+      championName: "TwistedFate",
+      teamId: 100,
+      position: "MIDDLE",
+    },
+    {
+      id: 8,
+      championId: 103,
+      championName: "Ahri",
+      teamId: 200,
+      position: "MIDDLE",
+    },
   ]);
   expect(Object.keys(payload.frames[0].snapshots)).toEqual(["3", "8"]);
   expect(payload.frames[1].snapshots["3"].gold).toBe(900);
   expect(payload.frames[0].snapshots["3"]).toMatchObject({ xp: 280, level: 2 });
   expect(payload.kills).toEqual([
-    { t: 61000, killer: 8, victim: 3, assists: [7], x: 7100, y: 7200, turretDamage: 320 },
+    {
+      t: 61000,
+      killer: 8,
+      victim: 3,
+      assists: [7],
+      x: 7100,
+      y: 7200,
+      turretDamage: 320,
+    },
   ]);
   expect(payload.items).toEqual([
     { t: 10000, participant: 3, item: 1056, kind: "purchased" },
     { t: 11000, participant: 3, item: 1056, kind: "undone" },
   ]);
-  expect(payload.monsters[0]).toMatchObject({ type: "DRAGON", subType: "FIRE_DRAGON", team: 200 });
-  expect(payload.buildings[0]).toMatchObject({ lane: "mid", tower: "OUTER_TURRET" });
+  expect(payload.monsters[0]).toMatchObject({
+    type: "DRAGON",
+    subType: "FIRE_DRAGON",
+    team: 200,
+  });
+  expect(payload.buildings[0]).toMatchObject({
+    lane: "mid",
+    tower: "OUTER_TURRET",
+  });
   const text = JSON.stringify(payload);
   expect(text).not.toContain("Private Name");
   expect(text).not.toContain('"me"');
   expect(text).not.toContain("them");
 });
 it("refuses a timeline the account was not in", () => {
-  expect(() => reduceTimeline(raw, match, "stranger")).toThrow(/wasn't in that game/);
+  expect(() => reduceTimeline(raw, match, "stranger")).toThrow(
+    /wasn't in that game/,
+  );
   expect(() => reduceTimeline({}, match, "me")).toThrow(/incomplete/);
 });
 
@@ -156,7 +190,12 @@ function table(name: string) {
         name === "owner_memberships"
           ? { enabled: true }
           : name === "league_profiles"
-            ? { id: profileId, owner_id: "owner", puuid: "me", platform: "euw1" }
+            ? {
+                id: profileId,
+                owner_id: "owner",
+                puuid: "me",
+                platform: "euw1",
+              }
             : name === "recordings"
               ? ownsRecording
                 ? { id: recordingId }
@@ -171,7 +210,8 @@ function table(name: string) {
 }
 const handler = createRiotHandler({
   env: (key) => (key === "RIOT_API_KEY" ? "private-riot-key" : "backend"),
-  createClient: () => ({ auth: { getUser }, from: table, rpc }) as unknown as SupabaseClient,
+  createClient: () =>
+    ({ auth: { getUser }, from: table, rpc }) as unknown as SupabaseClient,
   fetch: provider,
   sleep: async () => {},
 });
@@ -180,7 +220,13 @@ const request = (body: object) =>
     new Request("https://example.test/riot", {
       method: "POST",
       headers: { Authorization: "Bearer owner-jwt" },
-      body: JSON.stringify({ action: "review-timeline", profileId, recordingId, matchId: "EUW1_9", ...body }),
+      body: JSON.stringify({
+        action: "review-timeline",
+        profileId,
+        recordingId,
+        matchId: "EUW1_9",
+        ...body,
+      }),
     }),
   );
 beforeEach(() => {
@@ -188,7 +234,10 @@ beforeEach(() => {
   ownsRecording = true;
   savedMatch = match;
   getUser.mockResolvedValue({ data: { user: { id: "owner" } }, error: null });
-  rpc.mockImplementation(async (name) => ({ data: name === "reserve_riot_request" ? 0 : null, error: null }));
+  rpc.mockImplementation(async (name) => ({
+    data: name === "reserve_riot_request" ? 0 : null,
+    error: null,
+  }));
   provider.mockImplementation(async () => new Response(JSON.stringify(raw)));
 });
 it("fetches the timeline on the regional host and stores it for the verified owner's recording", async () => {
@@ -198,7 +247,11 @@ it("fetches the timeline on the regional host and stores it for the verified own
     "https://europe.api.riotgames.com/lol/match/v5/matches/EUW1_9/timeline",
   );
   const save = rpc.mock.calls.find((c) => c[0] === "save_recording_timeline")!;
-  expect(save[1]).toMatchObject({ p_owner: "owner", p_recording: recordingId, p_match: "EUW1_9" });
+  expect(save[1]).toMatchObject({
+    p_owner: "owner",
+    p_recording: recordingId,
+    p_match: "EUW1_9",
+  });
   expect(save[1].p_review.playerId).toBe(3);
   expect(rpc.mock.calls.some((c) => c[0] === "claim_league_sync")).toBe(false);
 });
@@ -222,5 +275,7 @@ it("reports a timeline without the player instead of saving it", async () => {
   const response = await request({});
   expect(response.status).toBe(502);
   expect(await response.text()).toContain("wasn't in that game");
-  expect(rpc.mock.calls.some((c) => c[0] === "save_recording_timeline")).toBe(false);
+  expect(rpc.mock.calls.some((c) => c[0] === "save_recording_timeline")).toBe(
+    false,
+  );
 });

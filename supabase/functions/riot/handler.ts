@@ -466,7 +466,11 @@ export function createRiotHandler(deps: Dependencies) {
           );
           const { error } = await admin
             .from("league_profiles")
-            .update({ profile: data })
+            .update({
+              profile: profile.profile?.viewed
+                ? { ...data, viewed: true }
+                : data,
+            })
             .eq("id", profile.id);
           if (error)
             throw new Failure(503, "Could not save your updated profile.");

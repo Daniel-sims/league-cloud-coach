@@ -283,6 +283,24 @@ it("returns an already saved player without asking Riot and rejects malformed ac
         .status,
     ).toBe(400);
 });
+it("keeps a looked-up player marked as viewed when their profile is refreshed", async () => {
+  viewed = true;
+  expect(
+    (await request({ action: "refresh-profile", profileId: id })).status,
+  ).toBe(200);
+  const update = writes.mock.calls.find(
+    (call) => call[0] === "league_profiles" && call[1].profile,
+  )![1];
+  expect(update.profile.viewed).toBe(true);
+  viewed = false;
+  writes.mockClear();
+  await request({ action: "refresh-profile", profileId: id });
+  expect(
+    writes.mock.calls.find(
+      (call) => call[0] === "league_profiles" && call[1].profile,
+    )![1].profile.viewed,
+  ).toBeUndefined();
+});
 it("removes only players that were looked up, never your own accounts", async () => {
   expect(
     (await request({ action: "remove-profile", profileId: id })).status,
