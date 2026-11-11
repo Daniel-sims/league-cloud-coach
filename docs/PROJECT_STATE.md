@@ -20,6 +20,17 @@ mobile screenshots inspected. Release `1067be470f4363486e743366286fd1c6b1bbbb85`
 is pushed and deployed through the [successful Pages workflow](https://github.com/Daniel-sims/league-cloud-coach/actions/runs/42994269169),
 including the full browser and database permission suites. No backend or native changes.
 
+## Review menu width correction
+
+Settings and Filter dropdowns anchor to the full timeline header with an 8px
+inset on both sides, rather than aligning their right edge to the toolbar icon.
+This keeps their content inside the panel at its 300px minimum width. The header
+uses tighter spacing, and long menu text wraps with bounded vertical scrolling.
+Collapsed-timeline settings retain their separate dropdown. The production build
+and all five review Chrome workflows pass; regression assertions check menu bounds
+and pointer hits at both edges on narrow desktop and mobile. Both screenshots
+were inspected. No backend or native changes.
+
 ## Independent desktop and web workspaces
 
 The source repositories were separated on 10 November 2026. The permanent web

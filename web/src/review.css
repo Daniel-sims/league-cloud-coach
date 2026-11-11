@@ -98,10 +98,6 @@
 .review-rail span {
   writing-mode: vertical-rl;
 }
-.review-settings-menu {
-  width: 280px;
-  padding: 4px;
-}
 .review-settings > div {
   display: grid;
   gap: 4px;
@@ -160,11 +156,12 @@
   overflow: hidden;
 }
 .review-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px 12px;
+  gap: 8px;
+  padding: 12px;
 }
 .review-title h2 {
   font-size: 15px;
@@ -207,6 +204,26 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 8px 24px #0000001f;
+}
+/* Anchor header menus to the panel, not an individual toolbar icon. */
+.review-settings-menu {
+  width: min(280px, calc(100vw - 32px));
+  padding: 8px;
+}
+.review-tools .review-filter {
+  position: static;
+}
+.review-tools .review-filter-menu {
+  left: 8px;
+  right: 8px;
+  top: calc(100% - 4px);
+  width: auto;
+  max-height: max(160px, min(440px, calc(100dvh - var(--review-top, 220px) - 96px)));
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.review-draw-setting {
+  padding: 4px 10px;
 }
 .review-filter-menu label {
   display: flex;

@@ -458,6 +458,27 @@ test('companion approval is explicit and imported ultimate markers seek for a si
   await coach.close()
 })
 
+async function expectHeaderMenuFits(page: Page, label: RegExp) {
+  const panel = page.getByRole('region', { name: 'Review timeline' })
+  const toggle = panel.getByLabel(label)
+  await toggle.click()
+  const menu = panel.locator('details[open] > .review-filter-menu')
+  const bounds = (await menu.boundingBox())!
+  const panelBounds = (await panel.boundingBox())!
+  expect(bounds.x).toBeGreaterThanOrEqual(panelBounds.x)
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(panelBounds.x + panelBounds.width)
+  // Visibility alone misses overflow clipping: check both edges receive pointer hits.
+  expect(
+    await menu.evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      return [box.left + 2, box.right - 2].every((x) =>
+        element.contains(document.elementFromPoint(x, box.top + 20)),
+      )
+    }),
+  ).toBe(true)
+  await toggle.click()
+}
+
 test('desktop timeline fills the available window independently of the video height', async ({
   page,
 }, testInfo) => {
@@ -496,6 +517,14 @@ test('desktop timeline fills the available window independently of the video hei
     path: testInfo.outputPath('review-tall-timeline-desktop.png'),
     fullPage: true,
   })
+  await page.evaluate(() => localStorage.setItem('league-cloud-coach-timeline-width', '300'))
+  await page.reload()
+  await seekVideo(page, 'Ranked mid review', 30)
+  await expectHeaderMenuFits(page, /Video settings/)
+  await expectHeaderMenuFits(page, /Filter timeline/)
+  await timeline.getByLabel(/Video settings/).click()
+  await page.screenshot({ path: testInfo.outputPath('settings-narrow-desktop.png') })
+  await timeline.getByLabel(/Video settings/).click()
   await page.setViewportSize({ width: 2048, height: 820 })
   await expect
     .poll(async () => {
@@ -511,7 +540,12 @@ test('desktop timeline fills the available window independently of the video hei
   expect((await timeline.boundingBox())!.y).toBeGreaterThan(
     (await wrap.boundingBox())!.y + (await wrap.boundingBox())!.height,
   )
+  await expectHeaderMenuFits(page, /Video settings/)
+  await expectHeaderMenuFits(page, /Filter timeline/)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await timeline.getByLabel(/Video settings/).click()
+  await page.screenshot({ path: testInfo.outputPath('settings-mobile.png') })
+  await timeline.getByLabel(/Video settings/).click()
   await page.screenshot({
     path: testInfo.outputPath('review-tall-timeline-mobile.png'),
     fullPage: true,
