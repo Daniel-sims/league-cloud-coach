@@ -2,6 +2,20 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Text-only recalls and a centred, plain player
+
+Recall-category rows now show only their text label; purchased items, resulting
+build and shopping details are hidden. Event seeking and linked discussions
+remain available. Opening-buy and post-death shopping labels retain their meaning.
+Review players have square corners and a black stage without the coloured card
+surround. On desktop the player centres vertically and horizontally in the space
+beside the timeline; cinema remains edge-to-edge and mobile continues to stack.
+Draw stays attached to the player's top-left corner as its position changes.
+
+Validation: 138 unit tests, production build and twelve review Chrome workflows
+pass, including text-only recalls, centred player geometry, stage styling and
+existing cinema/mobile behavior. Frontend only; no backend or native changes.
+
 ## Named events, context comments and independent filters
 
 Simple rows now show the play name beside their icon (e.g. Cast ultimate,

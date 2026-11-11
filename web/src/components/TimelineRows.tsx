@@ -201,7 +201,7 @@ export function EventRow({
         >
           {entry.label}
         </button>
-        {entry.matchup ? (
+        {entry.kind === 'recall' ? null : entry.matchup ? (
           <Matchup card={entry.matchup} />
         ) : entry.objective ? (
           <Objective card={entry.objective} />

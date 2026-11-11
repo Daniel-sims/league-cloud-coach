@@ -737,23 +737,25 @@ export function VideoReview({
         style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}
       >
         <div className="review-video">
-          {renderPlayer(setController)}
-          {data && repository.addCapture && (
-            <div className="review-video-settings">
-              <button
-                className="button secondary button-small"
-                disabled={!controller?.pause || preparingDrawing}
-                onClick={() => {
-                  closeSettings()
-                  void startDrawing()
-                }}
-                title="Pause and draw on this frame (D); YouTube prompts you to share this tab"
-              >
-                <Pencil size={15} />
-                {preparingDrawing ? 'Freezing frame…' : 'Draw'}
-              </button>
-            </div>
-          )}
+          <div className="review-player">
+            {renderPlayer(setController)}
+            {data && repository.addCapture && (
+              <div className="review-video-settings">
+                <button
+                  className="button secondary button-small"
+                  disabled={!controller?.pause || preparingDrawing}
+                  onClick={() => {
+                    closeSettings()
+                    void startDrawing()
+                  }}
+                  title="Pause and draw on this frame (D); YouTube prompts you to share this tab"
+                >
+                  <Pencil size={15} />
+                  {preparingDrawing ? 'Freezing frame…' : 'Draw'}
+                </button>
+              </div>
+            )}
+          </div>
           {!panelOpen && actionError && (
             <p className="notice error" role="alert">
               {actionError}

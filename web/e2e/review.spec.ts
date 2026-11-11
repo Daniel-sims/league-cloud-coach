@@ -438,8 +438,8 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const stage = await video.evaluate((v) => v.parentElement!.getBoundingClientRect())
   const wrap = await video.evaluate((v) => v.closest('.player-wrap')!.getBoundingClientRect())
   const panel = await timeline.boundingBox()
-  // The compact header leaves the player at 100px; no extra transport rows.
-  expect(stage.y).toBeLessThanOrEqual(100)
+  // The player is centred beside the full-height timeline without a card.
+  expect(stage.y).toBeGreaterThanOrEqual(100)
   expect(wrap.bottom).toBeLessThanOrEqual(958)
   expect(Math.abs(panel!.y + panel!.height - (958 - 24))).toBeLessThan(2)
   expect(Math.round((stage.width / stage.height) * 9)).toBe(16)
@@ -629,6 +629,17 @@ test('desktop timeline fills the available window independently of the video hei
     })
     .toBeLessThan(2)
   const initial = (await timeline.boundingBox())!
+  const player = (await wrap.boundingBox())!
+  expect(Math.abs(player.y + player.height / 2 - (initial.y + initial.height / 2))).toBeLessThan(2)
+  expect(
+    await page.locator('.player-stage').evaluate((element) => ({
+      radius: getComputedStyle(element).borderRadius,
+      background: getComputedStyle(element).backgroundColor,
+    })),
+  ).toEqual({ radius: '0px', background: 'rgb(0, 0, 0)' })
+  const recalls = timeline.locator('.kind-recall')
+  await expect(recalls.first()).toBeVisible()
+  await expect(recalls.locator('img, .timeline-inventory, .timeline-detail')).toHaveCount(0)
   expect(initial.height).toBeGreaterThan((await wrap.boundingBox())!.height + 100)
   expect(
     await video.evaluate((v) =>
