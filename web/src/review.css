@@ -206,14 +206,14 @@
   border-radius: 8px;
   box-shadow: 0 8px 24px #0000001f;
 }
-/* Video tools sit on the video, outside the timeline's clipping boundary. */
+/* Draw sits at the top-left, clear of the game clock at the top-right. */
 .review-video-settings {
   display: flex;
   align-items: center;
   gap: 6px;
   position: absolute;
   top: 12px;
-  right: 12px;
+  left: 12px;
   z-index: 6;
 }
 .review-video-settings > button {
@@ -1293,7 +1293,7 @@ body:has(.cinema-mode) .watch-main {
 @media (max-width: 600px) {
   .review-video-settings {
     top: 8px;
-    right: 8px;
+    left: 8px;
   }
   .review-video-settings > button {
     padding: 8px;

@@ -138,7 +138,7 @@ Expanded scoreboards show the complete available roster, champion/level, KDA, da
 
 ## Drawing and timeline captures
 
-On an owner video page or a shared watch page, choose **Draw** at the upper-right of the video
+On an owner video page or a shared watch page, choose **Draw** at the upper-left of the video
 (or press **D** outside a text field). Playback pauses and an editor opens on a
 frozen frame. On desktop the image fills the left pane, with tools and notes on
 the right; smaller screens stack them. Set **Opacity** from 0–100% for new ink

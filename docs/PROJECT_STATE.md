@@ -54,7 +54,8 @@ Objectives are deployed in `f839394f5b16516c0d9d33000e6aba7155a7fa7f` through
 
 Current control placement supersedes the older Video tools placement below:
 the settings cog and cinema toggle live in the timeline header, including
-Exit cinema mode. Draw remains directly over the upper-right of the video.
+Exit cinema mode. Draw sits at the upper-left of the video, clear of the in-game
+clock at the upper-right (12px inset on desktop; 8px on mobile).
 Collapsed timelines keep the settings/cinema controls beside the reopen rail.
 Narrow panels use an icon-only Comment action with an accessible name. Settings
 and Filter retain shared state and full-panel dropdown alignment. Preserve the
