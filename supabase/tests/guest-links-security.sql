@@ -60,7 +60,10 @@ set local role anon;
 select set_config('test.sam2', :'sam2',true);
 do $$ begin
   if exists(select 1 from public.resolve_recording_share(current_setting('test.sam'))) then raise exception 'Replaced link still works'; end if;
-  if (select guest_key from public.resolve_recording_share(current_setting('test.sam2'))) <> current_setting('test.samkey') then raise exception 'Replacement lost identity'; end if;
+  if (select guest_key from public.resolve_recording_share(current_setting('test.sam2'))) = current_setting('test.samkey') then raise exception 'Replaced link kept the old key alive'; end if;
+  -- The old key no longer reads as anyone's own work; the new one owns Sam's history.
+  if (public.get_shared_review(current_setting('test.sam2'), current_setting('test.samkey'))->'comments'->0->>'mine')::boolean then raise exception 'Stale key still owns comments'; end if;
+  if not (public.get_shared_review(current_setting('test.sam2'), (select guest_key from public.resolve_recording_share(current_setting('test.sam2'))))->'comments'->0->>'mine')::boolean then raise exception 'Replacement lost identity'; end if;
 end $$;
 -- Revoking one guest leaves the other.
 set local role authenticated;
@@ -71,6 +74,10 @@ set local role anon;
 do $$ begin
   if exists(select 1 from public.resolve_recording_share(current_setting('test.riley'))) then raise exception 'Revoked guest link works'; end if;
   if not exists(select 1 from public.resolve_recording_share(current_setting('test.sam2'))) then raise exception 'Revoking one guest revoked another'; end if;
+  -- Riley's old key is dead even through Sam's still-valid link.
+  begin perform public.add_shared_comment(current_setting('test.sam2'), current_setting('test.rileykey'), 'x', 5, 'comment', 'forged');
+  exception when others then null; end;
+  if exists(select 1 from jsonb_array_elements(public.get_shared_review(current_setting('test.sam2'))->'comments') c where c->>'body' = 'forged' and c->>'author' = 'Riley') then raise exception 'Revoked key still writes as Riley'; end if;
 end $$;
 rollback;
 \echo 'PASS: named guest links, owner-set names, key moments, per-guest isolation, owner-followed notes, rotation and revocation'
