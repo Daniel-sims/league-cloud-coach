@@ -1158,6 +1158,7 @@ export function VideoReview({
           frame={drawingFrame.image}
           timeLabel={commentTime(drawingFrame.videoMs)}
           role={repository.role}
+          fixedName={repository.guestName}
           onClose={() => setDrawingFrame(null)}
           onSave={async (image, body, name) => {
             const generation = captureGeneration.current

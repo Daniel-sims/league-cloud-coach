@@ -37,12 +37,15 @@ export function DrawingCapture({
   frame,
   timeLabel,
   role,
+  fixedName,
   onClose,
   onSave,
 }: {
   frame: string
   timeLabel: string
   role: 'owner' | 'coach'
+  /** A named guest's name is set by the owner, not typed. */
+  fixedName?: string
   onClose(): void
   onSave(image: string, body: string, name: string): Promise<void>
 }) {
@@ -60,7 +63,7 @@ export function DrawingCapture({
   const [redo, setRedo] = useState<Stroke[][]>([])
   const [history, setHistory] = useState<Stroke[][]>([])
   const [body, setBody] = useState('')
-  const [name, setName] = useState(savedCoachName)
+  const [name, setName] = useState(() => fixedName ?? savedCoachName())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [drawing, setDrawing] = useState(false)
@@ -100,7 +103,7 @@ export function DrawingCapture({
       const result = canvasFor(image.current!, size.width, size.height)
       result.getContext('2d')!.drawImage(canvas.current!, 0, 0, result.width, result.height)
       await onSave(encodeCapture(result), body.trim(), name.trim())
-      if (role === 'coach') saveCoachName(name.trim())
+      if (role === 'coach' && !fixedName) saveCoachName(name.trim())
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The capture did not save. Try again.')
     } finally {
@@ -284,7 +287,7 @@ export function DrawingCapture({
               void save()
             }}
           >
-            {role === 'coach' && (
+            {role === 'coach' && !fixedName && (
               <label>
                 Your name
                 <input
