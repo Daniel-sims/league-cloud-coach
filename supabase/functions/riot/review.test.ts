@@ -179,12 +179,35 @@ const getUser = vi.fn(),
   provider = vi.fn(),
   rpc = vi.fn();
 let ownsRecording = true,
-  savedMatch: typeof match | null = match;
+  savedMatch: typeof match | null = match,
+  savedReview: unknown = null,
+  pendingRows: { match_id: string; match: typeof match }[] = [],
+  pendingAfter = 0;
+const updates: unknown[] = [];
 function table(name: string) {
+  let lim = -1;
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
-    update: vi.fn(() => query),
+    gte: vi.fn(() => query),
+    lt: vi.fn(() => query),
+    order: vi.fn(() => query),
+    limit: vi.fn((n: number) => {
+      lim = n;
+      return query;
+    }),
+    update: vi.fn((v: unknown) => {
+      updates.push(v);
+      return query;
+    }),
+    then: (resolve: (v: unknown) => void) =>
+      resolve(
+        lim === 0
+          ? { count: pendingAfter, error: null }
+          : lim > 0
+            ? { data: pendingRows, error: null }
+            : { error: null },
+      ),
     maybeSingle: vi.fn(async () => ({
       data:
         name === "owner_memberships"
@@ -201,7 +224,7 @@ function table(name: string) {
                 ? { id: recordingId }
                 : null
               : name === "league_matches"
-                ? savedMatch && { match: savedMatch }
+                ? savedMatch && { match: savedMatch, review: savedReview }
                 : null,
       error: null,
     })),
@@ -233,9 +256,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   ownsRecording = true;
   savedMatch = match;
+  savedReview = null;
+  pendingRows = [];
+  pendingAfter = 0;
+  updates.length = 0;
   getUser.mockResolvedValue({ data: { user: { id: "owner" } }, error: null });
   rpc.mockImplementation(async (name) => ({
-    data: name === "reserve_riot_request" ? 0 : null,
+    data:
+      name === "reserve_riot_request"
+        ? 0
+        : name === "claim_league_sync"
+          ? true
+          : null,
     error: null,
   }));
   provider.mockImplementation(async () => new Response(JSON.stringify(raw)));
@@ -278,4 +310,45 @@ it("reports a timeline without the player instead of saving it", async () => {
   expect(rpc.mock.calls.some((c) => c[0] === "save_recording_timeline")).toBe(
     false,
   );
+});
+
+it("reuses a timeline curated by a season pull instead of calling Riot", async () => {
+  savedReview = { version: 1, matchId: "EUW1_9", playerId: 3 };
+  const response = await request({});
+  expect(response.status).toBe(200);
+  expect(provider).not.toHaveBeenCalled();
+  const save = rpc.mock.calls.find((c) => c[0] === "save_recording_timeline")!;
+  expect(save[1].p_review).toEqual(savedReview);
+});
+it("curates stored games' timelines in small batches and reports what is left", async () => {
+  pendingRows = [
+    { match_id: "EUW1_9", match },
+    { match_id: "EUW1_8", match },
+  ];
+  pendingAfter = 4;
+  provider
+    .mockResolvedValueOnce(new Response(JSON.stringify(raw)))
+    .mockResolvedValueOnce(new Response("{}", { status: 404 }));
+  const response = await request({
+    action: "sync-timelines",
+    startTime: 1767225600,
+    endTime: 1798761600,
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ done: 2, remaining: 4 });
+  expect(provider.mock.calls[0][0]).toContain("/matches/EUW1_9/timeline");
+  // The usable one is stored; the expired one is marked checked so the pull ends.
+  expect(updates[0]).toMatchObject({ review_checked: true, review: { playerId: 3 } });
+  expect(updates[1]).toEqual({ review: null, review_checked: true });
+  expect(JSON.stringify(updates[0])).not.toContain('"me"');
+});
+it("rejects malformed time windows before calling Riot", async () => {
+  for (const bad of [
+    { startTime: 1767225600 },
+    { startTime: 1767225600, endTime: 1767225600 },
+    { startTime: 1000, endTime: 2000 },
+    { startTime: 1767225600, endTime: 1767225600 + 400 * 86400 },
+  ])
+    expect((await request({ action: "sync", ...bad })).status).toBe(400);
+  expect(provider).not.toHaveBeenCalled();
 });

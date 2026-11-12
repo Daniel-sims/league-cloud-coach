@@ -105,6 +105,21 @@ export function Settings({
           if (!page.hasMore) break
         }
       }
+      // Curate each game's review timeline (the same reduction the desktop app
+      // does) so attaching a game to a video needs no further Riot request.
+      const whole = { startTime: from, endTime: to }
+      for (;;) {
+        if (stopSeason.current || !alive.current) {
+          if (alive.current)
+            setSeasonDone('Stopped. Saved games and timelines are kept; run it again to finish the timelines.')
+          onSavedIfAlive()
+          return
+        }
+        setSeasonBusy(`Syncing season ${season}… curating timelines`)
+        const result = await leagueRepository.syncTimelines(id, whole)
+        if (result.remaining === 0 || result.done === 0) break
+        setSeasonBusy(`Syncing season ${season}… curating timelines, ${result.remaining} left`)
+      }
       const rows = await leagueRepository.matches(id)
       if (alive.current)
         setSeasonDone(

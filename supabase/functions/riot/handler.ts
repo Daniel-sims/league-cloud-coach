@@ -80,6 +80,26 @@ function reduceMatch(
   };
 }
 
+// Optional epoch-second window; Riot's time filter only works after 2021-06-16.
+function parseWindow(body: {
+  startTime?: unknown;
+  endTime?: unknown;
+}): { startTime: number; endTime: number } | null {
+  if (body.startTime === undefined && body.endTime === undefined) return null;
+  const { startTime, endTime } = body;
+  if (
+    typeof startTime !== "number" ||
+    typeof endTime !== "number" ||
+    !Number.isInteger(startTime) ||
+    !Number.isInteger(endTime) ||
+    startTime < 1623801600 ||
+    endTime <= startTime ||
+    endTime - startTime > 366 * 86400
+  )
+    throw new Failure(400, "Invalid history window.");
+  return { startTime, endTime };
+}
+
 export function createRiotHandler(deps: Dependencies) {
   return async (request: Request): Promise<Response> => {
     const headers = {
@@ -132,6 +152,7 @@ export function createRiotHandler(deps: Dependencies) {
           "view-player",
           "view-matches",
           "sync",
+          "sync-timelines",
           "refresh-profile",
           "token-status",
           "save-token",
@@ -513,7 +534,7 @@ export function createRiotHandler(deps: Dependencies) {
           throw new Failure(404, "Recording unavailable.");
         const { data: saved, error: savedError } = await admin
           .from("league_matches")
-          .select("match")
+          .select("match,review")
           .eq("profile_id", profile.id)
           .eq("match_id", body.matchId)
           .maybeSingle();
@@ -523,20 +544,23 @@ export function createRiotHandler(deps: Dependencies) {
             404,
             "Sync this game in Home first, then attach it again.",
           );
-        const raw = await riot(
-          regions[profile.platform],
-          `/lol/match/v5/matches/${body.matchId}/timeline`,
-        );
-        let review;
-        try {
-          review = reduceTimeline(raw, saved.match, profile.puuid);
-        } catch (error) {
-          throw new Failure(
-            502,
-            error instanceof TimelineError
-              ? error.message
-              : "Riot returned an incomplete timeline. Try again.",
+        // A season pull may already have curated this game's timeline.
+        let review = saved.review;
+        if (!review) {
+          const raw = await riot(
+            regions[profile.platform],
+            `/lol/match/v5/matches/${body.matchId}/timeline`,
           );
+          try {
+            review = reduceTimeline(raw, saved.match, profile.puuid);
+          } catch (error) {
+            throw new Failure(
+              502,
+              error instanceof TimelineError
+                ? error.message
+                : "Riot returned an incomplete timeline. Try again.",
+            );
+          }
         }
         const { error } = await admin.rpc("save_recording_timeline", {
           p_owner: ownerId,
@@ -579,24 +603,71 @@ export function createRiotHandler(deps: Dependencies) {
             throw new Failure(503, "Could not save your updated profile.");
           return reply({ ok: true });
         }
+        if (body.action === "sync-timelines") {
+          // Curate the review timeline for a few saved games per call, newest
+          // first, the same reduction the native app does after a sync.
+          const range = parseWindow(body);
+          const pending = () => {
+            let q = admin
+              .from("league_matches")
+              .select("match_id,match,game_creation", { count: "exact" })
+              .eq("profile_id", profile.id)
+              .eq("review_checked", false);
+            if (range)
+              q = q
+                .gte("game_creation", range.startTime * 1000)
+                .lt("game_creation", range.endTime * 1000);
+            return q;
+          };
+          const { data: rows, error: rowsError } = await pending()
+            .order("game_creation", { ascending: false })
+            .limit(3);
+          if (rowsError)
+            throw new Failure(503, "Could not read saved history.");
+          for (const row of rows ?? []) {
+            let review = null;
+            try {
+              review = reduceTimeline(
+                await riot(
+                  regions[profile.platform],
+                  `/lol/match/v5/matches/${row.match_id}/timeline`,
+                ),
+                row.match,
+                profile.puuid,
+              );
+            } catch (error) {
+              // Expired or unusable timelines are marked checked so the pull
+              // finishes; rate limits and outages still abort and retry.
+              const unusable =
+                error instanceof TimelineError ||
+                (error instanceof Failure && error.status === 404);
+              if (!unusable) throw error;
+            }
+            const { error } = await admin
+              .from("league_matches")
+              .update({ review, review_checked: true })
+              .eq("profile_id", profile.id)
+              .eq("match_id", row.match_id);
+            if (error)
+              throw new Failure(
+                503,
+                "Could not save this timeline. Retry to continue.",
+              );
+          }
+          const { count, error: countError } = await pending().limit(0);
+          if (countError)
+            throw new Failure(503, "Could not read saved history.");
+          return reply({ done: (rows ?? []).length, remaining: count ?? 0 });
+        }
         const start = body.start ?? 0;
         if (!Number.isInteger(start) || start < 0 || start > 10000)
           throw new Failure(400, "Invalid history page.");
         // An optional window (epoch seconds) lets a season be walked in short
         // slices instead of one list capped near 1000 games.
-        let window = "";
-        if (body.startTime !== undefined || body.endTime !== undefined) {
-          const { startTime, endTime } = body;
-          if (
-            !Number.isInteger(startTime) ||
-            !Number.isInteger(endTime) ||
-            startTime < 1623801600 ||
-            endTime <= startTime ||
-            endTime - startTime > 366 * 86400
-          )
-            throw new Failure(400, "Invalid history window.");
-          window = `&startTime=${startTime}&endTime=${endTime}`;
-        }
+        const range = parseWindow(body);
+        const window = range
+          ? `&startTime=${range.startTime}&endTime=${range.endTime}`
+          : "";
         // Small resumable pages stay inside edge runtime limits. Cache immutable matches.
         const ids = await riot(
           regions[profile.platform],

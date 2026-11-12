@@ -5,7 +5,7 @@ import { Settings } from './Settings'
 import { leagueRepository, riotRequest } from '../lib/league-repository'
 vi.mock('../lib/league-repository', () => ({
   riotRequest: vi.fn(),
-  leagueRepository: { profiles: vi.fn(), matches: vi.fn(), sync: vi.fn() },
+  leagueRepository: { profiles: vi.fn(), matches: vi.fn(), sync: vi.fn(), syncTimelines: vi.fn() },
 }))
 afterEach(() => {
   cleanup()
@@ -70,6 +70,9 @@ it('syncs a whole season in date windows, paging each until it is exhausted', as
     .mockResolvedValueOnce({ nextStart: 5, hasMore: true })
     .mockResolvedValueOnce({ nextStart: 7, hasMore: false })
     .mockResolvedValue({ nextStart: 0, hasMore: false })
+  vi.mocked(leagueRepository.syncTimelines)
+    .mockResolvedValueOnce({ done: 3, remaining: 2 })
+    .mockResolvedValueOnce({ done: 2, remaining: 0 })
   const saved = vi.fn()
   render(<Settings onClose={() => {}} onSaved={saved} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Sync full season' }))
@@ -80,5 +83,10 @@ it('syncs a whole season in date windows, paging each until it is exhausted', as
   expect(calls[1][2]).toEqual(calls[0][2])
   expect(calls[2][1]).toBe(0)
   expect(calls[2][2]!.startTime).toBe(calls[0][2]!.endTime)
+  expect(leagueRepository.syncTimelines).toHaveBeenCalledTimes(2)
+  expect(leagueRepository.syncTimelines).toHaveBeenCalledWith('p1', {
+    startTime: Date.UTC(2026, 0, 1) / 1000,
+    endTime: expect.any(Number),
+  })
   expect(saved).toHaveBeenCalled()
 })

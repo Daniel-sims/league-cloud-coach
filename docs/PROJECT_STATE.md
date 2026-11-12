@@ -651,3 +651,7 @@ public web repository. Existing history here is already web-only and is kept.
 ## Updating this handoff
 
 After meaningful work, update the date, implemented behaviour, verification, remaining acceptance work, and deployment pointers as needed. Keep credentials and personal account data out. Keep architectural rationale in `docs/league-cloud-coach-web-plan.md` and repeatable operational steps in the root `README.md`. Check current Git/CI/service state instead of treating historical test counts or a previous deployment as a new verification.
+
+## Season pull with curated timelines (2026-11-12)
+
+Settings → Sync full season lists a calendar-year season in two-week `startTime`/`endTime` windows, then `sync-timelines` stores each game's reduced review timeline in `league_matches.review` (migration `202611120004_match_timelines.sql`; service-role only, never returned by `list_league_matches`). `review-timeline` reuses a stored review before calling Riot. Unusable/expired timelines are marked `review_checked` so a pull terminates. **Not yet deployed:** apply the migration and deploy the `riot` function before the frontend. Disposable-database tests passed on PostgreSQL 14 locally; CI uses 17. Saved profiles hold puuids encrypted under the previous Riot key, so reconnect each account after switching keys.

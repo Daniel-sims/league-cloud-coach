@@ -31,6 +31,7 @@ function repository(): LeagueRepository {
     matches: vi.fn(async () => []),
     refreshProfile: vi.fn(async () => {}),
     sync: vi.fn(async () => ({ nextStart: 0, hasMore: false })),
+    syncTimelines: vi.fn(async () => ({ done: 0, remaining: 0 })),
     connect: vi.fn(async () => ({ id: 'one' })),
     findPlayer: vi.fn(async () => ({ puuid: 'enemy', profile: zed })),
     viewPlayer: vi.fn(async () => ({ profile: zed })),

@@ -24,6 +24,10 @@ export interface LeagueRepository {
     start: number,
     window?: { startTime: number; endTime: number },
   ): Promise<{ nextStart: number; hasMore: boolean }>
+  syncTimelines(
+    id: string,
+    window?: { startTime: number; endTime: number },
+  ): Promise<{ done: number; remaining: number }>
 }
 export async function riotRequest<T>(body: object): Promise<T> {
   if (!supabase) throw new Error('Sign in to connect your League account.')
@@ -55,4 +59,5 @@ export const leagueRepository: LeagueRepository = {
     riotRequest({ action: 'view-matches', platform, puuid, start, known }),
   refreshProfile: (id) => riotRequest({ action: 'refresh-profile', profileId: id }),
   sync: (id, start, window) => riotRequest({ action: 'sync', profileId: id, start, ...window }),
+  syncTimelines: (id, window) => riotRequest({ action: 'sync-timelines', profileId: id, ...window }),
 }
