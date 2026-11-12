@@ -55,7 +55,6 @@ export function Home({
   const [cursor, setCursor] = useState<Record<string, number>>({})
   const [exhausted, setExhausted] = useState<Record<string, boolean>>({})
   const mounted = useRef(true)
-  const autoSynced = useRef(new Set<string>())
   const ownProfile = profiles.find((p) => p.id === selected)
   const profile = ownProfile
   useEffect(() => {
@@ -116,10 +115,6 @@ export function Home({
       .then((rows) => {
         if (active) {
           setMatches(rows)
-          if (!autoSynced.current.has(selected)) {
-            autoSynced.current.add(selected)
-            void sync()
-          }
         }
       })
       .catch((e) => {

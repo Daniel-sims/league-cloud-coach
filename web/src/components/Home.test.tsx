@@ -63,7 +63,11 @@ it('shows saved matches immediately, retains them on refresh failure and support
   vi.mocked(repo.refreshProfile).mockRejectedValue(new Error('Riot is unavailable.'))
   render(<Home ownerId="owner" repository={repo} />)
   expect(await screen.findByText('50% win rate · 1W – 1L')).toBeVisible()
+  // Opening Home never syncs by itself.
+  expect(repo.refreshProfile).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh match history' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Riot is unavailable.')
+  expect(screen.getByText('50% win rate · 1W – 1L')).toBeVisible()
   await userEvent.click(screen.getByRole('button', { name: /Scoreboard for 1/ }))
   expect(screen.getByText('Victory · Blue team')).toBeVisible()
   expect(screen.getByText('Defeat · Red team')).toBeVisible()
