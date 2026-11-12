@@ -1810,12 +1810,13 @@ body:has(.cinema-mode) .watch-main {
   display: flex;
 }
 .moment-form {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  gap: 8px;
 }
-.moment-form input {
-  flex: 1;
-  min-width: 0;
+.moment-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 .key-moments > .button {
   justify-self: start;

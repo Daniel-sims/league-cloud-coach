@@ -1265,19 +1265,21 @@ function KeyMoments({
         placeholder="What should the coach look at? (optional)"
         onChange={(event) => setNote(event.target.value)}
       />
-      <button className="button button-small" disabled={busy}>
-        {busy ? 'Saving…' : 'Save'}
-      </button>
-      <button
-        type="button"
-        className="button secondary button-small"
-        onClick={() => {
-          setMarking(false)
-          setEditing(null)
-        }}
-      >
-        Cancel
-      </button>
+      <div className="moment-form-actions">
+        <button
+          type="button"
+          className="button secondary button-small"
+          onClick={() => {
+            setMarking(false)
+            setEditing(null)
+          }}
+        >
+          Cancel
+        </button>
+        <button className="button button-small" disabled={busy}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+      </div>
     </form>
   )
   return (
