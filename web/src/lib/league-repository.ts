@@ -1,5 +1,6 @@
 import { rpc, supabase } from './supabase'
 import type { LeagueMatch, LeagueProfile } from './league'
+import { cachedMatches } from './match-cache'
 
 export type ViewedProfile = Pick<
   LeagueProfile,
@@ -52,9 +53,12 @@ export async function riotRequest<T>(body: object): Promise<T> {
     })
   return result as T
 }
+const fetchMatchPage = (id: string, known: string[], limit: number) =>
+  rpc<LeagueMatch[]>('list_league_matches', { p_profile: id, p_known: known, p_limit: limit })
+
 export const leagueRepository: LeagueRepository = {
   profiles: () => rpc('list_league_profiles'),
-  matches: (id) => rpc('list_league_matches', { p_profile: id }),
+  matches: (id) => cachedMatches(id, fetchMatchPage),
   connect: (riotId, platform) => riotRequest({ action: 'connect', riotId, platform }),
   findPlayer: (platform, riotId) => riotRequest({ action: 'find-player', platform, riotId }),
   viewPlayer: (platform, puuid) => riotRequest({ action: 'view-player', platform, puuid }),
@@ -62,5 +66,6 @@ export const leagueRepository: LeagueRepository = {
     riotRequest({ action: 'view-matches', platform, puuid, start, known }),
   refreshProfile: (id) => riotRequest({ action: 'refresh-profile', profileId: id }),
   sync: (id, start, window) => riotRequest({ action: 'sync', profileId: id, start, ...window }),
-  syncTimelines: (id, window) => riotRequest({ action: 'sync-timelines', profileId: id, ...window }),
+  syncTimelines: (id, window) =>
+    riotRequest({ action: 'sync-timelines', profileId: id, ...window }),
 }
