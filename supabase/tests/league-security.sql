@@ -10,7 +10,7 @@ update public.league_matches set review='{"secretReview":1}', review_checked=tru
 do $$ begin
   if has_table_privilege('anon','public.league_profiles','select') or has_table_privilege('authenticated','public.league_profiles','select') then raise exception 'Profile direct-read leak'; end if;
   if has_table_privilege('anon','public.league_matches','select') or has_table_privilege('authenticated','public.league_matches','insert') then raise exception 'Match access leak'; end if;
-  if has_function_privilege('anon','public.list_league_profiles()','execute') or has_function_privilege('anon','public.list_league_matches(uuid)','execute') then raise exception 'Anonymous RPC leak'; end if;
+  if has_function_privilege('anon','public.list_league_profiles()','execute') or has_function_privilege('anon','public.list_league_matches(uuid,text[],integer)','execute') then raise exception 'Anonymous RPC leak'; end if;
   if has_function_privilege('authenticated','public.claim_league_sync(uuid,uuid)','execute') or has_function_privilege('authenticated','public.reserve_riot_request()','execute') or has_function_privilege('authenticated','public.complete_league_sync(uuid,uuid,integer)','execute') then raise exception 'Service RPC leak'; end if;
 end; $$;
 set local role authenticated;
@@ -20,6 +20,8 @@ do $$ declare profiles jsonb; matches jsonb; begin
   if jsonb_array_length(profiles) <> 1 or profiles->0->>'gameName' <> 'First' then raise exception 'Profile isolation failed'; end if;
   matches := public.list_league_matches('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
   if jsonb_array_length(matches) <> 1 then raise exception 'Own matches unavailable'; end if;
+  if jsonb_array_length(public.list_league_matches('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', array[matches->0->>'id'])) <> 0 then raise exception 'Known games were returned again'; end if;
+  if jsonb_array_length(public.list_league_matches('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '{}', 1)) <> 1 then raise exception 'Page limit not honoured'; end if;
   if matches::text like '%secretReview%' then raise exception 'Curated review leaked through match list'; end if;
   if has_column_privilege('authenticated','public.league_matches','review','select') or has_column_privilege('anon','public.league_matches','review','select') then raise exception 'Review column readable by clients'; end if;
   begin perform public.list_league_matches('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'); raise exception 'Cross-owner read succeeded'; exception when insufficient_privilege then null; end;
