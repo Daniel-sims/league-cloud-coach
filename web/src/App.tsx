@@ -43,6 +43,7 @@ import {
 import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
+import { SummonerProfile, SummonerSearch } from './components/Summoners'
 import { Settings } from './components/Settings'
 import { CompanionConnection } from './components/CompanionConnection'
 import { VideoReview } from './components/VideoReview'
@@ -156,6 +157,8 @@ export function App({ authError = null }: { authError?: string | null }) {
   const [signOutError, setSignOutError] = useState('')
   const local = isDev && route.startsWith('/preview')
   const home = route === '/home'
+  const summoners = route === '/summoners' || route.startsWith('/summoners/')
+  const summonerRoute = route.match(/^\/summoners\/([a-z0-9]+)\/([A-Za-z0-9_-]{20,100})$/)
 
   useEffect(() => {
     if (!supabase) return
@@ -265,8 +268,15 @@ export function App({ authError = null }: { authError?: string | null }) {
             Home
             {home && <ChevronRight size={14} className="nav-chevron" />}
           </a>
+          {!local && (
+            <a className={`nav-item ${summoners ? 'active' : ''}`} href="#/summoners">
+              <Search size={18} />
+              Summoners
+              {summoners && <ChevronRight size={14} className="nav-chevron" />}
+            </a>
+          )}
           <a
-            className={`nav-item ${!home ? 'active' : ''}`}
+            className={`nav-item ${!home && !summoners ? 'active' : ''}`}
             href={local ? '#/preview' : '#/library'}
           >
             <FileVideo size={18} />
@@ -315,7 +325,13 @@ export function App({ authError = null }: { authError?: string | null }) {
             <span>Workspace</span>
             <span className="crumb-slash">/</span>
             <strong>
-              {home ? 'Home' : route.startsWith('/connect') ? 'Connected apps' : 'Video library'}
+              {home
+                ? 'Home'
+                : summoners
+                  ? 'Summoners'
+                  : route.startsWith('/connect')
+                    ? 'Connected apps'
+                    : 'Video library'}
             </strong>
           </div>
           <div className="topbar-actions">
@@ -380,6 +396,15 @@ export function App({ authError = null }: { authError?: string | null }) {
               />
             ) : home && session ? (
               <Home key={`${session.user.id}:${settingsVersion}`} ownerId={session.user.id} />
+            ) : summoners && session && summonerRoute ? (
+              <SummonerProfile
+                key={`${session.user.id}:${summonerRoute[1]}:${summonerRoute[2]}`}
+                ownerId={session.user.id}
+                platform={summonerRoute[1]}
+                puuid={summonerRoute[2]}
+              />
+            ) : summoners && session ? (
+              <SummonerSearch key={session.user.id} ownerId={session.user.id} />
             ) : (
               <Library
                 key={local ? 'local' : session!.user.id}

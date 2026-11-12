@@ -2,6 +2,23 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Home is you; Summoners looks anyone up
+
+Home no longer has an inline "viewing another player" mode. A new Summoners
+page (sidebar, `#/summoners`) takes a Riot ID and region and opens that player at
+`#/summoners/<platform>/<puuid>`: identity, ranks, season champions, recent-games
+summary and match history with full scoreboards, plus Load older games. Clicking a
+player in any scoreboard (Home or a profile) opens them on Summoners; your own saved
+accounts go to Home. Nothing about looked-up players is saved server-side; the
+browser keeps the last six (existing `viewed-cache`) and lists them as Recent.
+The shared presentational pieces moved to `LeagueParts.tsx`; the old per-player
+filters are not on Summoners. Native League Helper got the same split.
+
+Backend: the `riot` function gained a `find-player` action (platform + Riot ID,
+returns puuid and profile, writes nothing) and must be deployed with the frontend.
+No migrations. Validation: unit tests, build and the full browser suite pass,
+including a new Summoners workflow.
+
 ## Intrinsic recording proportions
 
 Stream players use decoded video dimensions instead of forcing every capture into

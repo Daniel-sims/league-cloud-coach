@@ -23,6 +23,13 @@ const profile: LeagueProfile = {
   ],
   syncedAt: '2026-11-10T00:00:00Z',
 }
+const lookedUp = {
+  gameName: 'Zed Main',
+  tagLine: 'EUW',
+  profileIconId: 4,
+  summonerLevel: 210,
+  ranks: [],
+}
 async function setup(
   context: BrowserContext,
   empty = false,
@@ -82,7 +89,14 @@ async function setup(
             : {}),
         }
       else if (args.action === 'remove-token') result = { ok: true }
-      else if (args.action === 'connect') {
+      else if (args.action === 'find-player')
+        result = { puuid: 'enemy-puuid-0000000000', profile: lookedUp }
+      else if (args.action === 'view-player') result = { profile: lookedUp }
+      else if (args.action === 'view-matches') {
+        const game = match('9', { puuid: 'enemy-puuid-0000000000', championName: 'Zed' })
+        game.participants[1] = { ...game.participants[1], puuid: 'me', championName: 'Ahri' }
+        result = { ids: ['9'], matches: [game], nextStart: 5, hasMore: false }
+      } else if (args.action === 'connect') {
         profiles = [profile]
         result = { id: profile.id }
       } else if (args.action === 'refresh-profile') result = { ok: true }
@@ -261,4 +275,27 @@ test('match history groups local play dates and selector arrows stay inset in bo
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
+})
+
+test('summoners looks anyone up, opens scoreboard players there, and keeps Home for you', async ({
+  page,
+}, testInfo) => {
+  await setup(page.context())
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Summoners', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Summoners.' })).toBeVisible()
+  await expect(page.getByText('No one looked up yet')).toBeVisible()
+  await page.getByLabel('Riot ID').fill('Zed Main#EUW')
+  await page.getByRole('button', { name: 'Look up' }).click()
+  await expect(page.getByRole('heading', { name: 'Zed Main#EUW.' })).toBeVisible()
+  await page.getByRole('button', { name: /Scoreboard for 9/ }).click()
+  await page.screenshot({ path: testInfo.outputPath('summoner-desktop.png'), fullPage: true })
+  await page.getByTitle("Open Ahri's profile").first().click()
+  await expect(page.getByRole('heading', { name: 'Home.' })).toBeVisible()
+  // From Home, a scoreboard player opens on the Summoners page.
+  await page.getByRole('button', { name: /Scoreboard for 1/ }).click()
+  await page.getByTitle("Open Zed's profile").first().click()
+  await expect(page).toHaveURL(/#\/summoners\/euw1\/enemy/)
+  await page.getByRole('link', { name: 'Summoners', exact: true }).first().click()
+  await expect(page.getByRole('link', { name: /Zed Main#EUW/ })).toBeVisible()
 })

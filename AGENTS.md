@@ -17,7 +17,7 @@ Help a League player share full game recordings with a coach and eventually revi
 - Only explicitly enabled owner memberships can manage a library. Additional Google accounts may authenticate but gain no management permission automatically.
 - The owner can upload a local file directly to Cloudflare through the app, add an existing private Stream video ID, or add a YouTube Studio **Unlisted** URL. There is no automatic YouTube channel access.
 - Anonymous viewers resolve a share capability and watch with ordinary video controls. Stream requires explicit session start; YouTube retains unlisted playback. They cannot enumerate a library or mutate recordings.
-- Home includes saved Riot profiles, current ranks, cached match history/scoreboards and native-style stats.
+- Home is the owner's own saved Riot profiles, current ranks, cached match history/scoreboards and native-style stats. Summoners (`#/summoners`, `#/summoners/<platform>/<puuid>`) looks up any player by Riot ID; clicking a player in a scoreboard opens them there (your own accounts go to Home). Looked-up players are never saved server-side.
 - Video pages have the native-style review timeline: the owner attaches a synced game (its Riot timeline is fetched once by the backend and stored with the recording), syncs the game clock, and both the owner and anyone with the watch link add timestamped comments. League Helper can now Push to web: local timeline preparation and ultimate detection, then original-video upload and reduced review publication through an approved upload-only companion capability. Match-level notes, AI review and automatic YouTube uploads remain planned.
 - Cloudflare Stream is now an authorized optional paid provider, with its backend deployed. Keep existing YouTube recordings working. See the Stream setup/limitations in the README and current handoff before publishing.
 
@@ -27,6 +27,7 @@ Help a League player share full game recordings with a coach and eventually revi
 |---|---|
 | `web/src/App.tsx` | Account state, library, forms/dialogs, owner video pages, public watch routes |
 | `web/src/components/Home.tsx`, `Loadout.tsx`, `web/src/league.css` | Owner Home, profile/champion selection, stats, history and scoreboard UI |
+| `web/src/components/Summoners.tsx`, `LeagueParts.tsx` | Summoners lookup page and profile (any player, nothing saved server-side); shared stats/scoreboard pieces used by Home too |
 | `web/src/lib/league.ts`, `league-repository.ts` | Native-matched stats/filter rules and private profile/match repository |
 | `supabase/functions/riot/` | Verified owner-only Riot requests, encrypted per-owner tokens, request budget and persisted match cache |
 | `web/src/main.tsx` | Completes the OAuth callback before rendering the app |

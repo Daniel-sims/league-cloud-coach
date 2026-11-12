@@ -128,6 +128,7 @@ export function createRiotHandler(deps: Dependencies) {
         typeof body !== "object" ||
         ![
           "connect",
+          "find-player",
           "view-player",
           "view-matches",
           "sync",
@@ -317,6 +318,39 @@ export function createRiotHandler(deps: Dependencies) {
           ok: true,
           verified: !warning,
           ...(warning ? { warning } : {}),
+        });
+      }
+      if (body.action === "find-player") {
+        // Look up any player by Riot ID for the Summoners page. Nothing is saved.
+        if (
+          typeof body.platform !== "string" ||
+          !regions[body.platform] ||
+          typeof body.riotId !== "string"
+        )
+          throw new Failure(400, "Enter a Riot ID and supported region.");
+        const parts: string[] = body.riotId.trim().split("#");
+        if (
+          parts.length !== 2 ||
+          !parts.every((p) => p.trim().length > 0 && p.length <= 32)
+        )
+          throw new Failure(400, "Use the full Riot ID: Name#TAG.");
+        const [gameName, tagLine] = parts.map((p) => p.trim());
+        const account = await riot(
+          regions[body.platform],
+          `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
+        );
+        if (
+          typeof account.puuid !== "string" ||
+          account.gameName?.toLowerCase() !== gameName.toLowerCase() ||
+          account.tagLine?.toLowerCase() !== tagLine.toLowerCase()
+        )
+          throw new Failure(
+            502,
+            "Riot returned a different account. Please try again.",
+          );
+        return reply({
+          puuid: account.puuid,
+          profile: await profileData(body.platform, account.puuid, account),
         });
       }
       if (body.action === "view-player" || body.action === "view-matches") {

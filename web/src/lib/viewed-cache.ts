@@ -39,3 +39,18 @@ export function saveViewed(owner: string, platform: string, puuid: string, data:
     /* a full or blocked store just means no cache */
   }
 }
+
+// Most recent lookups first, for the Summoners page.
+export function listViewed(
+  owner: string,
+): { platform: string; puuid: string; profile: LeagueProfile }[] {
+  const prefix = `league-viewed:${owner}:`
+  const found: { platform: string; puuid: string; profile: LeagueProfile }[] = []
+  for (const key of readIndex(owner)) {
+    if (!key.startsWith(prefix)) continue
+    const [platform, puuid] = key.slice(prefix.length).split(':')
+    const entry = loadViewed(owner, platform, puuid)
+    if (entry) found.push({ platform, puuid, profile: entry.profile })
+  }
+  return found
+}

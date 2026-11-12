@@ -266,6 +266,42 @@ it("opens another player by account id without saving anything", async () => {
   );
   expect(writes).not.toHaveBeenCalled();
 });
+it("finds a player by Riot ID without saving anything", async () => {
+  const puuid = "p".repeat(78);
+  const fallback = provider.getMockImplementation()!;
+  provider.mockImplementation(async (url: string) =>
+    url.includes("/by-riot-id/")
+      ? new Response(
+          JSON.stringify({ puuid, gameName: "A Name", tagLine: "EUW" }),
+        )
+      : fallback(url),
+  );
+  const response = await request({
+    action: "find-player",
+    platform: "euw1",
+    riotId: " a name#euw ",
+  });
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body.puuid).toBe(puuid);
+  expect(body.profile).toMatchObject({ gameName: "A Name", summonerLevel: 10 });
+  expect(provider.mock.calls[0][0]).toBe(
+    "https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/a%20name/euw",
+  );
+  expect(writes).not.toHaveBeenCalled();
+});
+it("rejects malformed Riot IDs and regions before asking Riot", async () => {
+  for (const bad of [{ riotId: "NoTag" }, { riotId: "a#b#c" }, { riotId: 5 }])
+    expect(
+      (await request({ action: "find-player", platform: "euw1", ...bad }))
+        .status,
+    ).toBe(400);
+  expect(
+    (await request({ action: "find-player", platform: "xx", riotId: "a#b" }))
+      .status,
+  ).toBe(400);
+  expect(provider).not.toHaveBeenCalled();
+});
 it("returns another player's games, skipping ones the browser already has, without saving", async () => {
   const puuid = "verified-player".padEnd(30, "x");
   provider.mockImplementation(async (url: string) =>

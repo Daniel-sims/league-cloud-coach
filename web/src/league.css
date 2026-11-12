@@ -1103,3 +1103,49 @@ select:focus-visible {
   font-size: 15px;
   margin-bottom: 8px;
 }
+
+.league-summoner-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+  align-items: end;
+  gap: 16px;
+  padding: 16px;
+}
+.league-summoner-search > label:not(.league-select) {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+@media (max-width: 700px) {
+  .league-summoner-search {
+    grid-template-columns: 1fr;
+  }
+}
+.league-recent-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.league-recent-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  color: inherit;
+  text-decoration: none;
+}
+.league-recent-player:hover {
+  border-color: var(--gold);
+}
+.league-recent-player span {
+  display: grid;
+  min-width: 0;
+}
+.league-recent-player strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

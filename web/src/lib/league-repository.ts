@@ -10,6 +10,7 @@ export interface LeagueRepository {
   profiles(): Promise<LeagueProfile[]>
   matches(id: string): Promise<LeagueMatch[]>
   connect(riotId: string, platform: string): Promise<{ id: string }>
+  findPlayer(platform: string, riotId: string): Promise<{ puuid: string; profile: ViewedProfile }>
   viewPlayer(platform: string, puuid: string): Promise<{ profile: ViewedProfile }>
   viewMatches(
     platform: string,
@@ -44,6 +45,7 @@ export const leagueRepository: LeagueRepository = {
   profiles: () => rpc('list_league_profiles'),
   matches: (id) => rpc('list_league_matches', { p_profile: id }),
   connect: (riotId, platform) => riotRequest({ action: 'connect', riotId, platform }),
+  findPlayer: (platform, riotId) => riotRequest({ action: 'find-player', platform, riotId }),
   viewPlayer: (platform, puuid) => riotRequest({ action: 'view-player', platform, puuid }),
   viewMatches: (platform, puuid, start, known) =>
     riotRequest({ action: 'view-matches', platform, puuid, start, known }),
