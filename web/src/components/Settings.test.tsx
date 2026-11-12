@@ -1,12 +1,18 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Settings } from './Settings'
-import { riotRequest } from '../lib/league-repository'
-vi.mock('../lib/league-repository', () => ({ riotRequest: vi.fn() }))
+import { leagueRepository, riotRequest } from '../lib/league-repository'
+vi.mock('../lib/league-repository', () => ({
+  riotRequest: vi.fn(),
+  leagueRepository: { profiles: vi.fn(), matches: vi.fn(), sync: vi.fn() },
+}))
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+})
+beforeEach(() => {
+  vi.mocked(leagueRepository.profiles).mockResolvedValue([])
 })
 it('masks the token, clears it after saving and never reads a saved token back', async () => {
   vi.mocked(riotRequest).mockResolvedValue({ configured: false, sharedDefault: false })
@@ -52,4 +58,26 @@ it('shows the saved-token propagation warning and clears the input without claim
   expect(screen.getByLabelText('Riot API token')).toHaveValue('')
   expect(saved).toHaveBeenCalledOnce()
   expect(screen.queryByText('Riot token saved and verified.')).not.toBeInTheDocument()
+})
+
+it('syncs pages until the chosen season is fully reached', async () => {
+  vi.mocked(riotRequest).mockResolvedValue({ configured: true, sharedDefault: false })
+  vi.mocked(leagueRepository.profiles).mockResolvedValue([
+    { id: 'p1', gameName: 'Me', tagLine: 'EUW' },
+  ] as never)
+  const game = (v: string) => ({ gameVersion: v })
+  vi.mocked(leagueRepository.matches)
+    .mockResolvedValueOnce([game('16.3.1')] as never) // season options
+    .mockResolvedValueOnce([game('16.3.1')] as never)
+    .mockResolvedValueOnce([game('16.3.1'), game('15.24.1')] as never)
+  vi.mocked(leagueRepository.sync)
+    .mockResolvedValueOnce({ nextStart: 5, hasMore: true })
+    .mockResolvedValueOnce({ nextStart: 10, hasMore: true })
+  const saved = vi.fn()
+  render(<Settings onClose={() => {}} onSaved={saved} />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Sync full season' }))
+  expect(await screen.findByText(/Season 16 history is synced/)).toBeVisible()
+  expect(leagueRepository.sync).toHaveBeenCalledTimes(2)
+  expect(leagueRepository.sync).toHaveBeenLastCalledWith('p1', 5)
+  expect(saved).toHaveBeenCalled()
 })
