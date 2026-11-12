@@ -21,7 +21,9 @@ export type ReviewComment = {
   createdAt: string
   updatedAt: string
 }
+export type KeyMoment = { id: string; videoMs: number; note: string }
 export type ReviewData = {
+  moments?: KeyMoment[]
   matchId: string | null
   review: ReviewPayload | null
   syncedAt: string | null
@@ -54,15 +56,23 @@ export type CompletedReview = {
   completedAt: string
   mine: boolean
 }
+export type GuestDraft = { id: string; author: string | null; body: string; updatedAt: string }
 export type ReviewNotes = {
   draft: { body: string; version: number; author: string | null } | null
   reviews: CompletedReview[]
+  /** Owner only: every guest's running notes, read-only, to follow a live review. */
+  guestDrafts?: GuestDraft[]
 }
 export type NotesInput = { body: string; version: number; complete: boolean; author?: string }
 
 /// What the review panel can do. Owner-only capabilities are absent for guests.
 export interface ReviewRepository {
   role: 'owner' | 'coach'
+  /** Set when the link belongs to a named guest; the owner chose this name. */
+  guestName?: string
+  addMoment?(videoMs: number, note: string): Promise<void>
+  updateMoment?(id: string, note: string): Promise<void>
+  deleteMoment?(id: string): Promise<void>
   loadNotes?(): Promise<ReviewNotes | null>
   saveNotes?(input: NotesInput): Promise<ReviewNotes>
   load(): Promise<ReviewData | null>
@@ -88,6 +98,11 @@ export function ownerReview(recordingId: string): ReviewRepository {
         p_version: version,
         p_complete: complete,
       }),
+    addMoment: async (videoMs, note) => {
+      await rpc('add_recording_moment', { p_id: recordingId, p_video_ms: videoMs, p_note: note })
+    },
+    updateMoment: (id, note) => rpc('update_recording_moment', { p_moment: id, p_note: note }),
+    deleteMoment: (id) => rpc('delete_recording_moment', { p_moment: id }),
     load: async () => {
       const [review, captures] = await Promise.all([
         rpc<ReviewData>('get_recording_review', { p_id: recordingId }),
@@ -128,10 +143,15 @@ export function ownerReview(recordingId: string): ReviewRepository {
   }
 }
 
-export function sharedReview(token: string): ReviewRepository {
-  const key = authorKey()
+export function sharedReview(
+  token: string,
+  guest?: { name: string; key: string } | null,
+): ReviewRepository {
+  // A named guest's identity belongs to the link, not the browser.
+  const key = guest?.key ?? authorKey()
   return {
     role: 'coach',
+    ...(guest ? { guestName: guest.name } : {}),
     loadNotes: () => rpc<ReviewNotes>('get_shared_notes', { p_token: token, p_author_key: key }),
     saveNotes: ({ body, version, complete, author }) =>
       rpc<ReviewNotes>('save_shared_notes', {

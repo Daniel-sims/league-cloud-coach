@@ -117,6 +117,15 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
       result = token
     }
     if (name === 'revoke_recording_share') state.shared = false
+    if (name === 'list_recording_guests')
+      result = state.shared
+        ? [{ id: 'g1', name: 'Coach', active: true, link_created_at: null, started_at: null }]
+        : []
+    if (name === 'create_guest_link') {
+      state.shared = true
+      result = token
+    }
+    if (name === 'revoke_guest_link') state.shared = false
     if (name === 'resolve_recording_share')
       result =
         state.shared && args.p_token === token && state.rows[0]
@@ -127,6 +136,8 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
                 recorded_on: state.rows[0].recorded_on,
                 provider: state.rows[0].provider,
                 stream_video_id: state.rows[0].stream_video_id,
+                guest_name: 'Coach',
+                guest_key: 'a'.repeat(64),
               },
             ]
           : []
@@ -176,11 +187,12 @@ test('owner adds a recording, shares to a signed-out visitor, and revokes its ap
   await page.getByRole('dialog').getByRole('button', { name: 'Add video', exact: true }).click()
   await expect(page.getByRole('link', { name: 'Review with my coach', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Share', exact: true }).click()
-  await page.getByRole('button', { name: 'Create share link', exact: true }).click()
-  await expect(page.getByLabel('Your watch link', { exact: true })).toHaveValue(
+  await page.getByLabel('Who is this link for?').fill('Coach')
+  await page.getByRole('button', { name: 'Create link', exact: true }).click()
+  await expect(page.getByLabel('Watch link for Coach', { exact: true })).toHaveValue(
     new RegExp(`/#/watch/${token}$`),
   )
-  const link = await page.getByLabel('Your watch link', { exact: true }).inputValue()
+  const link = await page.getByLabel('Watch link for Coach', { exact: true }).inputValue()
   const guestContext = await browser.newContext()
   await mockBackend(guestContext, state)
   const guest = await guestContext.newPage()
@@ -193,7 +205,8 @@ test('owner adds a recording, shares to a signed-out visitor, and revokes its ap
     'href',
     'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
   )
-  await page.getByRole('button', { name: 'Stop sharing this app link' }).click()
+  await expect(guest.getByText('Reviewing as Coach')).toBeVisible()
+  await page.getByRole('button', { name: 'Stop', exact: true }).click()
   await guest.reload()
   await expect(guest.getByRole('heading', { name: 'This game isn’t shared here.' })).toBeVisible()
   await page.getByRole('button', { name: 'Close dialog' }).click()
@@ -229,8 +242,9 @@ test('Stream owner adds a video ID and guest must explicitly start private playb
   await expect(page.getByRole('link', { name: 'Private Stream review', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Share', exact: true }).click()
   await expect(page.getByText(/One browser session per link/)).toBeVisible()
-  await page.getByRole('button', { name: 'Create share link', exact: true }).click()
-  const link = await page.getByLabel('Your watch link', { exact: true }).inputValue()
+  await page.getByLabel('Who is this link for?').fill('Coach')
+  await page.getByRole('button', { name: 'Create link', exact: true }).click()
+  const link = await page.getByLabel('Watch link for Coach', { exact: true }).inputValue()
   const context = await browser.newContext()
   await mockBackend(context, state)
   const guest = await context.newPage()

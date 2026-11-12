@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { oauthErrorMessage } from './auth-errors'
-import type { LibraryRepository, Recording, WatchVideo, UploadSync } from './types'
+import type { Guest, LibraryRepository, Recording, WatchVideo, UploadSync } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim()
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
@@ -51,6 +51,12 @@ export const cloudRepository: LibraryRepository = {
   remove: (id) => rpc('remove_recording', { p_id: id }),
   share: (id) => rpc<string>('create_recording_share', { p_id: id }),
   revoke: (id) => rpc('revoke_recording_share', { p_id: id }),
+  guests: {
+    list: (id) => rpc<Guest[]>('list_recording_guests', { p_id: id }),
+    link: (id, name) => rpc<string>('create_guest_link', { p_id: id, p_name: name }),
+    revoke: (id, guest) => rpc('revoke_guest_link', { p_id: id, p_guest: guest }),
+    remove: (id, guest) => rpc('remove_recording_guest', { p_id: id, p_guest: guest }),
+  },
 }
 
 export async function resolveShare(token: string): Promise<WatchVideo | null> {

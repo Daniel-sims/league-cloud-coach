@@ -15,6 +15,7 @@ import {
   ArrowDownToLine,
   Clock3,
   Filter,
+  Flag,
   Link2,
   LoaderCircle,
   MessageSquarePlus,
@@ -26,6 +27,7 @@ import {
   PanelRightOpen,
   RefreshCw,
   Settings,
+  Trash2,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { EventContextMenu, type EventMenuTarget } from './EventContextMenu'
@@ -55,6 +57,7 @@ import {
   savedCoachName,
   type CommentKind,
   type CommentEvent,
+  type KeyMoment,
   type ReviewComment,
   type ReviewData,
   type ReviewRepository,
@@ -286,10 +289,19 @@ export function VideoReview({
     }
   }, [cinema])
 
+  const lastLoaded = useRef('')
+  useEffect(() => {
+    lastLoaded.current = ''
+  }, [repository])
   const reload = useCallback(async () => {
     try {
       const next = await repository.load()
-      setData(next)
+      // Live polling: leave the timeline alone unless something actually changed.
+      const fingerprint = JSON.stringify(next)
+      if (fingerprint !== lastLoaded.current) {
+        lastLoaded.current = fingerprint
+        setData(next)
+      }
       setState('ready')
       setError('')
     } catch (reason) {
@@ -299,10 +311,10 @@ export function VideoReview({
   }, [repository])
   useEffect(() => {
     void reload()
-    // Coaches and the player may review at the same time; pick up new comments.
+    // Reviews are live: the player and coach work at the same time.
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void reload()
-    }, 20000)
+    }, 8000)
     const focus = () => void reload()
     window.addEventListener('focus', focus)
     return () => {
@@ -610,6 +622,7 @@ export function VideoReview({
     <Composer
       key={`${commentEvent?.id ?? 'playhead'}-${composing}`}
       role={repository.role}
+      fixedName={repository.guestName}
       timeLabel={commentTime(composing)}
       videoClock={!anchor}
       contextLabel={commentEvent?.label}
@@ -625,6 +638,7 @@ export function VideoReview({
       >
         <Composer
           role={repository.role}
+          fixedName={repository.guestName}
           timeLabel={commentTime(comment.videoMs)}
           videoClock={!anchor}
           contextLabel={comment.event?.label}
@@ -925,6 +939,29 @@ export function VideoReview({
                     </button>
                   </div>
                 </header>
+                {data && (
+                  <KeyMoments
+                    moments={data.moments ?? []}
+                    editable={owner && Boolean(repository.addMoment)}
+                    timeLabel={commentTime}
+                    videoClock={!anchor}
+                    playheadMs={playheadMs}
+                    canMark={Boolean(controller)}
+                    onSeek={(ms) => controller?.seekTo(Math.max(0, ms) / 1000)}
+                    onMark={async (note) =>
+                      controller
+                        ? act(() =>
+                            repository.addMoment!(
+                              Math.round(controller.currentTime() * 1000),
+                              note,
+                            ),
+                          )
+                        : false
+                    }
+                    onSaveNote={(id, note) => act(() => repository.updateMoment!(id, note))}
+                    onDelete={(id) => void act(() => repository.deleteMoment!(id))}
+                  />
+                )}
                 {!owner && review && !anchor && (
                   <p className="review-note">
                     <Clock3 size={13} aria-hidden="true" />
@@ -1134,6 +1171,205 @@ export function VideoReview({
   )
 }
 
+/// The student flags places the coach should look at; everyone can jump to them.
+function KeyMoments({
+  moments,
+  editable,
+  timeLabel,
+  videoClock,
+  playheadMs,
+  canMark,
+  onSeek,
+  onMark,
+  onSaveNote,
+  onDelete,
+}: {
+  moments: KeyMoment[]
+  editable: boolean
+  timeLabel(videoMs: number): string
+  videoClock: boolean
+  playheadMs: number | null
+  canMark: boolean
+  onSeek(videoMs: number): void
+  onMark(note: string): Promise<boolean>
+  onSaveNote(id: string, note: string): Promise<boolean>
+  onDelete(id: string): void
+}) {
+  const [open, setOpen] = useState(true)
+  const [marking, setMarking] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  const startMark = useCallback(() => {
+    setEditing(null)
+    setNote('')
+    setMarking(true)
+  }, [])
+  useEffect(() => {
+    if (!editable) return
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== 'm' ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.defaultPrevented ||
+        !canMark
+      )
+        return
+      if (
+        (event.target as HTMLElement | null)?.closest(
+          'input, textarea, select, [contenteditable], dialog[open]',
+        )
+      )
+        return
+      event.preventDefault()
+      setOpen(true)
+      startMark()
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [editable, canMark, startMark])
+  if (!editable && moments.length === 0) return null
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (busy) return
+    setBusy(true)
+    const ok = editing ? await onSaveNote(editing, note.trim()) : await onMark(note.trim())
+    setBusy(false)
+    if (ok) {
+      setMarking(false)
+      setEditing(null)
+      setNote('')
+    }
+  }
+  const form = (marking || editing) && (
+    <form
+      className="moment-form"
+      onSubmit={(event) => void submit(event)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          setMarking(false)
+          setEditing(null)
+        }
+      }}
+    >
+      <input
+        ref={input}
+        autoFocus
+        aria-label="Why this moment matters"
+        value={note}
+        maxLength={500}
+        placeholder="What should the coach look at? (optional)"
+        onChange={(event) => setNote(event.target.value)}
+      />
+      <button className="button button-small" disabled={busy}>
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+      <button
+        type="button"
+        className="button secondary button-small"
+        onClick={() => {
+          setMarking(false)
+          setEditing(null)
+        }}
+      >
+        Cancel
+      </button>
+    </form>
+  )
+  return (
+    <section className="key-moments" aria-label="Key moments">
+      <button
+        type="button"
+        className="key-moments-head"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <Flag size={14} aria-hidden="true" />
+        <strong>Key moments</strong>
+        <span>{moments.length}</span>
+      </button>
+      {open && (
+        <>
+          {moments.length === 0 && (
+            <p className="field-hint">
+              Mark the moments you want your coach to look at. They appear here for everyone with a
+              link.
+            </p>
+          )}
+          <ol className="key-moment-list">
+            {moments.map((moment) => (
+              <li
+                key={moment.id}
+                className={
+                  playheadMs !== null && Math.abs(playheadMs - moment.videoMs) < 5000
+                    ? 'is-current'
+                    : ''
+                }
+              >
+                <button
+                  type="button"
+                  className="key-moment-seek"
+                  onClick={() => onSeek(moment.videoMs)}
+                  title="Jump to this moment"
+                >
+                  <time>
+                    {timeLabel(moment.videoMs)}
+                    {videoClock ? ' video' : ''}
+                  </time>
+                  <span>{moment.note || 'Look here'}</span>
+                </button>
+                {editable && (
+                  <span className="key-moment-actions">
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="Edit note"
+                      title="Edit note"
+                      onClick={() => {
+                        setMarking(false)
+                        setNote(moment.note)
+                        setEditing(moment.id)
+                      }}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="Remove key moment"
+                      title="Remove"
+                      onClick={() => onDelete(moment.id)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+          {form}
+          {editable && !form && (
+            <button
+              type="button"
+              className="button secondary button-small"
+              disabled={!canMark}
+              onClick={startMark}
+              title="Mark the current moment for your coach (M)"
+            >
+              <Flag size={14} />
+              Mark this moment
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
 function ReviewSettings({
   data,
   playerReady,
@@ -1188,6 +1424,7 @@ function ReviewSettings({
 
 function Composer({
   role,
+  fixedName,
   timeLabel,
   videoClock,
   initial,
@@ -1196,6 +1433,8 @@ function Composer({
   onSave,
 }: {
   role: 'owner' | 'coach'
+  /** A named guest's name is set by the owner, not typed. */
+  fixedName?: string
   timeLabel: string
   videoClock: boolean
   initial?: ReviewComment
@@ -1209,14 +1448,14 @@ function Composer({
   const [askName, setAskName] = useState(() => !savedCoachName().trim())
   const [busy, setBusy] = useState(false)
   const group = useId()
-  const needsName = role === 'coach' && !initial
+  const needsName = role === 'coach' && !initial && !fixedName
   const prompt = commentKinds.find((k) => k.kind === kind)!.prompt
   async function submit(event?: FormEvent) {
     event?.preventDefault()
     if (!body.trim() || (needsName && !name.trim()) || busy) return
     setBusy(true)
     if (needsName) saveCoachName(name.trim())
-    const ok = await onSave(kind, body.trim(), needsName ? name.trim() : undefined)
+    const ok = await onSave(kind, body.trim(), needsName ? name.trim() : fixedName)
     if (!ok) setBusy(false)
   }
   const kinds = role === 'owner' ? commentKinds : commentKinds.filter((k) => k.kind !== 'mindset')

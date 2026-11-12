@@ -1737,3 +1737,80 @@ body:has(.cinema-mode) .watch-main {
 .event-context-menu > button:disabled {
   opacity: 0.5;
 }
+
+/* Key moments: the student's flags for the coach. */
+.key-moments {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0 12px;
+  display: grid;
+  gap: 8px;
+}
+.key-moments-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.key-moments-head span {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted, #969e88);
+}
+.key-moment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.key-moment-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+}
+.key-moment-list li.is-current {
+  background: color-mix(in srgb, var(--gold, #b7791f) 14%, transparent);
+}
+.key-moment-seek {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 6px 8px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.key-moment-seek time {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--gold, #b7791f);
+  white-space: nowrap;
+}
+.key-moment-seek span {
+  overflow-wrap: anywhere;
+}
+.key-moment-actions {
+  display: flex;
+}
+.moment-form {
+  display: flex;
+  gap: 6px;
+}
+.moment-form input {
+  flex: 1;
+  min-width: 0;
+}
+.key-moments > .button {
+  justify-self: start;
+}

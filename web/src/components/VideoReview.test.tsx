@@ -356,3 +356,64 @@ it('groups linked comments under an event and saves new notes at event time, not
   )
   expect(await within(thread).findByText('Move as five.')).toBeInTheDocument()
 })
+
+it('lets the owner mark key moments the guest can read and jump to but not change', async () => {
+  const time = { seconds: 95.4 }
+  const player = fakePlayer(time)
+  const base: ReviewData = {
+    matchId: 'EUW1_1',
+    review: reviewPayload(),
+    syncedAt: null,
+    anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 0 },
+    comments: [],
+    moments: [{ id: 'm1', videoMs: 61_000, note: 'Why did I fight here?' }],
+  }
+  const owner = Object.assign(repository('owner', base), {
+    addMoment: vi.fn(async () => {}),
+    updateMoment: vi.fn(async () => {}),
+    deleteMoment: vi.fn(async () => {}),
+  })
+  const view = render(<VideoReview repository={owner} renderPlayer={player.render} />)
+  await userEvent.click(await screen.findByRole('button', { name: /Why did I fight here\?/ }))
+  expect(player.seekTo).toHaveBeenCalledWith(61)
+  await userEvent.click(screen.getByRole('button', { name: 'Mark this moment' }))
+  await userEvent.type(screen.getByLabelText('Why this moment matters'), 'Wave state')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(owner.addMoment).toHaveBeenCalledWith(95_400, 'Wave state')
+  await userEvent.click(screen.getByRole('button', { name: 'Remove key moment' }))
+  expect(owner.deleteMoment).toHaveBeenCalledWith('m1')
+  view.unmount()
+
+  const guest = Object.assign(repository('coach', base), { guestName: 'Coach Sam' })
+  render(<VideoReview repository={guest} renderPlayer={player.render} />)
+  await userEvent.click(await screen.findByRole('button', { name: /Why did I fight here\?/ }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(61)
+  expect(screen.queryByRole('button', { name: 'Mark this moment' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Remove key moment' })).toBeNull()
+})
+
+it('comments as the owner-named guest without asking for a name', async () => {
+  const time = { seconds: 120 }
+  const player = fakePlayer(time)
+  const guest = Object.assign(
+    repository('coach', {
+      matchId: null,
+      review: null,
+      syncedAt: null,
+      anchor: null,
+      comments: [],
+    }),
+    { guestName: 'Coach Sam' },
+  )
+  render(<VideoReview repository={guest} renderPlayer={player.render} />)
+  await userEvent.click(await screen.findByRole('button', { name: /Add comment|Comment/ }))
+  expect(screen.queryByLabelText('Your name')).toBeNull()
+  await userEvent.type(screen.getByLabelText('Comment text'), 'Nice trade')
+  await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+  await waitFor(() =>
+    expect(guest.addComment).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'Nice trade' }),
+      'Coach Sam',
+    ),
+  )
+})

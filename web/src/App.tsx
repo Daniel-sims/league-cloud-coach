@@ -26,6 +26,7 @@ import {
   Settings2,
   ShieldCheck,
   Unlink,
+  UserPlus,
   X,
 } from 'lucide-react'
 import { Dialog } from './components/Dialog'
@@ -54,7 +55,7 @@ import { useTheme } from './lib/theme'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
-import type { LibraryRepository, Recording, WatchVideo, UploadSync } from './lib/types'
+import type { Guest, LibraryRepository, Recording, WatchVideo, UploadSync } from './lib/types'
 
 const isDev = import.meta.env.DEV
 function useRoute() {
@@ -1359,7 +1360,10 @@ function ShareDialog({
         if (!busy) onClose()
       }}
     >
-      <p className="dialog-intro">Share “{record.title}” with your coach.</p>
+      <p className="dialog-intro">
+        Share “{record.title}”. Give each person their own link and their comments and notes arrive
+        under their name.
+      </p>
       <div className="share-illustration">
         <span>
           <Film size={23} />
@@ -1391,36 +1395,44 @@ function ShareDialog({
             {copied ? 'Copied YouTube link' : 'Copy YouTube link'}
           </button>
         </>
-      ) : link ? (
-        <>
-          <label className="form-label" htmlFor="share-link">
-            Your watch link
-          </label>
-          <div className="copy-field">
-            <input id="share-link" readOnly value={link} onFocus={(e) => e.target.select()} />
-            <button className="button" onClick={copy}>
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-          <p className="field-hint">
-            Save this link now. For privacy, it’s shown only when created.
-          </p>
-          <a className="text-link" href={link} target="_blank" rel="noopener noreferrer">
-            Open watch page <ExternalLink size={13} />
-          </a>
-        </>
       ) : (
         <>
-          <p>
-            {active
-              ? 'This video already has a shared watch page. Creating a replacement disables the previous app link.'
-              : 'Create a watch page that anyone with the link can open.'}
-          </p>
-          <button className="button share-primary" onClick={create} disabled={busy}>
-            {busy ? <LoaderCircle className="spin" size={16} /> : <Link2 size={16} />}
-            {active ? 'Replace existing share link' : 'Create share link'}
-          </button>
+          {repository.guests && <GuestLinks record={record} repository={repository} />}
+          <details className="anyone-link" open={!repository.guests}>
+            <summary>Link without a name</summary>
+            {link ? (
+              <>
+                <label className="form-label" htmlFor="share-link">
+                  Your watch link
+                </label>
+                <div className="copy-field">
+                  <input id="share-link" readOnly value={link} onFocus={(e) => e.target.select()} />
+                  <button className="button" onClick={copy}>
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="field-hint">
+                  Save this link now. For privacy, it’s shown only when created.
+                </p>
+                <a className="text-link" href={link} target="_blank" rel="noopener noreferrer">
+                  Open watch page <ExternalLink size={13} />
+                </a>
+              </>
+            ) : (
+              <>
+                <p>
+                  {active
+                    ? 'This video already has a shared watch page. Creating a replacement disables the previous app link.'
+                    : 'Create a watch page that anyone with the link can open.'}
+                </p>
+                <button className="button share-primary" onClick={create} disabled={busy}>
+                  {busy ? <LoaderCircle className="spin" size={16} /> : <Link2 size={16} />}
+                  {active ? 'Replace existing share link' : 'Create share link'}
+                </button>
+              </>
+            )}
+          </details>
         </>
       )}
       {error && <ErrorNotice message={error} />}
@@ -1436,6 +1448,146 @@ function ShareDialog({
           : 'Anyone with the underlying YouTube link can still watch. To stop access to the video itself, make it Private or delete it in YouTube Studio.'}
       </p>
     </Dialog>
+  )
+}
+
+/// One link per person. The link, not the browser, says who is writing, so a
+/// coach's comments carry their name from any device.
+function GuestLinks({ record, repository }: { record: Recording; repository: LibraryRepository }) {
+  const guests = repository.guests!
+  const [list, setList] = useState<Guest[] | null>(null)
+  const [name, setName] = useState('')
+  const [link, setLink] = useState<{ name: string; url: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+  const refresh = () =>
+    guests
+      .list(record.id)
+      .then(setList)
+      .catch((e: Error) => setError(e.message))
+  useEffect(() => {
+    void refresh()
+  }, [record.id])
+  async function run(work: () => Promise<void>) {
+    setBusy(true)
+    setError('')
+    try {
+      await work()
+      await refresh()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const create = (guestName: string) =>
+    run(async () => {
+      const token = await guests.link(record.id, guestName)
+      setCopied(false)
+      setLink({ name: guestName.trim(), url: appURL(`/watch/${token}`) })
+      setName('')
+    })
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(link!.url)
+      setCopied(true)
+    } catch {
+      setError('Clipboard access was blocked. Select the link and copy it manually.')
+    }
+  }
+  return (
+    <section className="guest-links" aria-label="Guest links">
+      <form
+        className="guest-add"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (name.trim() && !busy) void create(name)
+        }}
+      >
+        <label className="form-label" htmlFor="guest-name">
+          Who is this link for?
+        </label>
+        <div className="copy-field">
+          <input
+            id="guest-name"
+            value={name}
+            maxLength={40}
+            placeholder="Coach, Sam, …"
+            autoComplete="off"
+            onChange={(event) => setName(event.target.value)}
+          />
+          <button className="button" disabled={busy || !name.trim()}>
+            <UserPlus size={15} />
+            Create link
+          </button>
+        </div>
+      </form>
+      {link && (
+        <div className="guest-new-link" role="status">
+          <p>
+            Link for <strong>{link.name}</strong>. Save it now; for privacy it’s shown only once.
+          </p>
+          <div className="copy-field">
+            <input
+              aria-label={`Watch link for ${link.name}`}
+              readOnly
+              value={link.url}
+              onFocus={(event) => event.target.select()}
+            />
+            <button className="button" onClick={() => void copy()}>
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
+      {list && list.length > 0 && (
+        <ul className="guest-list">
+          {list.map((guest) => (
+            <li key={guest.id}>
+              <div>
+                <strong>{guest.name}</strong>
+                <small>
+                  {!guest.active
+                    ? 'Link stopped'
+                    : guest.started_at
+                      ? `Watching since ${new Date(guest.started_at).toLocaleString()}`
+                      : 'Link active'}
+                </small>
+              </div>
+              <button
+                className="button secondary button-small"
+                disabled={busy}
+                onClick={() => void create(guest.name)}
+                title="Make a new link for this person. The old link stops working."
+              >
+                New link
+              </button>
+              {guest.active && (
+                <button
+                  className="button secondary button-small"
+                  disabled={busy}
+                  onClick={() => void run(() => guests.revoke(record.id, guest.id))}
+                >
+                  Stop
+                </button>
+              )}
+              <button
+                className="icon-button"
+                disabled={busy}
+                aria-label={`Remove ${guest.name}`}
+                title="Remove this guest. Their comments stay."
+                onClick={() => void run(() => guests.remove(record.id, guest.id))}
+              >
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <ErrorNotice message={error} />}
+    </section>
   )
 }
 
@@ -1684,7 +1836,19 @@ function Watch({ token }: { token: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
-  const review = useMemo(() => sharedReview(token), [token])
+  // The link may belong to a named guest, so the repository waits for resolution.
+  const review = useMemo(
+    () =>
+      video
+        ? sharedReview(
+            token,
+            video.guest_name && video.guest_key
+              ? { name: video.guest_name, key: video.guest_key }
+              : null,
+          )
+        : null,
+    [token, video],
+  )
   const notebook = useReviewNotebook(review)
   useEffect(() => {
     let active = true
@@ -1740,7 +1904,7 @@ function Watch({ token }: { token: string }) {
               </button>
             )}
           </div>
-        ) : video ? (
+        ) : video && review ? (
           <>
             <div className="video-bar">
               <h1>{video.title}</h1>
@@ -1751,7 +1915,7 @@ function Watch({ token }: { token: string }) {
                 <NotebookActions notebook={notebook} />
                 <span className="watch-badge">
                   <Link2 size={13} />
-                  Shared with you
+                  {video.guest_name ? `Reviewing as ${video.guest_name}` : 'Shared with you'}
                 </span>
               </div>
             </div>

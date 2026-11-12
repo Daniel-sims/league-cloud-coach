@@ -8,16 +8,19 @@ import {
   type ReviewRepository,
 } from '../lib/review'
 
-const emptyNotes: ReviewNotes = { draft: null, reviews: [] }
+const emptyNotes: ReviewNotes = { draft: null, reviews: [], guestDrafts: [] }
+
+const liveRefreshMs = 6000
 
 export function useReviewNotebook(repository: ReviewRepository | null) {
+  const defaultName = () => repository?.guestName ?? savedCoachName()
   const [view, setView] = useState<'timeline' | 'notes'>('timeline')
   const [finishing, setFinishing] = useState(false)
   const [data, setData] = useState<ReviewNotes>(emptyNotes)
   const [body, setBody] = useState('')
-  const [author, setAuthor] = useState(savedCoachName)
+  const [author, setAuthor] = useState(defaultName)
   const [savedBody, setSavedBody] = useState('')
-  const [savedAuthor, setSavedAuthor] = useState(savedCoachName)
+  const [savedAuthor, setSavedAuthor] = useState(defaultName)
   const [ready, setReady] = useState(false)
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
@@ -27,9 +30,9 @@ export function useReviewNotebook(repository: ReviewRepository | null) {
       active: true,
       ready: false,
       body: '',
-      author: savedCoachName(),
+      author: defaultName(),
       savedBody: '',
-      savedAuthor: savedCoachName(),
+      savedAuthor: defaultName(),
       version: 0,
       pending: 0,
       queue: Promise.resolve(),
@@ -63,7 +66,8 @@ export function useReviewNotebook(repository: ReviewRepository | null) {
         setData(next)
         if (replace || (!isDirty() && session.pending === 0)) {
           session.body = session.savedBody = next.draft?.body ?? ''
-          session.author = session.savedAuthor = next.draft?.author ?? savedCoachName()
+          session.author = session.savedAuthor =
+            repository.guestName ?? next.draft?.author ?? savedCoachName()
           session.version = next.draft?.version ?? 0
           setBody(session.body)
           setSavedBody(session.body)
@@ -110,7 +114,7 @@ export function useReviewNotebook(repository: ReviewRepository | null) {
             session.version = next.draft.version
             session.savedBody = text
             session.savedAuthor = rawName
-            if (repository.role === 'coach') saveCoachName(name)
+            if (repository.role === 'coach' && !repository.guestName) saveCoachName(name)
             if (session.active) {
               setData(next)
               setSavedBody(text)
@@ -158,6 +162,14 @@ export function useReviewNotebook(repository: ReviewRepository | null) {
         void persist().catch(() => {})
     }
   }, [repository, session, load, persist])
+  // Live review: pick up what the other side is writing without a reload.
+  useEffect(() => {
+    if (!repository?.loadNotes) return
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && !isDirty() && session.pending === 0) void load()
+    }, liveRefreshMs)
+    return () => window.clearInterval(timer)
+  }, [repository, session, load])
   useEffect(() => {
     if (!ready || !dirty || finishing || error || (repository?.role === 'coach' && !author.trim()))
       return
@@ -199,6 +211,7 @@ export function useReviewNotebook(repository: ReviewRepository | null) {
   return {
     supported: Boolean(repository?.loadNotes && repository.saveNotes),
     role: repository?.role ?? 'owner',
+    named: Boolean(repository?.guestName),
     view,
     setView,
     finishing,
@@ -312,7 +325,7 @@ export function ReviewNotebook({
           Private notes while you watch. Complete your review to share the finished version.
         </p>
         {!notebook.ready && !notebook.error && <p role="status">Loading your notes…</p>}
-        {notebook.role === 'coach' && (
+        {notebook.role === 'coach' && !notebook.named && (
           <label className="notebook-field">
             Your name
             <input
@@ -387,6 +400,20 @@ export function ReviewNotebook({
             Your previous completed review stays visible until you complete this draft.
           </p>
         )}
+        {notebook.role === 'owner' && (notebook.data.guestDrafts?.length ?? 0) > 0 && (
+          <section className="completed-reviews guest-drafts" aria-label="Guest notes">
+            <h3>Guest notes</h3>
+            {notebook.data.guestDrafts!.map((draft) => (
+              <article className="completed-review" key={draft.id}>
+                <div>
+                  <strong>{draft.author || 'Guest'}</strong>
+                  <small>Live · {new Date(draft.updatedAt).toLocaleTimeString()}</small>
+                </div>
+                <p>{draft.body}</p>
+              </article>
+            ))}
+          </section>
+        )}
         {notebook.data.reviews.length > 0 && (
           <section className="completed-reviews" aria-label="Completed reviews">
             <h3>Completed reviews</h3>
@@ -427,7 +454,7 @@ export function CompleteReview({ notebook }: { notebook: ReviewNotebookModel }) 
         Polish your running notes below. Completing shares this finished review with the player and
         anyone with a watch link to this video.
       </p>
-      {notebook.role === 'coach' && (
+      {notebook.role === 'coach' && !notebook.named && (
         <label className="notebook-field">
           Your name
           <input

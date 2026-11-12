@@ -2,6 +2,28 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Named guest links, live review and key moments
+
+Share now creates one link *per person* ("Coach Sam"). Their comments, notes and
+stills carry that name from any browser (a trigger stamps the owner-set name, so a
+browser cannot choose it), and replacing a link keeps the person's identity.
+Each guest has their own Stream session, so several people can watch at once.
+The old anyone-with-the-link share remains under "Link without a name".
+The owner now also reads every guest's running notes live (read-only, "Guest notes");
+guests still see only their own draft. The review timeline polls every 8 seconds
+(only re-rendering when something changed) and notes every 6 seconds, which is the
+live mechanism; there is no shared playhead (reviews happen over screen share).
+A Key moments panel lets the owner mark the current video time (button or M) with a
+short note; everyone with a link sees the list and can jump to a moment.
+
+Migration `202611120001_guest_links.sql`: `recording_guests`, `recording_shares.guest_id`,
+`recording_moments`, guest RPCs, `resolve_recording_share` now also returns
+`guest_name`/`guest_key` (the key is the guest's authorship secret, returned only
+to a valid link holder). New suite `supabase/tests/guest-links-security.sql`.
+Validation: 157 unit tests, build, all eleven permission suites on PostgreSQL 16.
+In the browser suite `home.spec:207` and `review.spec:361` also fail on the
+unchanged tree, and `cloud.spec:268` (upload polling) is timing-flaky.
+
 ## Clicked death/ultimate stays current
 
 Deaths and ultimates still seek five seconds early, which used to mark the previous

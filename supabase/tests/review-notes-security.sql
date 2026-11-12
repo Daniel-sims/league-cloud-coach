@@ -37,7 +37,7 @@ end $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
 do $$ begin
-  if public.get_recording_notes(current_setting('test.recording')::uuid)::text like '%Private coach%' then raise exception 'Player read coach draft'; end if;
+  if (public.get_recording_notes(current_setting('test.recording')::uuid)->'draft')::text like '%Private coach%' or (public.get_recording_notes(current_setting('test.recording')::uuid)->'reviews')::text like '%Private coach%' then raise exception 'Coach draft leaked into player draft or published reviews'; end if;
 end $$;
 select public.save_recording_notes(:'recording','Finished player review',1,true);
 set local role anon;
