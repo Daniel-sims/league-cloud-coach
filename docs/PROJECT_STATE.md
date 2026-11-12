@@ -2,6 +2,12 @@
 
 Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Clicked death/ultimate stays current
+
+Deaths and ultimates still seek five seconds early, which used to mark the previous
+row as current. The clicked row now stays current from the lead-in until play
+reaches it; seeking elsewhere releases it and normal following resumes. Frontend only.
+
 ## Home is you; Summoners looks anyone up
 
 Home no longer has an inline "viewing another player" mode. A new Summoners

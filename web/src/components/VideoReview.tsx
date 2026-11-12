@@ -398,10 +398,24 @@ export function VideoReview({
       group.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
     return grouped
   }, [comments, review?.matchId, hidden])
+  // Deaths and ultimates seek a few seconds before the moment, which lands the
+  // playhead on the previous row. Keep the row that was clicked marked as current
+  // until play reaches it (or the viewer seeks somewhere else).
+  const [pin, setPin] = useState<{ ms: number; lead: number } | null>(null)
   const currentId = useMemo(() => {
     if (playheadMs === null) return null
+    const pinned = pin
+      ? items.find((i) => i.type === 'event' && i.entry.gameTimeMs === pin.ms)
+      : undefined
+    if (
+      pin &&
+      pinned &&
+      playheadMs >= pinned.sortMs - pin.lead - 1500 &&
+      playheadMs <= pinned.sortMs
+    )
+      return pinned.id
     return items.filter((i) => i.sortMs <= playheadMs).at(-1)?.id ?? null
-  }, [items, playheadMs])
+  }, [items, playheadMs, pin])
 
   useEffect(() => {
     if (!follow || !currentId || !list.current || editing) return
@@ -427,6 +441,7 @@ export function VideoReview({
     }
     if (!coverage || gameMs < coverage[0] || gameMs > coverage[1]) return
     const target = leadMs > 0 ? Math.max(gameMs - leadMs, coverage[0]) : gameMs
+    setPin(leadMs > 0 ? { ms: gameMs, lead: leadMs } : null)
     controller.seekTo(videoOffset(anchor, target / 1000))
   }
   const seekable = (gameMs: number) =>
@@ -438,8 +453,10 @@ export function VideoReview({
     if (anchor && coverage && controller) {
       const { ms, leadMs } = pendingSeek
       const target = leadMs > 0 ? Math.max(ms - leadMs, coverage[0]) : ms
-      if (ms >= coverage[0] && ms <= coverage[1])
+      if (ms >= coverage[0] && ms <= coverage[1]) {
+        setPin(leadMs > 0 ? { ms, lead: leadMs } : null)
         controller.seekTo(videoOffset(anchor, target / 1000))
+      }
       setPendingSeek(null)
     } else if (syncing === null && !anchor) setPendingSeek(null)
   }, [anchor, coverage, controller, pendingSeek, syncing])

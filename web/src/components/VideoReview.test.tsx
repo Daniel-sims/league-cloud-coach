@@ -283,6 +283,33 @@ it('seeks comments and ordinary events exactly, with lead-in only for ultimates 
   expect(player.seekTo).toHaveBeenLastCalledWith(820)
 })
 
+it('keeps a clicked ultimate marked as current through its lead-in, then follows the playhead', async () => {
+  const time = { seconds: 700 }
+  const player = fakePlayer(time)
+  const review = reviewPayload()
+  review.ultimates = { detectorVersion: 1, videoTimestampsMs: [650000] }
+  const repo = repository('owner', {
+    matchId: review.matchId,
+    review,
+    syncedAt: null,
+    anchor: { gameTimeSeconds: 600, videoOffsetSeconds: 700 },
+    comments: [],
+  })
+  render(<VideoReview repository={repo} renderPlayer={player.render} />)
+  const row = async () =>
+    (await screen.findByRole('button', { name: 'Cast ultimate' })).closest('li') as HTMLElement
+  await userEvent.click(await screen.findByRole('button', { name: 'Cast ultimate' }))
+  // The seek lands five seconds early; the clicked row, not the previous one, stays current.
+  expect(player.seekTo).toHaveBeenLastCalledWith(645)
+  time.seconds = 645
+  await waitFor(async () => expect(await row()).toHaveClass('current'))
+  time.seconds = 652
+  await waitFor(async () => expect(await row()).toHaveClass('current'))
+  // Seeking elsewhere releases it.
+  time.seconds = 300
+  await waitFor(async () => expect(await row()).not.toHaveClass('current'))
+})
+
 it('groups linked comments under an event and saves new notes at event time, not the playhead', async () => {
   const event = {
     id: 'objective-720000',
