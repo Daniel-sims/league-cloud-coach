@@ -376,6 +376,11 @@ it('lets the owner mark key moments the guest can read and jump to but not chang
   const view = render(<VideoReview repository={owner} renderPlayer={player.render} />)
   await userEvent.click(await screen.findByRole('button', { name: /Why did I fight here\?/ }))
   expect(player.seekTo).toHaveBeenCalledWith(61)
+  // The flag is also a row on the timeline itself.
+  const row = screen.getByText('Key moment').closest('li')!
+  expect(within(row).getByText('Why did I fight here?')).toBeVisible()
+  await userEvent.click(within(row).getByRole('button', { name: 'Key moment' }))
+  expect(player.seekTo).toHaveBeenLastCalledWith(61)
   await userEvent.click(screen.getByRole('button', { name: 'Mark this moment' }))
   await userEvent.type(screen.getByLabelText('Why this moment matters'), 'Wave state')
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))

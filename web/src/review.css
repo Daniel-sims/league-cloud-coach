@@ -1821,3 +1821,16 @@ body:has(.cinema-mode) .watch-main {
 .key-moments > .button {
   justify-self: start;
 }
+
+/* A key moment on the timeline: the student's flag, in the accent colour. */
+.kind-moment {
+  --dot: var(--gold, #b7791f);
+}
+.kind-moment .timeline-label {
+  color: var(--gold, #b7791f);
+  font-weight: 600;
+}
+.moment-note {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}

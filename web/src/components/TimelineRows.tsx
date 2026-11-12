@@ -508,6 +508,44 @@ export function CommentRow({
   )
 }
 
+export function MomentRow({
+  note,
+  id,
+  timeLabel,
+  videoClock,
+  current,
+  onSeek,
+}: {
+  id: string
+  note: string
+  timeLabel: string
+  videoClock: boolean
+  current: boolean
+  onSeek(): void
+}) {
+  return (
+    <li
+      onClick={rowClick(onSeek)}
+      className={`timeline-row kind-moment clickable ${current ? 'current' : ''}`}
+      data-item={id}
+    >
+      <span className="timeline-time" title={videoClock ? 'Video time' : 'Game time'}>
+        {timeLabel}
+        {videoClock && <small>video</small>}
+      </span>
+      <span className="timeline-spine" aria-hidden="true">
+        <i />
+      </span>
+      <div className="timeline-body">
+        <button className="timeline-label" onClick={onSeek} title="Jump to this moment">
+          Key moment
+        </button>
+        {note && <p className="moment-note">{note}</p>}
+      </div>
+    </li>
+  )
+}
+
 export function CaptureRow({
   capture,
   repository,

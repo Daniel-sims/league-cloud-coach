@@ -34,7 +34,7 @@ import { EventContextMenu, type EventMenuTarget } from './EventContextMenu'
 import { CompleteReview, ReviewNotebook, type ReviewNotebookModel } from './ReviewNotebook'
 import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
-import { CaptureRow, CommentRow, EventRow, patchOf } from './TimelineRows'
+import { CaptureRow, CommentRow, EventRow, MomentRow, patchOf } from './TimelineRows'
 import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
@@ -101,6 +101,7 @@ type Item =
   | { id: string; type: 'event'; entry: TimelineEntry; sortMs: number }
   | { id: string; type: 'comment'; comment: ReviewComment; sortMs: number }
   | { id: string; type: 'capture'; capture: ReviewCapture; sortMs: number }
+  | { id: string; type: 'moment'; moment: KeyMoment; sortMs: number }
 
 function loadHidden(): Set<string> {
   try {
@@ -363,6 +364,7 @@ export function VideoReview({
   )
   const comments = data?.comments ?? []
   const captures = data?.captures ?? []
+  const moments = useMemo(() => data?.moments ?? [], [data?.moments])
   const presentKinds = entryKinds.filter((k) => entries.some((e) => e.kind === k.kind))
   const items = useMemo(() => {
     const eventMs = (gameMs: number) =>
@@ -393,10 +395,17 @@ export function VideoReview({
           capture,
           sortMs: capture.videoMs,
         }))
-    return [...events, ...notes, ...stills].sort(
+    // The student's flags are always on the timeline; they are the point of the review.
+    const flags: Item[] = moments.map((moment) => ({
+      id: `moment-${moment.id}`,
+      type: 'moment',
+      moment,
+      sortMs: moment.videoMs,
+    }))
+    return [...events, ...notes, ...stills, ...flags].sort(
       (a, b) => a.sortMs - b.sortMs || (a.id < b.id ? -1 : 1),
     )
-  }, [entries, comments, captures, hidden, anchor, review?.matchId])
+  }, [entries, comments, captures, moments, hidden, anchor, review?.matchId])
   const eventComments = useMemo(() => {
     const grouped = new Map<string, ReviewComment[]>()
     if (hidden.has(commentsKey)) return grouped
@@ -1004,7 +1013,7 @@ export function VideoReview({
                   </div>
                 ) : items.length === 0 ? (
                   <div className="review-empty">
-                    {entries.length || comments.length || captures.length ? (
+                    {entries.length || comments.length || captures.length || moments.length ? (
                       <>
                         <p>Everything on this timeline is hidden by the filter.</p>
                         <button
@@ -1091,6 +1100,18 @@ export function VideoReview({
                               </section>
                             )}
                           </EventRow>
+                        ) : item.type === 'moment' ? (
+                          <MomentRow
+                            key={item.id}
+                            id={item.id}
+                            note={item.moment.note}
+                            timeLabel={commentTime(item.moment.videoMs)}
+                            videoClock={!anchor}
+                            current={item.id === currentId}
+                            onSeek={() =>
+                              controller?.seekTo(Math.max(0, item.moment.videoMs) / 1000)
+                            }
+                          />
                         ) : item.type === 'capture' ? (
                           <CaptureRow
                             key={item.id}
