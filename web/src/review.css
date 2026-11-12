@@ -1741,9 +1741,15 @@ body:has(.cinema-mode) .watch-main {
 /* Key moments: the student's flags for the coach. */
 .key-moments {
   border-bottom: 1px solid var(--line);
-  padding: 8px 0 12px;
+  /* Same 12px gutter as the panel header above it. */
+  padding: 4px 12px 16px;
   display: grid;
-  gap: 8px;
+  gap: 12px;
+}
+.key-moments .field-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .key-moments-head {
   display: flex;
@@ -1786,7 +1792,7 @@ body:has(.cinema-mode) .watch-main {
   text-align: left;
   background: none;
   border: 0;
-  padding: 6px 8px;
+  padding: 8px;
   color: inherit;
   font: inherit;
   cursor: pointer;
