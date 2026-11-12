@@ -74,6 +74,23 @@ export function Settings({
       active = false
     }
   }, [profileId])
+  // Like the desktop client, ride out Riot's rate limit instead of failing:
+  // wait the advertised time (stoppable), then repeat the same request.
+  async function rateLimited<T>(label: string, run: () => Promise<T>): Promise<T> {
+    for (;;) {
+      try {
+        return await run()
+      } catch (e) {
+        const wait = (e as { retryAfter?: number }).retryAfter
+        if (!wait || stopSeason.current || !alive.current) throw e
+        for (let left = wait; left > 0; left--) {
+          if (stopSeason.current || !alive.current) throw e
+          setSeasonBusy(`${label} — Riot's rate limit reached, resuming in ${left}s`)
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+      }
+    }
+  }
   async function syncSeason() {
     const id = profileId
     if (!id || !season || seasonBusy) return
@@ -99,7 +116,9 @@ export function Settings({
             return
           }
           setSeasonBusy(`Syncing season ${season}… part ${index + 1} of ${total}, ${count} games checked`)
-          const page = await leagueRepository.sync(id, start, window)
+          const page = await rateLimited(`Syncing season ${season}`, () =>
+            leagueRepository.sync(id, start, window),
+          )
           count += page.nextStart - start
           start = page.nextStart
           if (!page.hasMore) break
@@ -116,7 +135,9 @@ export function Settings({
           return
         }
         setSeasonBusy(`Syncing season ${season}… curating timelines`)
-        const result = await leagueRepository.syncTimelines(id, whole)
+        const result = await rateLimited(`Syncing season ${season}`, () =>
+          leagueRepository.syncTimelines(id, whole),
+        )
         if (result.remaining === 0 || result.done === 0) break
         setSeasonBusy(`Syncing season ${season}… curating timelines, ${result.remaining} left`)
       }

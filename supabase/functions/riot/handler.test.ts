@@ -79,6 +79,7 @@ function table(name: string) {
   };
   return query;
 }
+const sleepLog: number[] = [];
 const handler = createRiotHandler({
   env: (key) =>
     key === "RIOT_TOKEN_ENCRYPTION_KEY"
@@ -89,7 +90,9 @@ const handler = createRiotHandler({
   createClient: () =>
     ({ auth: { getUser }, from: table, rpc }) as unknown as SupabaseClient,
   fetch: provider,
-  sleep: async () => {},
+  sleep: async (ms: number) => {
+    sleepLog.push(ms);
+  },
   crypto: webcrypto as unknown as Crypto,
 });
 const request = (body: unknown, jwt = "owner-jwt") =>
@@ -102,6 +105,7 @@ const request = (body: unknown, jwt = "owner-jwt") =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  sleepLog.length = 0;
   credential = null;
   member = true;
   available = true;
@@ -376,8 +380,8 @@ it("releases the sync lock on rate limits and does not advance the cursor or ech
   });
 });
 it("returns a safe key-expiry message and respects profile sync exclusion", async () => {
-  provider.mockResolvedValueOnce(
-    new Response("private-riot-key", { status: 403 }),
+  provider.mockImplementation(
+    async () => new Response("private-riot-key", { status: 403 }),
   );
   const response = await request({ action: "sync", profileId: id, start: 0 });
   expect(response.status).toBe(503);
@@ -430,7 +434,7 @@ it("verifies a personal token before saving only encrypted data under the verifi
   expect(provider.mock.calls.at(-1)![1].headers["X-Riot-Token"]).toBe(token);
 });
 it("saves a replacement with a propagation warning when Riot hasn't accepted it yet", async () => {
-  provider.mockResolvedValueOnce(new Response("do-not-echo", { status: 403 }));
+  provider.mockImplementation(async () => new Response("do-not-echo", { status: 403 }));
   const response = await request({
     action: "save-token",
     token: "RGAPI-" + "b".repeat(36),
@@ -456,4 +460,24 @@ it("removes only the verified owner token and never calls Riot for status or rem
   ).toBe(200);
   expect(writes).toHaveBeenCalledWith("riot_credentials", { deleted: true });
   expect(provider).not.toHaveBeenCalled();
+});
+
+it("rides out short rate limits, 5xx blips and a new key's first rejections like the desktop client", async () => {
+  provider
+    .mockResolvedValueOnce(new Response("{}", { status: 403 }))
+    .mockResolvedValueOnce(new Response("{}", { status: 429, headers: { "Retry-After": "3" } }))
+    .mockResolvedValueOnce(new Response("{}", { status: 503 }));
+  const response = await request({ action: "sync", profileId: id, start: 0 });
+  expect(response.status).not.toBe(429);
+  expect(provider.mock.calls.length).toBeGreaterThan(3);
+  expect(sleepLog).toEqual(expect.arrayContaining([2000, 3000, 1500]));
+});
+it("hands a long rate-limit wait back with retryAfter instead of holding the worker", async () => {
+  provider.mockImplementation(
+    async () => new Response("{}", { status: 429, headers: { "Retry-After": "90" } }),
+  );
+  const response = await request({ action: "sync", profileId: id, start: 0 });
+  expect(response.status).toBe(429);
+  expect(await response.json()).toMatchObject({ retryAfter: 90 });
+  expect(provider).toHaveBeenCalledTimes(1);
 });

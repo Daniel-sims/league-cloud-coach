@@ -46,7 +46,10 @@ export async function riotRequest<T>(body: object): Promise<T> {
     signal: AbortSignal.timeout(90000),
   })
   const result = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(result.error || 'Could not sync League. Please try again.')
+  if (!response.ok)
+    throw Object.assign(new Error(result.error || 'Could not sync League. Please try again.'), {
+      retryAfter: typeof result.retryAfter === 'number' ? result.retryAfter : undefined,
+    })
   return result as T
 }
 export const leagueRepository: LeagueRepository = {

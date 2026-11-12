@@ -17,6 +17,7 @@ class Failure extends Error {
   constructor(
     public status: number,
     message: string,
+    public retryAfter?: number,
   ) {
     super(message);
   }
@@ -240,48 +241,77 @@ export function createRiotHandler(deps: Dependencies) {
         deps.sleep ??
         ((ms: number) =>
           new Promise<void>((resolve) => setTimeout(resolve, ms)));
+      // Mirrors the desktop client: every call is paced through the shared
+      // budget, then 429s wait out Retry-After, 5xx back off, and a freshly
+      // generated key's first 401/403s are ridden out before giving up.
       async function riot(host: string, path: string) {
-        const { data: wait, error: budgetError } = await admin.rpc(
-          "reserve_riot_request",
-        );
-        if (budgetError || typeof wait !== "number" || wait < 0)
-          throw new Failure(
-            429,
-            "League sync is busy. Please try again in a moment.",
+        let rejected = 0;
+        for (let attempt = 0; ; attempt++) {
+          const { data: wait, error: budgetError } = await admin.rpc(
+            "reserve_riot_request",
           );
-        await sleep(wait);
-        const response = await deps.fetch(
-          `https://${host}.api.riotgames.com${path}`,
-          {
-            headers: { "X-Riot-Token": key! },
-            signal: AbortSignal.timeout(12000),
-          },
-        );
-        if (response.status === 401 || response.status === 403)
-          throw new Failure(
-            503,
-            "Riot hasn't accepted this token yet. If you just generated it, it may take a few minutes to start working. Otherwise, check or replace it in Settings.",
+          if (budgetError || typeof wait !== "number" || wait < 0)
+            throw new Failure(
+              429,
+              "League sync is busy. Please try again in a moment.",
+              5,
+            );
+          await sleep(wait);
+          const response = await deps.fetch(
+            `https://${host}.api.riotgames.com${path}`,
+            {
+              headers: { "X-Riot-Token": key! },
+              signal: AbortSignal.timeout(12000),
+            },
           );
-        if (response.status === 404)
-          throw new Failure(
-            404,
-            "Riot could not find this account or game. Check the Riot ID and region.",
-          );
-        if (response.status === 429)
-          throw new Failure(
-            429,
-            `Riot is limiting requests. Try again in ${Math.min(120, Math.max(1, Number(response.headers.get("Retry-After")) || 120))} seconds.`,
-          );
-        if (response.status === 400) {
-          const detail = await response.text().catch(() => "");
-          if (/decrypt/i.test(detail)) throw new StalePuuid();
+          if (response.status === 401 || response.status === 403) {
+            if (rejected++ < 2) {
+              await sleep(2000);
+              continue;
+            }
+            throw new Failure(
+              503,
+              "Riot hasn't accepted this token yet. If you just generated it, it may take a few minutes to start working. Otherwise, check or replace it in Settings.",
+            );
+          }
+          if (response.status === 404)
+            throw new Failure(
+              404,
+              "Riot could not find this account or game. Check the Riot ID and region.",
+            );
+          if (response.status === 429) {
+            const seconds = Math.min(
+              120,
+              Math.max(1, Number(response.headers.get("Retry-After")) || 120),
+            );
+            // Short waits are ridden out here; a long one (a full 2-minute
+            // window) is handed back so the page can wait without holding an
+            // edge worker open.
+            if (attempt < 3 && seconds <= 20) {
+              await sleep(seconds * 1000);
+              continue;
+            }
+            throw new Failure(
+              429,
+              `Riot is limiting requests. Try again in ${seconds} seconds.`,
+              seconds,
+            );
+          }
+          if (response.status >= 500 && attempt < 3) {
+            await sleep(500 * (attempt + 1));
+            continue;
+          }
+          if (response.status === 400) {
+            const detail = await response.text().catch(() => "");
+            if (/decrypt/i.test(detail)) throw new StalePuuid();
+          }
+          if (!response.ok)
+            throw new Failure(
+              502,
+              "Riot is unavailable. Your saved games are still here; try again later.",
+            );
+          return response.json();
         }
-        if (!response.ok)
-          throw new Failure(
-            502,
-            "Riot is unavailable. Your saved games are still here; try again later.",
-          );
-        return response.json();
       }
       async function profileData(
         platform: string,
@@ -802,7 +832,12 @@ export function createRiotHandler(deps: Dependencies) {
       }
     } catch (error) {
       return error instanceof Failure
-        ? reply({ error: error.message }, error.status)
+        ? reply(
+            error.retryAfter
+              ? { error: error.message, retryAfter: error.retryAfter }
+              : { error: error.message },
+            error.status,
+          )
         : reply(
             {
               error:
