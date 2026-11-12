@@ -196,6 +196,10 @@ function table(name: string) {
       lim = n;
       return query;
     }),
+    delete: vi.fn(() => {
+      updates.push("deleted");
+      return query;
+    }),
     update: vi.fn((v: unknown) => {
       updates.push(v);
       return query;
@@ -218,6 +222,7 @@ function table(name: string) {
                 owner_id: "owner",
                 puuid: "me",
                 platform: "euw1",
+                profile: { gameName: "Me", tagLine: "EUW" },
               }
             : name === "recordings"
               ? ownsRecording
@@ -351,4 +356,25 @@ it("rejects malformed time windows before calling Riot", async () => {
   ])
     expect((await request({ action: "sync", ...bad })).status).toBe(400);
   expect(provider).not.toHaveBeenCalled();
+});
+
+it("heals a puuid saved under an older Riot key by re-resolving the Riot ID, then retries", async () => {
+  const json = (o: unknown, status = 200) =>
+    new Response(JSON.stringify(o), { status });
+  provider
+    .mockResolvedValueOnce(
+      json({ status: { message: "Bad Request - Exception decrypting AAA", status_code: 400 } }, 400),
+    )
+    .mockResolvedValueOnce(json({ puuid: "fresh", gameName: "Me", tagLine: "EUW" }))
+    .mockResolvedValueOnce(json({ puuid: "fresh", gameName: "Me", tagLine: "EUW" }))
+    .mockResolvedValueOnce(json({ profileIconId: 1, summonerLevel: 9 }))
+    .mockResolvedValueOnce(json([]));
+  const response = await request({ action: "refresh-profile" });
+  expect(response.status).toBe(200);
+  const urls = provider.mock.calls.map((c) => c[0] as string);
+  expect(urls[0]).toContain("/by-puuid/me");
+  expect(urls[1]).toContain("/by-riot-id/Me/EUW");
+  expect(urls[2]).toContain("/by-puuid/fresh");
+  expect(updates).toContain("deleted");
+  expect(updates).toContainEqual({ puuid: "fresh", history_cursor: 0 });
 });

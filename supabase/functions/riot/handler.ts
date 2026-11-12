@@ -9,6 +9,10 @@ type Dependencies = {
   sleep?: (ms: number) => Promise<void>;
   crypto?: Crypto;
 };
+// Riot encrypts puuids per API key: after the key changes, saved ones answer
+// HTTP 400 "Exception decrypting". The profile is healed from its Riot ID.
+class StalePuuid extends Error {}
+
 class Failure extends Error {
   constructor(
     public status: number,
@@ -268,6 +272,10 @@ export function createRiotHandler(deps: Dependencies) {
             429,
             `Riot is limiting requests. Try again in ${Math.min(120, Math.max(1, Number(response.headers.get("Retry-After")) || 120))} seconds.`,
           );
+        if (response.status === 400) {
+          const detail = await response.text().catch(() => "");
+          if (/decrypt/i.test(detail)) throw new StalePuuid();
+        }
         if (!response.ok)
           throw new Failure(
             502,
@@ -507,14 +515,15 @@ export function createRiotHandler(deps: Dependencies) {
       }
       if (typeof body.profileId !== "string" || !uuid.test(body.profileId))
         throw new Failure(400, "Choose a saved League account.");
-      const { data: profile, error: profileError } = await admin
+      const { data: loaded, error: profileError } = await admin
         .from("league_profiles")
         .select("*")
         .eq("id", body.profileId)
         .eq("owner_id", ownerId)
         .maybeSingle();
-      if (profileError || !profile)
+      if (profileError || !loaded)
         throw new Failure(404, "League account unavailable.");
+      let profile = loaded;
       if (body.action === "review-timeline") {
         // One owner-initiated fetch per recording; guests then read the stored copy.
         if (
@@ -584,7 +593,7 @@ export function createRiotHandler(deps: Dependencies) {
           409,
           "This account is already syncing. Please try again shortly.",
         );
-      try {
+      const runAction = async () => {
         if (body.action === "refresh-profile") {
           const account = await riot(
             regions[profile.platform],
@@ -749,6 +758,42 @@ export function createRiotHandler(deps: Dependencies) {
           nextStart: start + ids.length,
           hasMore: ids.length === 5,
         });
+      };
+      // Re-resolve the account's puuid under the current key, drop games cached
+      // with the old key's puuids (they refetch), then retry once.
+      async function healProfile() {
+        const { gameName, tagLine } = profile.profile ?? {};
+        if (typeof gameName !== "string" || typeof tagLine !== "string")
+          throw new Failure(
+            409,
+            "Reconnect this account in Home; its saved Riot ID is missing.",
+          );
+        const account = await riot(
+          regions[profile.platform],
+          `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
+        );
+        if (typeof account?.puuid !== "string")
+          throw new Failure(502, "Riot returned an incomplete account.");
+        const { error: matchesError } = await admin
+          .from("league_matches")
+          .delete()
+          .eq("profile_id", profile.id);
+        const { error: puuidError } = await admin
+          .from("league_profiles")
+          .update({ puuid: account.puuid, history_cursor: 0 })
+          .eq("id", profile.id);
+        if (matchesError || puuidError)
+          throw new Failure(503, "Could not refresh this account's identity.");
+        profile = { ...profile, puuid: account.puuid, history_cursor: 0 };
+      }
+      try {
+        try {
+          return await runAction();
+        } catch (error) {
+          if (!(error instanceof StalePuuid)) throw error;
+          await healProfile();
+          return await runAction();
+        }
       } finally {
         await admin
           .from("league_profiles")
