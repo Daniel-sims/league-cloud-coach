@@ -1,4 +1,5 @@
 import type { LeagueMatch } from './league'
+import { AccessDeniedError } from './supabase'
 
 // Saved games are immutable apart from a rare backfill, so each profile's
 // history is kept in the browser and only games it does not hold are fetched.
@@ -56,12 +57,44 @@ async function save(id: string, entry: Entry) {
   }
 }
 
+/** Sign-out and account switches wipe saved history from this browser. */
+export function clearMatchCache() {
+  memory.clear()
+  try {
+    indexedDB.deleteDatabase(DB)
+  } catch {
+    /* storage is optional */
+  }
+}
+async function forget(id: string) {
+  memory.delete(id)
+  try {
+    const db = await open()
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(STORE, 'readwrite')
+      tx.objectStore(STORE).delete(id)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+    })
+    db.close()
+  } catch {
+    /* storage is optional */
+  }
+}
+
 export async function cachedMatches(id: string, fetchPage: FetchPage): Promise<LeagueMatch[]> {
   const cached = await load(id)
   const fresh = cached && Date.now() - cached.savedAt < MAX_AGE
   const byId = new Map((fresh ? cached.matches : []).map((m) => [m.id, m]))
   for (;;) {
-    const page = await fetchPage(id, [...byId.keys()], PAGE)
+    let page: LeagueMatch[]
+    try {
+      page = await fetchPage(id, [...byId.keys()], PAGE)
+    } catch (error) {
+      // The profile is no longer this owner's: drop what was kept for it.
+      if (error instanceof AccessDeniedError) await forget(id)
+      throw error
+    }
     for (const match of page) byId.set(match.id, match)
     if (page.length < PAGE) break
   }

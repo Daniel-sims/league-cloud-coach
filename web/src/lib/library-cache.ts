@@ -1,3 +1,4 @@
+import { clearMatchCache } from './match-cache'
 import type { Recording } from './types'
 
 // Only display metadata and image bytes live here. Signed URLs and auth tokens never do.
@@ -290,6 +291,7 @@ export function clearLibraryCaches() {
   pending.clear()
   for (const image of images.values()) URL.revokeObjectURL(image.url)
   images.clear()
+  clearMatchCache()
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i)
