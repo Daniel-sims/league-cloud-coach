@@ -582,10 +582,25 @@ export function createRiotHandler(deps: Dependencies) {
         const start = body.start ?? 0;
         if (!Number.isInteger(start) || start < 0 || start > 10000)
           throw new Failure(400, "Invalid history page.");
+        // An optional window (epoch seconds) lets a season be walked in short
+        // slices instead of one list capped near 1000 games.
+        let window = "";
+        if (body.startTime !== undefined || body.endTime !== undefined) {
+          const { startTime, endTime } = body;
+          if (
+            !Number.isInteger(startTime) ||
+            !Number.isInteger(endTime) ||
+            startTime < 1623801600 ||
+            endTime <= startTime ||
+            endTime - startTime > 366 * 86400
+          )
+            throw new Failure(400, "Invalid history window.");
+          window = `&startTime=${startTime}&endTime=${endTime}`;
+        }
         // Small resumable pages stay inside edge runtime limits. Cache immutable matches.
         const ids = await riot(
           regions[profile.platform],
-          `/lol/match/v5/matches/by-puuid/${encodeURIComponent(profile.puuid)}/ids?start=${start}&count=5`,
+          `/lol/match/v5/matches/by-puuid/${encodeURIComponent(profile.puuid)}/ids?start=${start}&count=5${window}`,
         );
         if (
           !Array.isArray(ids) ||

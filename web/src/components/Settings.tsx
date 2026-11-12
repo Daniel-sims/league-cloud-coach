@@ -80,32 +80,37 @@ export function Settings({
     stopSeason.current = false
     setSeasonError('')
     setSeasonDone('')
-    let start = 0
+    // Season N is calendar year 2010 + N. Walk it in two-week windows so no
+    // single list approaches Riot's ~1000-game ceiling.
+    const year = 2010 + season
+    const from = Date.UTC(year, 0, 1) / 1000
+    const to = Math.min(Date.UTC(year + 1, 0, 1) / 1000, Math.floor(Date.now() / 1000))
+    const step = 14 * 86400
+    const total = Math.max(1, Math.ceil((to - from) / step))
     let count = 0
     try {
-      for (;;) {
-        if (stopSeason.current || !alive.current) {
-          if (alive.current) setSeasonDone(`Stopped after checking ${count} games. Saved games are kept.`)
-          break
-        }
-        setSeasonBusy(`Syncing season ${season}… ${count} games checked`)
-        const page = await leagueRepository.sync(id, start)
-        count = page.nextStart
-        start = page.nextStart
-        const rows = await leagueRepository.matches(id)
-        const reached = rows.some((m) => {
-          const s = seasonOf(m)
-          return s > 0 && s < season
-        })
-        if (reached || !page.hasMore) {
-          if (alive.current)
-            setSeasonDone(
-              `Season ${season} history is synced (${rows.filter((m) => seasonOf(m) === season).length} games saved).`,
-            )
-          break
+      for (let index = 0, windowStart = from; windowStart < to; index++, windowStart += step) {
+        const window = { startTime: windowStart, endTime: Math.min(windowStart + step, to) }
+        let start = 0
+        for (;;) {
+          if (stopSeason.current || !alive.current) {
+            if (alive.current) setSeasonDone(`Stopped after checking ${count} games. Saved games are kept.`)
+            onSavedIfAlive()
+            return
+          }
+          setSeasonBusy(`Syncing season ${season}… part ${index + 1} of ${total}, ${count} games checked`)
+          const page = await leagueRepository.sync(id, start, window)
+          count += page.nextStart - start
+          start = page.nextStart
+          if (!page.hasMore) break
         }
       }
-      if (alive.current) onSaved()
+      const rows = await leagueRepository.matches(id)
+      if (alive.current)
+        setSeasonDone(
+          `Season ${season} history is synced (${rows.filter((m) => seasonOf(m) === season).length} games saved).`,
+        )
+      onSavedIfAlive()
     } catch (e) {
       if (alive.current) {
         setSeasonError(
@@ -116,6 +121,9 @@ export function Settings({
     } finally {
       if (alive.current) setSeasonBusy('')
     }
+  }
+  function onSavedIfAlive() {
+    if (alive.current) onSaved()
   }
   useEffect(() => {
     let active = true
@@ -181,7 +189,7 @@ export function Settings({
         <section className="season-sync-settings" aria-label="Match history">
           <h3>Match history</h3>
           <p className="dialog-intro">
-            Download every game for a whole season from Riot. Games you already have are skipped, so
+            Download every game for a whole season (a calendar year, so season 16 is 2026) from Riot, in short date windows so it isn't limited to your last 1,000 games. Games you already have are skipped, so
             this can be resumed at any time. A full season can take several minutes.
           </p>
           <div className="league-connect-form">

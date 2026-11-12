@@ -60,24 +60,25 @@ it('shows the saved-token propagation warning and clears the input without claim
   expect(screen.queryByText('Riot token saved and verified.')).not.toBeInTheDocument()
 })
 
-it('syncs pages until the chosen season is fully reached', async () => {
+it('syncs a whole season in date windows, paging each until it is exhausted', async () => {
   vi.mocked(riotRequest).mockResolvedValue({ configured: true, sharedDefault: false })
   vi.mocked(leagueRepository.profiles).mockResolvedValue([
     { id: 'p1', gameName: 'Me', tagLine: 'EUW' },
   ] as never)
-  const game = (v: string) => ({ gameVersion: v })
-  vi.mocked(leagueRepository.matches)
-    .mockResolvedValueOnce([game('16.3.1')] as never) // season options
-    .mockResolvedValueOnce([game('16.3.1')] as never)
-    .mockResolvedValueOnce([game('16.3.1'), game('15.24.1')] as never)
+  vi.mocked(leagueRepository.matches).mockResolvedValue([{ gameVersion: '16.3.1' }] as never)
   vi.mocked(leagueRepository.sync)
     .mockResolvedValueOnce({ nextStart: 5, hasMore: true })
-    .mockResolvedValueOnce({ nextStart: 10, hasMore: true })
+    .mockResolvedValueOnce({ nextStart: 7, hasMore: false })
+    .mockResolvedValue({ nextStart: 0, hasMore: false })
   const saved = vi.fn()
   render(<Settings onClose={() => {}} onSaved={saved} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Sync full season' }))
   expect(await screen.findByText(/Season 16 history is synced/)).toBeVisible()
-  expect(leagueRepository.sync).toHaveBeenCalledTimes(2)
-  expect(leagueRepository.sync).toHaveBeenLastCalledWith('p1', 5)
+  const calls = vi.mocked(leagueRepository.sync).mock.calls
+  expect(calls[0]).toEqual(['p1', 0, expect.objectContaining({ startTime: Date.UTC(2026, 0, 1) / 1000 })])
+  expect(calls[1][1]).toBe(5)
+  expect(calls[1][2]).toEqual(calls[0][2])
+  expect(calls[2][1]).toBe(0)
+  expect(calls[2][2]!.startTime).toBe(calls[0][2]!.endTime)
   expect(saved).toHaveBeenCalled()
 })
