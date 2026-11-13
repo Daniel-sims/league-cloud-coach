@@ -578,7 +578,7 @@ select:focus-visible {
 }
 .league-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 340px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -1204,10 +1204,14 @@ select:focus-visible {
 .league-account {
   position: relative;
 }
+.league-account-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+}
 .league-update {
-  position: absolute;
-  top: 10px;
-  right: 12px;
   gap: 5px;
   padding: 4px 10px;
   font-size: 12px;
@@ -1260,4 +1264,16 @@ select:focus-visible {
 }
 .league-select.compact {
   min-width: 0;
+}
+.league-champion-kda small,
+.league-champion-wr small {
+  white-space: nowrap;
+}
+.league-champion-row {
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  gap: 12px;
+}
+.league-champion-kda,
+.league-champion-wr {
+  min-width: 56px;
 }

@@ -284,7 +284,24 @@ export function Home({
             <div className="league-layout">
               <div className="league-rail" role="group" aria-label="Ranks and champions">
                 <section className="league-card league-account" aria-label="Current account">
-                  <span className="eyebrow">CURRENT ACCOUNT</span>
+                  <div className="league-account-head">
+                    <span className="eyebrow">CURRENT ACCOUNT</span>
+                    <button
+                      className="button button-small league-update"
+                      disabled={Boolean(busy)}
+                      aria-label={busy || 'Refresh match history'}
+                      title={
+                        busy ||
+                        (profile.syncedAt
+                          ? `Last synced ${new Date(profile.syncedAt).toLocaleString('en-GB')}`
+                          : 'No games synced yet')
+                      }
+                      onClick={() => void sync()}
+                    >
+                      <RefreshCw size={13} className={busy ? 'spin' : ''} />
+                      {busy ? 'Updating' : 'Update'}
+                    </button>
+                  </div>
                   <div className="league-identity">
                     <span className="league-avatar">
                       <img
@@ -342,21 +359,6 @@ export function Home({
                       <small className="muted">No current placement in this queue</small>
                     </div>
                   )}
-                  <button
-                    className="button button-small league-update"
-                    disabled={Boolean(busy)}
-                    aria-label={busy || 'Refresh match history'}
-                    title={
-                      busy ||
-                      (profile.syncedAt
-                        ? `Last synced ${new Date(profile.syncedAt).toLocaleString('en-GB')}`
-                        : 'No games synced yet')
-                    }
-                    onClick={() => void sync()}
-                  >
-                    <RefreshCw size={13} className={busy ? 'spin' : ''} />
-                    {busy ? 'Updating' : 'Update'}
-                  </button>
                 </section>
                 {queued.length > 0 && (
                   <SeasonChampions
