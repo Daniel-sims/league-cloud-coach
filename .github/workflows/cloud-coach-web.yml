@@ -74,6 +74,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/companion-security.sql
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/capture-security.sql
           psql -v ON_ERROR_STOP=1 -f ../supabase/tests/guest-links-security.sql
+          psql -v ON_ERROR_STOP=1 -f ../supabase/tests/blocks-security.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.VITE_SUPABASE_URL != '' && vars.VITE_SUPABASE_PUBLISHABLE_KEY != ''

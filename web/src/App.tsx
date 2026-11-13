@@ -13,6 +13,7 @@ import {
   Copy,
   ExternalLink,
   Film,
+  Layers,
   FileVideo,
   House,
   Link2,
@@ -46,6 +47,7 @@ import { UploadDialog } from './components/UploadDialog'
 import { Home } from './components/Home'
 import { SummonerProfile, SummonerSearch } from './components/Summoners'
 import { Settings } from './components/Settings'
+import { BlockList, BlockView } from './components/Blocks'
 import { CompanionConnection } from './components/CompanionConnection'
 import { VideoReview } from './components/VideoReview'
 import { NotebookActions, useReviewNotebook } from './components/ReviewNotebook'
@@ -159,6 +161,8 @@ export function App({ authError = null }: { authError?: string | null }) {
   const local = isDev && route.startsWith('/preview')
   const home = route === '/home'
   const summoners = route === '/summoners' || route.startsWith('/summoners/')
+  const blocks = route === '/blocks' || route.startsWith('/blocks/')
+  const blockId = route.match(/^\/blocks\/([a-f0-9-]{36})$/)?.[1]
   const summonerRoute = route.match(/^\/summoners\/([a-z0-9]+)\/([A-Za-z0-9_-]{20,100})$/)
 
   useEffect(() => {
@@ -289,8 +293,15 @@ export function App({ authError = null }: { authError?: string | null }) {
               {summoners && <ChevronRight size={14} className="nav-chevron" />}
             </a>
           )}
+          {!local && (
+            <a className={`nav-item ${blocks ? 'active' : ''}`} href="#/blocks">
+              <Layers size={18} />
+              Blocks
+              {blocks && <ChevronRight size={14} className="nav-chevron" />}
+            </a>
+          )}
           <a
-            className={`nav-item ${!home && !summoners ? 'active' : ''}`}
+            className={`nav-item ${!home && !summoners && !blocks ? 'active' : ''}`}
             href={local ? '#/preview' : '#/library'}
           >
             <FileVideo size={18} />
@@ -355,9 +366,11 @@ export function App({ authError = null }: { authError?: string | null }) {
                   ? 'Home'
                   : summoners
                     ? 'Summoners'
-                    : route.startsWith('/connect')
-                      ? 'Connected apps'
-                      : 'Video library'}
+                    : blocks
+                      ? 'Blocks'
+                      : route.startsWith('/connect')
+                        ? 'Connected apps'
+                        : 'Video library'}
               </strong>
             </div>
             <div className="topbar-actions">
@@ -425,6 +438,10 @@ export function App({ authError = null }: { authError?: string | null }) {
               />
             ) : home && session ? (
               <Home key={`${session.user.id}:${settingsVersion}`} ownerId={session.user.id} />
+            ) : blocks && session && blockId ? (
+              <BlockView key={`${session.user.id}:${blockId}`} id={blockId} />
+            ) : blocks && session ? (
+              <BlockList key={session.user.id} />
             ) : summoners && session && summonerRoute ? (
               <SummonerProfile
                 key={`${session.user.id}:${summonerRoute[1]}:${summonerRoute[2]}`}

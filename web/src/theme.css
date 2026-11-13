@@ -236,3 +236,17 @@
     width: auto;
   }
 }
+
+[data-theme='dark']
+  :is(.block-title, .block-game textarea, .block-game-head input, .point-list input) {
+  color: var(--ink);
+  background-color: var(--surface);
+  border-color: var(--line);
+}
+[data-theme='dark'] .block-card {
+  background: var(--paper);
+  border-color: var(--line);
+}
+[data-theme='dark'] .danger-link {
+  color: var(--danger);
+}
