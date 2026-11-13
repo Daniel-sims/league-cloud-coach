@@ -111,11 +111,14 @@ export function Settings({
         let start = 0
         for (;;) {
           if (stopSeason.current || !alive.current) {
-            if (alive.current) setSeasonDone(`Stopped after checking ${count} games. Saved games are kept.`)
+            if (alive.current)
+              setSeasonDone(`Stopped after checking ${count} games. Saved games are kept.`)
             onSavedIfAlive()
             return
           }
-          setSeasonBusy(`Syncing season ${season}… part ${index + 1} of ${total}, ${count} games checked`)
+          setSeasonBusy(
+            `Syncing season ${season}… part ${index + 1} of ${total}, ${count} games checked`,
+          )
           const page = await rateLimited(`Syncing season ${season}`, () =>
             leagueRepository.sync(id, start, window),
           )
@@ -130,7 +133,9 @@ export function Settings({
       for (;;) {
         if (stopSeason.current || !alive.current) {
           if (alive.current)
-            setSeasonDone('Stopped. Saved games and timelines are kept; run it again to finish the timelines.')
+            setSeasonDone(
+              'Stopped. Saved games and timelines are kept; run it again to finish the timelines.',
+            )
           onSavedIfAlive()
           return
         }
@@ -150,7 +155,8 @@ export function Settings({
     } catch (e) {
       if (alive.current) {
         setSeasonError(
-          (e instanceof Error ? e.message : 'Sync failed.') + ' Saved games are kept; retry to continue.',
+          (e instanceof Error ? e.message : 'Sync failed.') +
+            ' Saved games are kept; retry to continue.',
         )
         onSaved()
       }
@@ -225,8 +231,10 @@ export function Settings({
         <section className="season-sync-settings" aria-label="Match history">
           <h3>Match history</h3>
           <p className="dialog-intro">
-            Download every game for a whole season (a calendar year, so season 16 is 2026) from Riot, in short date windows so it isn't limited to your last 1,000 games. Games you already have are skipped, so
-            this can be resumed at any time. A full season can take several minutes.
+            Download every game for a whole season (a calendar year, so season 16 is 2026) from
+            Riot, in short date windows so it isn't limited to your last 1,000 games. Games you
+            already have are skipped, so this can be resumed at any time. A full season can take
+            several minutes.
           </p>
           <div className="league-connect-form">
             {profiles.length > 1 && (

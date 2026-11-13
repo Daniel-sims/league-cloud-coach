@@ -78,7 +78,11 @@ it('syncs a whole season in date windows, paging each until it is exhausted', as
   await userEvent.click(await screen.findByRole('button', { name: 'Sync full season' }))
   expect(await screen.findByText(/Season 16 history is synced/)).toBeVisible()
   const calls = vi.mocked(leagueRepository.sync).mock.calls
-  expect(calls[0]).toEqual(['p1', 0, expect.objectContaining({ startTime: Date.UTC(2026, 0, 1) / 1000 })])
+  expect(calls[0]).toEqual([
+    'p1',
+    0,
+    expect.objectContaining({ startTime: Date.UTC(2026, 0, 1) / 1000 }),
+  ])
   expect(calls[1][1]).toBe(5)
   expect(calls[1][2]).toEqual(calls[0][2])
   expect(calls[2][1]).toBe(0)

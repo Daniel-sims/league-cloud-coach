@@ -52,6 +52,20 @@ function repository(): LeagueRepository {
       },
     })),
     viewMatches: vi.fn(async () => ({ ids: [], matches: [], nextStart: 5, hasMore: false })),
+    matchRanks: vi.fn(async () => ({
+      ranks: {
+        me: [
+          {
+            queueType: 'RANKED_SOLO_5x5',
+            tier: 'GOLD',
+            rank: 'II',
+            leaguePoints: 56,
+            wins: 12,
+            losses: 8,
+          },
+        ],
+      },
+    })),
   }
 }
 afterEach(() => {
@@ -72,6 +86,9 @@ it('shows saved matches immediately, retains them on refresh failure and support
   expect(screen.getByText('Victory · Blue team')).toBeVisible()
   expect(screen.getByText('Defeat · Red team')).toBeVisible()
   expect(screen.getAllByRole('columnheader', { name: 'Damage' })).toHaveLength(2)
+  expect(screen.getAllByRole('columnheader', { name: 'Rank' })).toHaveLength(2)
+  expect(await screen.findByText('Gold II')).toBeVisible()
+  expect(repo.matchRanks).toHaveBeenCalledTimes(1)
 })
 it('filters rows without changing the full matchup record, and switching profiles clears prior games', async () => {
   render(<Home ownerId="owner" repository={repository()} />)

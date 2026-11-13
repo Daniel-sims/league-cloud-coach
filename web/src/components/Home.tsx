@@ -538,6 +538,7 @@ export function Home({
                           game={game}
                           onOpenPlayer={openPlayer}
                           busy={Boolean(busy)}
+                          loadRanks={repository.matchRanks}
                         />
                       ))}
                     </section>

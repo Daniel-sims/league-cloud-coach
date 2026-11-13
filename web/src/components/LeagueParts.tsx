@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { ItemBuild, Loadout } from './Loadout'
 import {
@@ -231,16 +231,105 @@ export function WinDonut({ rate }: { rate: number | null }) {
   )
 }
 
+export type LoadRanks = (
+  platform: string,
+  puuids: string[],
+) => Promise<{ ranks: Record<string, Rank[]> }>
+
+// Current ranks seen this visit, so reopening a scoreboard costs no Riot requests.
+const rankCache = new Map<string, { at: number; ranks: Rank[] }>()
+const rankTtl = 15 * 60 * 1000
+
+function useScoreboardRanks(game: Game, load: LoadRanks | undefined, enabled: boolean) {
+  const [ranks, setRanks] = useState<Record<string, Rank[]>>({})
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    if (!enabled || !load) return
+    const platform = game.id.split('_')[0].toLowerCase()
+    const key = (puuid: string) => `${platform}:${puuid}`
+    const fresh = (puuid: string) => {
+      const hit = rankCache.get(key(puuid))
+      return hit && Date.now() - hit.at < rankTtl ? hit.ranks : undefined
+    }
+    const known: Record<string, Rank[]> = {}
+    const missing: string[] = []
+    for (const { puuid } of game.participants) {
+      const hit = fresh(puuid)
+      if (hit) known[puuid] = hit
+      else missing.push(puuid)
+    }
+    setRanks(known)
+    if (!missing.length) return
+    let live = true
+    setLoading(true)
+    load(platform, missing)
+      .then(({ ranks: got }) => {
+        if (!live) return
+        const merged = { ...known }
+        for (const puuid of missing) {
+          const entries = got[puuid] ?? []
+          if (puuid in got) rankCache.set(key(puuid), { at: Date.now(), ranks: entries })
+          merged[puuid] = entries
+        }
+        setRanks(merged)
+      })
+      .catch(() => undefined)
+      .finally(() => live && setLoading(false))
+    return () => {
+      live = false
+    }
+  }, [enabled, game, load])
+  return { ranks, loading }
+}
+
+function PlayerRank({ entries, loading }: { entries?: Rank[]; loading: boolean }) {
+  if (!entries) return <span className="muted">{loading ? '…' : '—'}</span>
+  const entry =
+    entries.find((r) => r.queueType === 'RANKED_SOLO_5x5') ??
+    entries.find((r) => r.queueType === 'RANKED_FLEX_SR')
+  if (!entry) return <span className="muted">Unranked</span>
+  const apex = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(entry.tier)
+  const tier = entry.tier.charAt(0) + entry.tier.slice(1).toLowerCase()
+  return (
+    <span
+      className="league-player-rank"
+      title={`${entry.queueType === 'RANKED_SOLO_5x5' ? 'Solo/Duo' : 'Flex'} · ${entry.wins}W ${entry.losses}L`}
+    >
+      <img
+        src={`https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/${entry.tier.toLowerCase()}.svg`}
+        alt=""
+        width={22}
+        height={22}
+        onError={(e) => {
+          e.currentTarget.style.visibility = 'hidden'
+        }}
+      />
+      <span>
+        <strong>
+          {tier}
+          {apex ? '' : ` ${entry.rank}`}
+        </strong>
+        <small>
+          {entry.leaguePoints} LP{entry.queueType === 'RANKED_SOLO_5x5' ? '' : ' · Flex'}
+        </small>
+      </span>
+    </span>
+  )
+}
+
 export function MatchRow({
   game: g,
   onOpenPlayer,
   busy,
+  loadRanks,
 }: {
   game: Game
   onOpenPlayer: (player: Participant) => void
   busy: boolean
+  loadRanks?: LoadRanks
 }) {
   const [open, setOpen] = useState(false)
+  const { ranks, loading: ranksLoading } = useScoreboardRanks(g, loadRanks, open)
   const p = g.player,
     teamKills = g.allies.reduce((n, p) => n + p.kills, 0)
   const outcome = remake(g) ? 'Remake' : p.win ? 'Victory' : 'Defeat'
@@ -309,6 +398,8 @@ export function MatchRow({
               game={g}
               onOpenPlayer={onOpenPlayer}
               busy={busy}
+              ranks={loadRanks ? ranks : undefined}
+              ranksLoading={ranksLoading}
             />
           ))}
         </div>
@@ -322,11 +413,15 @@ export function Scoreboard({
   game,
   onOpenPlayer,
   busy,
+  ranks,
+  ranksLoading = false,
 }: {
   players: Participant[]
   game: Game
   onOpenPlayer: (player: Participant) => void
   busy: boolean
+  ranks?: Record<string, Rank[]>
+  ranksLoading?: boolean
 }) {
   const team = players[0].teamId
   const teamKills = players.reduce((n, p) => n + p.kills, 0)
@@ -347,6 +442,7 @@ export function Scoreboard({
           <thead>
             <tr>
               <th>Player</th>
+              {ranks && <th>Rank</th>}
               <th>KDA</th>
               <th>Damage</th>
               <th>Wards</th>
@@ -389,6 +485,11 @@ export function Scoreboard({
                     </span>
                   </div>
                 </td>
+                {ranks && (
+                  <td>
+                    <PlayerRank entries={ranks[p.puuid]} loading={ranksLoading} />
+                  </td>
+                )}
                 <td>
                   <strong>
                     {p.kills} / <b>{p.deaths}</b> / {p.assists}

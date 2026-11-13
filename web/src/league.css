@@ -1309,3 +1309,20 @@ select:focus-visible {
 .league-account .league-identity {
   gap: 12px;
 }
+
+.league-player-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.league-player-rank > span {
+  display: grid;
+  gap: 1px;
+}
+.league-player-rank strong {
+  font-size: 12px;
+}
+.league-player-rank small {
+  color: var(--muted);
+}

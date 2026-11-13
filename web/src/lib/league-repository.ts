@@ -1,5 +1,5 @@
 import { rpc, supabase } from './supabase'
-import type { LeagueMatch, LeagueProfile } from './league'
+import type { LeagueMatch, LeagueProfile, Rank } from './league'
 import { cachedMatches } from './match-cache'
 
 export type ViewedProfile = Pick<
@@ -19,6 +19,7 @@ export interface LeagueRepository {
     start: number,
     known: string[],
   ): Promise<{ ids: string[]; matches: LeagueMatch[]; nextStart: number; hasMore: boolean }>
+  matchRanks(platform: string, puuids: string[]): Promise<{ ranks: Record<string, Rank[]> }>
   refreshProfile(id: string): Promise<void>
   sync(
     id: string,
@@ -64,6 +65,7 @@ export const leagueRepository: LeagueRepository = {
   viewPlayer: (platform, puuid) => riotRequest({ action: 'view-player', platform, puuid }),
   viewMatches: (platform, puuid, start, known) =>
     riotRequest({ action: 'view-matches', platform, puuid, start, known }),
+  matchRanks: (platform, puuids) => riotRequest({ action: 'match-ranks', platform, puuids }),
   refreshProfile: (id) => riotRequest({ action: 'refresh-profile', profileId: id }),
   sync: (id, start, window) => riotRequest({ action: 'sync', profileId: id, start, ...window }),
   syncTimelines: (id, window) =>

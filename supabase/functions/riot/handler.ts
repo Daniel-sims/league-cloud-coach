@@ -156,6 +156,7 @@ export function createRiotHandler(deps: Dependencies) {
           "find-player",
           "view-player",
           "view-matches",
+          "match-ranks",
           "sync",
           "sync-timelines",
           "refresh-profile",
@@ -411,6 +412,46 @@ export function createRiotHandler(deps: Dependencies) {
           puuid: account.puuid,
           profile: await profileData(body.platform, account.puuid, account),
         });
+      }
+      if (body.action === "match-ranks") {
+        // Current ranks for the players in one scoreboard. Nothing is saved;
+        // players Riot can't answer for are simply left out.
+        if (
+          typeof body.platform !== "string" ||
+          !regions[body.platform] ||
+          !Array.isArray(body.puuids) ||
+          body.puuids.length < 1 ||
+          body.puuids.length > 10 ||
+          body.puuids.some(
+            (id: unknown) =>
+              typeof id !== "string" || !/^[A-Za-z0-9_-]{20,100}$/.test(id),
+          )
+        )
+          throw new Failure(400, "Choose up to ten players and a region.");
+        const platform: string = body.platform;
+        const ranks: Record<string, unknown[]> = {};
+        await Promise.all(
+          (body.puuids as string[]).map(async (puuid) => {
+            try {
+              const entries = await riot(
+                platform,
+                `/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`,
+              );
+              if (Array.isArray(entries))
+                ranks[puuid] = entries.map((r) => ({
+                  queueType: r.queueType,
+                  tier: r.tier,
+                  rank: r.rank,
+                  leaguePoints: r.leaguePoints,
+                  wins: r.wins,
+                  losses: r.losses,
+                }));
+            } catch {
+              // Leave this player unranked in the response.
+            }
+          }),
+        );
+        return reply({ ranks });
       }
       if (body.action === "view-player" || body.action === "view-matches") {
         // Look up another player seen in a game. Nothing is saved; the browser caches it.

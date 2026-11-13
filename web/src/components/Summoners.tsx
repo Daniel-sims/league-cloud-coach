@@ -365,7 +365,13 @@ export function SummonerProfile({
                   </span>
                 </div>
                 {day.games.map((game) => (
-                  <MatchRow key={game.id} game={game} onOpenPlayer={openPlayer} busy={false} />
+                  <MatchRow
+                    key={game.id}
+                    game={game}
+                    onOpenPlayer={openPlayer}
+                    busy={false}
+                    loadRanks={repository.matchRanks}
+                  />
                 ))}
               </section>
             ))}

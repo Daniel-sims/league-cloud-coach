@@ -340,6 +340,57 @@ it("returns another player's games, skipping ones the browser already has, witho
   expect(provider.mock.calls[0][0]).toContain("/ids?start=5&count=5");
   expect(writes).not.toHaveBeenCalled();
 });
+it("returns current ranks for a scoreboard without saving anything", async () => {
+  const a = "a".repeat(78),
+    b = "b".repeat(78);
+  const fallback = provider.getMockImplementation()!;
+  provider.mockImplementation(async (url: string) =>
+    url.includes(`/entries/by-puuid/${a}`)
+      ? new Response(
+          JSON.stringify([
+            {
+              queueType: "RANKED_SOLO_5x5",
+              tier: "GOLD",
+              rank: "II",
+              leaguePoints: 56,
+              wins: 12,
+              losses: 8,
+              puuid: a,
+            },
+          ]),
+        )
+      : url.includes(`/entries/by-puuid/${b}`)
+        ? new Response("{}", { status: 404 })
+        : fallback(url),
+  );
+  const response = await request({
+    action: "match-ranks",
+    platform: "euw1",
+    puuids: [a, b],
+  });
+  expect(response.status).toBe(200);
+  const { ranks } = await response.json();
+  expect(ranks[a]).toEqual([
+    {
+      queueType: "RANKED_SOLO_5x5",
+      tier: "GOLD",
+      rank: "II",
+      leaguePoints: 56,
+      wins: 12,
+      losses: 8,
+    },
+  ]);
+  expect(b in ranks).toBe(false);
+  expect(writes).not.toHaveBeenCalled();
+});
+it("rejects malformed rank lookups before asking Riot", async () => {
+  for (const puuids of [[], ["short"], "x", Array(11).fill("p".repeat(78))])
+    expect(
+      (await request({ action: "match-ranks", platform: "euw1", puuids }))
+        .status,
+    ).toBe(400);
+  expect(provider).not.toHaveBeenCalled();
+});
 it("rejects malformed player lookups before asking Riot", async () => {
   for (const bad of ["short", "../etc/passwd", 7, undefined])
     expect(
