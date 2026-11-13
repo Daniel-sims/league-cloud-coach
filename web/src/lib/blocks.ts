@@ -1,10 +1,45 @@
 import { rpc } from './supabase'
+import { remake, type Game } from './league'
+
+// A compact copy of the game as played, so the block still reads right if the match cache changes.
+export interface BlockMatch {
+  matchId: string
+  profileId: string
+  championId: number
+  championName: string
+  opponentName?: string
+  kills: number
+  deaths: number
+  assists: number
+  win: boolean
+  remake: boolean
+  queueId: number
+  gameCreation: number
+  gameDuration: number
+}
 
 export interface BlockGame {
   id: string
   title: string
   notes: string
+  match?: BlockMatch
 }
+
+export const matchSnapshot = (game: Game, profileId: string): BlockMatch => ({
+  matchId: game.id,
+  profileId,
+  championId: game.player.championId,
+  championName: game.player.championName,
+  ...(game.opponent ? { opponentName: game.opponent.championName } : {}),
+  kills: game.player.kills,
+  deaths: game.player.deaths,
+  assists: game.player.assists,
+  win: game.player.win,
+  remake: remake(game),
+  queueId: game.queueId,
+  gameCreation: game.gameCreation,
+  gameDuration: game.gameDuration,
+})
 
 export interface Block {
   id: string

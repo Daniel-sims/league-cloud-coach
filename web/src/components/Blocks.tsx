@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Check, LoaderCircle, Plus, Trash2, X } from 'lucide-react'
 import { Dialog } from './Dialog'
+import { AddGameDialog } from './AddGameDialog'
+import { Champion } from './LeagueParts'
+import { leagueRepository, type LeagueRepository } from '../lib/league-repository'
+import { duration, queues, timeAgo } from '../lib/league'
 import {
   blockRepository,
   cleanDraft,
+  matchSnapshot,
+  type BlockMatch,
   type Block,
   type BlockDraft,
   type BlockRepository,
@@ -100,9 +106,11 @@ type SaveState = 'saved' | 'saving' | 'unsaved' | 'error'
 export function BlockView({
   id,
   repository = blockRepository,
+  league = leagueRepository,
 }: {
   id: string
   repository?: BlockRepository
+  league?: LeagueRepository
 }) {
   const { blocks, error } = useBlocks(repository)
   const block = blocks?.find((b) => b.id === id)
@@ -123,10 +131,18 @@ export function BlockView({
         <p className="blocks-empty">This block doesn’t exist.</p>
       </section>
     )
-  return <BlockEditor key={block.id} block={block} repository={repository} />
+  return <BlockEditor key={block.id} block={block} repository={repository} league={league} />
 }
 
-function BlockEditor({ block, repository }: { block: Block; repository: BlockRepository }) {
+function BlockEditor({
+  block,
+  repository,
+  league,
+}: {
+  block: Block
+  repository: BlockRepository
+  league: LeagueRepository
+}) {
   const [draft, setDraft] = useState<BlockDraft>({
     title: block.title,
     games: block.games,
@@ -135,6 +151,7 @@ function BlockEditor({ block, repository }: { block: Block; repository: BlockRep
   const [state, setState] = useState<SaveState>('saved')
   const [message, setMessage] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [picking, setPicking] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const latest = useRef(draft)
   const revision = useRef(block.revision)
@@ -196,10 +213,10 @@ function BlockEditor({ block, repository }: { block: Block; repository: BlockRep
       ...draft,
       games: draft.games.map((g) => (g.id === gameId ? { ...g, ...patch } : g)),
     })
-  const addGame = () =>
+  const addGame = (match?: BlockMatch) =>
     edit({
-      ...draft,
-      games: [...draft.games, { id: crypto.randomUUID(), title: '', notes: '' }],
+      ...latest.current,
+      games: [...latest.current.games, { id: crypto.randomUUID(), title: '', notes: '', match }],
     })
   const setPoint = (index: number, value: string) =>
     edit({ ...draft, carryForward: draft.carryForward.map((p, i) => (i === index ? value : p)) })
@@ -271,14 +288,18 @@ function BlockEditor({ block, repository }: { block: Block; repository: BlockRep
       {draft.games.map((game, index) => (
         <div className="block-section block-game" key={game.id}>
           <div className="block-game-head">
-            <input
-              value={game.title}
-              maxLength={80}
-              placeholder={`Game ${index + 1}`}
-              aria-label={`Game ${index + 1} title`}
-              onChange={(e) => setGame(game.id, { title: e.target.value })}
-              onBlur={() => void flush()}
-            />
+            {game.match ? (
+              <MatchSummary match={game.match} />
+            ) : (
+              <input
+                value={game.title}
+                maxLength={80}
+                placeholder={`Game ${index + 1}`}
+                aria-label={`Game ${index + 1} title`}
+                onChange={(e) => setGame(game.id, { title: e.target.value })}
+                onBlur={() => void flush()}
+              />
+            )}
             <button
               className="icon-button"
               aria-label={`Remove game ${index + 1}`}
@@ -301,12 +322,25 @@ function BlockEditor({ block, repository }: { block: Block; repository: BlockRep
       ))}
       <button
         className="button secondary add-game"
-        onClick={addGame}
+        onClick={() => setPicking(true)}
         disabled={draft.games.length >= 30}
       >
         <Plus size={16} />
         Add game
       </button>
+
+      {picking && (
+        <AddGameDialog
+          repository={league}
+          added={new Set(draft.games.flatMap((g) => (g.match ? [g.match.matchId] : [])))}
+          onAdd={(game, profileId) => addGame(matchSnapshot(game, profileId))}
+          onAddBlank={() => {
+            addGame()
+            setPicking(false)
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
 
       <div className="block-section summary">
         <h2>Carry forward</h2>
@@ -371,5 +405,27 @@ function BlockEditor({ block, repository }: { block: Block; repository: BlockRep
         </Dialog>
       )}
     </section>
+  )
+}
+
+function MatchSummary({ match: m }: { match: BlockMatch }) {
+  const outcome = m.remake ? 'Remake' : m.win ? 'Victory' : 'Defeat'
+  return (
+    <div className={`block-match ${m.remake ? 'remake' : m.win ? 'win' : 'loss'}`}>
+      <Champion id={m.championId} name={m.championName} size={40} />
+      <span className="pick-main">
+        <strong>
+          {m.championName}
+          {m.opponentName ? ` vs ${m.opponentName}` : ''}
+        </strong>
+        <small>
+          {outcome} · {queues[m.queueId] || `Queue ${m.queueId}`} · {duration(m.gameDuration)} ·{' '}
+          {timeAgo(m.gameCreation)}
+        </small>
+      </span>
+      <span className="pick-kda">
+        {m.kills} / {m.deaths} / {m.assists}
+      </span>
+    </div>
   )
 }

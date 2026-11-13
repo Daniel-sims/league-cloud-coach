@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import { BlockList, BlockView } from './Blocks'
 import type { Block, BlockRepository } from '../lib/blocks'
+import type { LeagueRepository } from '../lib/league-repository'
+import { match } from '../test/league-fixture'
 
 const block = (patch: Partial<Block> = {}): Block => ({
   id: '11111111-1111-4111-8111-111111111111',
@@ -27,6 +29,26 @@ function repo(initial = block()): BlockRepository {
     remove: vi.fn(async () => {}),
   }
 }
+function league(): LeagueRepository {
+  return {
+    profiles: vi.fn(async () => [
+      {
+        id: 'p1',
+        platform: 'euw1',
+        puuid: 'me',
+        gameName: 'Me',
+        tagLine: 'EUW',
+        profileIconId: 1,
+        summonerLevel: 100,
+        ranks: [],
+        syncedAt: null,
+      },
+    ]),
+    matches: vi.fn(async () => [match('EUW1_1'), match('EUW1_2', { win: false })]),
+    refreshProfile: vi.fn(async () => {}),
+    sync: vi.fn(async () => ({ nextStart: 5, hasMore: true })),
+  } as unknown as LeagueRepository
+}
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
@@ -45,10 +67,11 @@ it('lists blocks and starts a new one', async () => {
 
 it('shows carried-in points at the top and saves game notes and summary points', async () => {
   const repository = repo()
-  render(<BlockView id={block().id} repository={repository} />)
+  render(<BlockView id={block().id} repository={repository} league={league()} />)
   expect(await screen.findByText('Ward river at 3:00')).toBeInTheDocument()
   await userEvent.type(screen.getByLabelText('Game 1 notes'), ' again')
   await userEvent.click(screen.getByRole('button', { name: /add game/i }))
+  await userEvent.click(await screen.findByRole('button', { name: /add without a match/i }))
   await userEvent.type(screen.getByLabelText('Game 2 notes'), 'Won lane')
   await userEvent.click(screen.getByRole('button', { name: /add point/i }))
   await userEvent.type(screen.getByLabelText('Carry-forward point 2'), '  Track jungler  ')
@@ -64,7 +87,7 @@ it('shows carried-in points at the top and saves game notes and summary points',
 it('stops saving and keeps the text when another tab changed the block', async () => {
   const repository = repo()
   vi.mocked(repository.save).mockRejectedValue(new Error('This block changed in another tab.'))
-  render(<BlockView id={block().id} repository={repository} />)
+  render(<BlockView id={block().id} repository={repository} league={league()} />)
   await userEvent.type(await screen.findByLabelText('Game 1 notes'), '!')
   await userEvent.tab()
   expect(await screen.findByText(/changed in another tab/)).toBeInTheDocument()
@@ -76,9 +99,33 @@ it('stops saving and keeps the text when another tab changed the block', async (
 
 it('deletes a block after confirmation', async () => {
   const repository = repo()
-  render(<BlockView id={block().id} repository={repository} />)
+  render(<BlockView id={block().id} repository={repository} league={league()} />)
   await userEvent.click(await screen.findByRole('button', { name: /delete block/i }))
   await userEvent.click(screen.getAllByRole('button', { name: /delete block/i }).at(-1)!)
   await waitFor(() => expect(repository.remove).toHaveBeenCalledWith(block().id))
   expect(window.location.hash).toBe('#/blocks')
+})
+
+it('adds games picked from recent matches, refreshes them, and saves a snapshot', async () => {
+  const repository = repo()
+  const games = league()
+  render(<BlockView id={block().id} repository={repository} league={games} />)
+  await userEvent.click(await screen.findByRole('button', { name: /add game/i }))
+  await userEvent.click(await screen.findByRole('button', { name: /refresh games/i }))
+  await waitFor(() => expect(games.sync).toHaveBeenCalledWith('p1', 0))
+  expect(games.refreshProfile).toHaveBeenCalledWith('p1')
+  const rows = await screen.findAllByRole('button', { name: /Ahri.*(Victory|Defeat)/ })
+  await userEvent.click(rows[1])
+  expect(await screen.findByText('Added')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+  expect(screen.getByLabelText('Game 2 notes')).toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText('Game 2 notes'), 'Lost lane')
+  await userEvent.tab()
+  await waitFor(() => expect(repository.save).toHaveBeenCalled())
+  const [, , draft] = vi.mocked(repository.save).mock.calls.at(-1)!
+  expect(draft.games[1].match).toMatchObject({
+    matchId: 'EUW1_2',
+    win: false,
+    championName: 'Ahri',
+  })
 })
