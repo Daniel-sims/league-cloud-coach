@@ -1149,3 +1149,55 @@ select:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Current-account card and compact page heading */
+.page-heading.compact {
+  margin-bottom: 8px;
+}
+.league-account {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.league-account .league-identity {
+  min-width: 0;
+}
+.league-account .league-identity .league-select {
+  flex: 1;
+  min-width: 0;
+}
+.league-account .league-refresh {
+  align-items: stretch;
+}
+.league-account .league-refresh small {
+  text-align: center;
+}
+.league-queue-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.league-queue-tabs button {
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.league-queue-tabs button.active {
+  color: var(--ink);
+  background: var(--surface, var(--paper));
+  box-shadow: 0 0 0 1px var(--line);
+}
+.league-rank-card.embedded {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+}

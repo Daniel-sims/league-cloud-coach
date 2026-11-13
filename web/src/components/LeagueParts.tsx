@@ -164,17 +164,17 @@ export function SeasonChampions({
   )
 }
 
-export function RankCard({ rank }: { rank: Rank }) {
+export function RankCard({ rank, embedded = false }: { rank: Rank; embedded?: boolean }) {
   const solo = rank.queueType === 'RANKED_SOLO_5x5'
   const games = rank.wins + rank.losses
   const apex = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(rank.tier)
   const tier = rank.tier.charAt(0) + rank.tier.slice(1).toLowerCase()
   return (
     <section
-      className="league-card league-rank-card"
+      className={embedded ? 'league-rank-card embedded' : 'league-card league-rank-card'}
       aria-label={solo ? 'Solo/Duo rank' : 'Flex rank'}
     >
-      <span className="eyebrow">{solo ? 'RANKED SOLO/DUO' : 'RANKED FLEX'}</span>
+      {!embedded && <span className="eyebrow">{solo ? 'RANKED SOLO/DUO' : 'RANKED FLEX'}</span>}
       <div className="league-rank-body">
         <img
           src={`https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/${rank.tier.toLowerCase()}.svg`}

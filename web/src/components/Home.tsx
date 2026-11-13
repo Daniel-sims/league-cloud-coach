@@ -52,11 +52,13 @@ export function Home({
   })
   const [soloOnly, setSoloOnly] = useState(() => preferences().soloOnly === true)
   const [limit, setLimit] = useState(20)
+  const [queueTab, setQueueTab] = useState<'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR'>('RANKED_SOLO_5x5')
   const [cursor, setCursor] = useState<Record<string, number>>({})
   const [exhausted, setExhausted] = useState<Record<string, boolean>>({})
   const mounted = useRef(true)
   const ownProfile = profiles.find((p) => p.id === selected)
   const profile = ownProfile
+  const shownRank = profile?.ranks.find((r) => r.queueType === queueTab)
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -206,13 +208,11 @@ export function Home({
 
   return (
     <div className="league-home">
-      <div className="page-heading">
+      <div className="page-heading compact">
         <div>
-          <span className="eyebrow">YOUR NEXT GAME STARTS HERE</span>
           <h1>
             Home<span className="title-dot">.</span>
           </h1>
-          <p className="muted">Your account, your champions, your progress.</p>
         </div>
         <button
           className="button secondary"
@@ -260,77 +260,83 @@ export function Home({
       ) : (
         profile && (
           <>
-            <section className="league-profile league-card" aria-label="League profile">
-              <div className="league-identity">
-                <span className="league-avatar">
-                  <img
-                    className="champion-icon"
-                    width={64}
-                    height={64}
-                    hidden={!profile.profileIconId}
-                    alt="Profile icon"
-                    src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${profile.profileIconId}.jpg`}
-                  />
-                  <b>{profile.summonerLevel}</b>
-                </span>
-                <div>
-                  <Select
-                    label="League account"
-                    value={selected}
-                    onChange={(id) => {
-                      if (!busy) {
-                        setSelected(id)
-                        setError('')
-                      }
-                    }}
-                  >
-                    <optgroup label={busy ? 'Sync in progress' : 'Your accounts'}>
-                      {profiles.map((p) => (
-                        <option key={p.id} value={p.id} disabled={Boolean(busy)}>
-                          {p.gameName}#{p.tagLine} · {platforms[p.platform]}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </Select>
-                  <span className="muted">
-                    Level {profile.summonerLevel} · {platforms[profile.platform]}
-                  </span>
-                </div>
-              </div>
-              <div className="league-refresh">
-                <button
-                  className="button secondary"
-                  disabled={Boolean(busy)}
-                  onClick={() => void sync()}
-                >
-                  <RefreshCw size={15} className={busy ? 'spin' : ''} />
-                  {busy || 'Refresh match history'}
-                </button>
-                <small className="muted">
-                  {profile.syncedAt
-                    ? `Last synced ${new Date(profile.syncedAt).toLocaleString('en-GB')}`
-                    : 'No games synced yet'}
-                </small>
-              </div>
-            </section>
             <div className="league-layout">
               <div className="league-rail" role="group" aria-label="Ranks and champions">
-                {profile.ranks.length ? (
-                  [...profile.ranks]
-                    .sort((a, b) =>
-                      a.queueType === 'RANKED_SOLO_5x5'
-                        ? -1
-                        : b.queueType === 'RANKED_SOLO_5x5'
-                          ? 1
-                          : 0,
-                    )
-                    .map((rank) => <RankCard key={rank.queueType} rank={rank} />)
-                ) : (
-                  <div className="league-card league-rank-card">
-                    <strong>Unranked</strong>
-                    <small className="muted">No current ranked placement</small>
+                <section className="league-card league-account" aria-label="Current account">
+                  <span className="eyebrow">CURRENT ACCOUNT</span>
+                  <div className="league-identity">
+                    <span className="league-avatar">
+                      <img
+                        className="champion-icon"
+                        width={56}
+                        height={56}
+                        hidden={!profile.profileIconId}
+                        alt="Profile icon"
+                        src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${profile.profileIconId}.jpg`}
+                      />
+                      <b>{profile.summonerLevel}</b>
+                    </span>
+                    <Select
+                      label="League account"
+                      value={selected}
+                      onChange={(id) => {
+                        if (!busy) {
+                          setSelected(id)
+                          setError('')
+                        }
+                      }}
+                    >
+                      <optgroup label={busy ? 'Sync in progress' : 'Your accounts'}>
+                        {profiles.map((p) => (
+                          <option key={p.id} value={p.id} disabled={Boolean(busy)}>
+                            {p.gameName}#{p.tagLine} · {platforms[p.platform]}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </Select>
                   </div>
-                )}
+                  <div className="league-queue-tabs" role="tablist" aria-label="Ranked queue">
+                    {(
+                      [
+                        ['RANKED_SOLO_5x5', 'Solo/Duo'],
+                        ['RANKED_FLEX_SR', 'Flex'],
+                      ] as const
+                    ).map(([q, label]) => (
+                      <button
+                        key={q}
+                        role="tab"
+                        aria-selected={queueTab === q}
+                        className={queueTab === q ? 'active' : ''}
+                        onClick={() => setQueueTab(q)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {shownRank ? (
+                    <RankCard rank={shownRank} embedded />
+                  ) : (
+                    <div className="league-rank-card embedded">
+                      <strong>Unranked</strong>
+                      <small className="muted">No current placement in this queue</small>
+                    </div>
+                  )}
+                  <div className="league-refresh">
+                    <button
+                      className="button secondary"
+                      disabled={Boolean(busy)}
+                      onClick={() => void sync()}
+                    >
+                      <RefreshCw size={15} className={busy ? 'spin' : ''} />
+                      {busy || 'Refresh match history'}
+                    </button>
+                    <small className="muted">
+                      {profile.syncedAt
+                        ? `Last synced ${new Date(profile.syncedAt).toLocaleString('en-GB')}`
+                        : 'No games synced yet'}
+                    </small>
+                  </div>
+                </section>
                 {queued.length > 0 && (
                   <SeasonChampions
                     games={queued}
