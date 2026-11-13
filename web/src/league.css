@@ -1217,9 +1217,38 @@ select:focus-visible {
 .league-form small {
   margin-left: 12px;
 }
-.league-form .league-controls {
-  margin-left: auto;
+/* Top-right: options above one compact line of consolidated stats */
+.league-summary-side {
+  display: grid;
+  gap: 14px;
+  justify-items: end;
+  align-self: start;
+  min-width: 0;
+}
+.league-summary-side .league-controls {
   gap: 12px;
+  justify-content: flex-end;
+}
+.league-summary .league-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 4px 18px;
+  padding-left: 0;
+  border-left: 0;
+}
+.league-summary .league-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.league-summary .league-metric strong {
+  font-size: 15px;
+}
+.league-summary .league-metrics small {
+  flex-basis: 100%;
+  text-align: right;
 }
 .league-select.compact > span {
   position: absolute;

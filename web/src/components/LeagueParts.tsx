@@ -464,13 +464,16 @@ export function RecentSummary({
           </span>
           <small className="muted">KDA</small>
         </div>
-        <div className="league-metrics">
-          <Metric label="Kill participation" value={percent(stats.killParticipation)} />
-          <Metric label="CS / min" value={number(stats.csPerMinute)} />
-          <Metric label="Damage share" value={percent(stats.damageShare)} />
-          <small className="muted">
-            {stats.primaryRole ? `${roleNames[stats.primaryRole]} games only` : 'All roles'}
-          </small>
+        <div className="league-summary-side">
+          {controls}
+          <div className="league-metrics">
+            <Metric label="KP" value={percent(stats.killParticipation)} />
+            <Metric label="CS/min" value={number(stats.csPerMinute)} />
+            <Metric label="Dmg share" value={percent(stats.damageShare)} />
+            <small className="muted">
+              {stats.primaryRole ? `${roleNames[stats.primaryRole]} games only` : 'All roles'}
+            </small>
+          </div>
         </div>
         <div className="league-summary-roles">
           <span className="eyebrow">ROLES</span>
@@ -506,7 +509,6 @@ export function RecentSummary({
             {stats.streak.count} {stats.streak.win ? 'win' : 'loss'} streak
           </small>
         )}
-        {controls}
       </div>
       {footer}
     </section>
