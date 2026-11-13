@@ -206,6 +206,27 @@ export function Home({
     setLimit(20)
   }
 
+  const recentControls = (
+    <div className="league-controls">
+      <label className="league-check">
+        <input type="checkbox" checked={soloOnly} onChange={(e) => setSoloOnly(e.target.checked)} />
+        Ranked Solo/Duo only
+      </label>
+      <Select
+        compact
+        label="Recent games window"
+        value={String(windowCount)}
+        onChange={(v) => setWindowCount(Number(v))}
+      >
+        {[5, 10, 15, 20, 30, 40, 50].map((n) => (
+          <option key={n} value={n}>
+            Last {n} games
+          </option>
+        ))}
+      </Select>
+    </div>
+  )
+
   return (
     <div className="league-home">
       <div className="page-heading compact">
@@ -347,27 +368,6 @@ export function Home({
               <div className="league-main">
                 <div className="league-section-heading">
                   <h2>Recent games</h2>
-                  <div className="league-controls">
-                    <label className="league-check">
-                      <input
-                        type="checkbox"
-                        checked={soloOnly}
-                        onChange={(e) => setSoloOnly(e.target.checked)}
-                      />
-                      Ranked Solo/Duo only
-                    </label>
-                    <Select
-                      label="Recent games window"
-                      value={String(windowCount)}
-                      onChange={(v) => setWindowCount(Number(v))}
-                    >
-                      {[5, 10, 15, 20, 30, 40, 50].map((n) => (
-                        <option key={n} value={n}>
-                          Last {n} games
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
                 </div>
                 {historyLoading ? (
                   <p role="status" className="muted">
@@ -376,6 +376,7 @@ export function Home({
                 ) : recent.length ? (
                   <RecentSummary
                     recent={recent}
+                    controls={recentControls}
                     footer={
                       recent.length < windowCount && (
                         <p className="league-coverage muted">
@@ -406,6 +407,7 @@ export function Home({
                     <button className="button" disabled={Boolean(busy)} onClick={() => void sync()}>
                       {busy || 'Sync recent games'}
                     </button>
+                    {games.length > 0 && recentControls}
                   </div>
                 )}
                 <div className="league-section-heading">

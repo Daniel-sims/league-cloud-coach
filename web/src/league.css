@@ -1212,3 +1212,23 @@ select:focus-visible {
   padding: 4px 10px;
   font-size: 12px;
 }
+
+/* Recent-games options live in the summary card's bottom row */
+.league-form small {
+  margin-left: 12px;
+}
+.league-form .league-controls {
+  margin-left: auto;
+  gap: 12px;
+}
+.league-select.compact > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.league-select.compact {
+  min-width: 0;
+}

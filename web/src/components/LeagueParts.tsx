@@ -43,14 +43,16 @@ export function Select({
   value,
   onChange,
   children,
+  compact = false,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
+  compact?: boolean
 }) {
   return (
-    <label className="league-select">
+    <label className={compact ? 'league-select compact' : 'league-select'}>
       <span>{label}</span>
       <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
         {children}
@@ -429,7 +431,15 @@ export function Scoreboard({
   )
 }
 
-export function RecentSummary({ recent, footer }: { recent: Game[]; footer?: React.ReactNode }) {
+export function RecentSummary({
+  recent,
+  footer,
+  controls,
+}: {
+  recent: Game[]
+  footer?: React.ReactNode
+  controls?: React.ReactNode
+}) {
   const stats = summary(recent)
   return (
     <section className="league-card league-summary" aria-label="Recent game statistics">
@@ -496,6 +506,7 @@ export function RecentSummary({ recent, footer }: { recent: Game[]; footer?: Rea
             {stats.streak.count} {stats.streak.win ? 'win' : 'loss'} streak
           </small>
         )}
+        {controls}
       </div>
       {footer}
     </section>
