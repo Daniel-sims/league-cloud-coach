@@ -2314,10 +2314,9 @@ strong {
 }
 .blocks-head {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
-  flex-wrap: wrap;
 }
 .blocks-head h1 {
   margin: 6px 0 4px;
