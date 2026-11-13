@@ -229,21 +229,7 @@ export function Home({
 
   return (
     <div className="league-home">
-      <div className="page-heading compact">
-        <div>
-          <h1>
-            Home<span className="title-dot">.</span>
-          </h1>
-        </div>
-        <button
-          className="button secondary"
-          onClick={() => setConnect(true)}
-          disabled={Boolean(busy)}
-        >
-          <Plus size={16} />
-          Add League account
-        </button>
-      </div>
+      <h1 className="sr-only">Home.</h1>
       {error && (
         <div className="notice error" role="alert">
           {error}
@@ -314,24 +300,35 @@ export function Home({
                       />
                       <b>{profile.summonerLevel}</b>
                     </span>
-                    <Select
-                      label="League account"
-                      value={selected}
-                      onChange={(id) => {
-                        if (!busy) {
-                          setSelected(id)
-                          setError('')
-                        }
-                      }}
-                    >
-                      <optgroup label={busy ? 'Sync in progress' : 'Your accounts'}>
-                        {profiles.map((p) => (
-                          <option key={p.id} value={p.id} disabled={Boolean(busy)}>
-                            {p.gameName}#{p.tagLine} · {platforms[p.platform]}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </Select>
+                    <div className="league-account-picker">
+                      <Select
+                        label="League account"
+                        value={selected}
+                        onChange={(id) => {
+                          if (!busy) {
+                            setSelected(id)
+                            setError('')
+                          }
+                        }}
+                      >
+                        <optgroup label={busy ? 'Sync in progress' : 'Your accounts'}>
+                          {profiles.map((p) => (
+                            <option key={p.id} value={p.id} disabled={Boolean(busy)}>
+                              {p.gameName}#{p.tagLine} · {platforms[p.platform]}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </Select>
+                      <button
+                        className="button secondary button-small league-add"
+                        onClick={() => setConnect(true)}
+                        disabled={Boolean(busy)}
+                        aria-label="Add another account"
+                        title="Add another account"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
                   </div>
                   <div className="league-queue-tabs" role="tablist" aria-label="Ranked queue">
                     {(

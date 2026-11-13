@@ -1277,3 +1277,35 @@ select:focus-visible {
 .league-champion-wr {
   min-width: 56px;
 }
+
+/* Home uses the full content width with tighter page padding */
+.main-content:has(.league-home) {
+  max-width: none;
+  padding: 20px 24px 16px;
+}
+.league-identity > .league-account-picker {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.league-account-picker .league-select {
+  flex: 1;
+}
+.league-add {
+  min-height: 40px;
+  padding: 0 12px;
+}
+@media (max-width: 1100px) {
+  .main-content:has(.league-home) {
+    padding: 16px;
+  }
+}
+.league-account .league-avatar .champion-icon {
+  width: 48px;
+  height: 48px;
+}
+.league-account .league-identity {
+  gap: 12px;
+}
