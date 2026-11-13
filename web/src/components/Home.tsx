@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { RefreshCw, Plus, Swords, UserRound } from 'lucide-react'
+import { RefreshCw, Plus, Swords, UserRound, SlidersHorizontal } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { MatchRow, RankCard, RecentSummary, SeasonChampions, Select } from './LeagueParts'
 import '../league.css'
@@ -10,7 +10,6 @@ import {
   filterGames,
   gamesFor,
   groupGamesByDay,
-  percent,
   platforms,
   queues,
   roleNames,
@@ -52,6 +51,7 @@ export function Home({
   })
   const [soloOnly, setSoloOnly] = useState(() => preferences().soloOnly === true)
   const [limit, setLimit] = useState(20)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [queueTab, setQueueTab] = useState<'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR'>('RANKED_SOLO_5x5')
   const [cursor, setCursor] = useState<Record<string, number>>({})
   const [exhausted, setExhausted] = useState<Record<string, boolean>>({})
@@ -188,7 +188,9 @@ export function Home({
   const champions = championGroups(recent).slice(0, 5)
   const effectiveFilter = soloOnly ? { ...filter, queue: '420' } : filter
   const filtered = filterGames(games, effectiveFilter)
-  const record = summary(filterGames(games, effectiveFilter, false))
+  const activeFilters = (Object.keys(emptyFilter) as (keyof HistoryFilter)[]).filter(
+    (key) => filter[key] !== emptyFilter[key],
+  ).length
   const playedOptions = [
     ...new Map(games.map((g) => [g.player.championId, g.player.championName])).entries(),
   ].sort((a, b) => a[1].localeCompare(b[1]))
@@ -411,113 +413,122 @@ export function Home({
                 )}
                 <div className="league-section-heading">
                   <h2>Match history</h2>
-                  <span className="muted">{games.length} synced games</span>
+                  <div className="league-heading-actions">
+                    <span className="muted">{games.length} synced games</span>
+                    <button
+                      className={`icon-button league-filter-toggle ${filtersOpen ? 'active' : ''}`}
+                      onClick={() => setFiltersOpen((open) => !open)}
+                      aria-expanded={filtersOpen}
+                      aria-controls="history-filters"
+                      aria-label="Filters"
+                      title="Filters"
+                    >
+                      <SlidersHorizontal size={18} />
+                      {activeFilters > 0 && (
+                        <span className="filter-badge" aria-label={`${activeFilters} active`}>
+                          {activeFilters}
+                        </span>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <section className="league-card league-history" aria-label="Match history">
-                  <div className="league-filters">
-                    <Select
-                      label="Your champion"
-                      value={filter.champion}
-                      onChange={(v) => updateFilter('champion', v)}
-                    >
-                      <option value="">All champions</option>
-                      {playedOptions.map(([id, name]) => (
-                        <option key={id} value={id}>
-                          {name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Select
-                      label="Lane opponent"
-                      value={filter.opponent}
-                      onChange={(v) => updateFilter('opponent', v)}
-                    >
-                      <option value="">Any opponent</option>
-                      {opponentOptions.map(([id, name]) => (
-                        <option key={id} value={id}>
-                          {name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Select
-                      label="Lane"
-                      value={filter.role}
-                      onChange={(v) => updateFilter('role', v)}
-                    >
-                      <option value="">All lanes</option>
-                      {roles.map((role) => (
-                        <option key={role} value={role}>
-                          {roleNames[role]}
-                        </option>
-                      ))}
-                    </Select>
-                    {!soloOnly && (
+                  {filtersOpen && (
+                    <div className="league-filters" id="history-filters">
                       <Select
-                        label="Queue"
-                        value={filter.queue}
-                        onChange={(v) => updateFilter('queue', v)}
+                        label="Your champion"
+                        value={filter.champion}
+                        onChange={(v) => updateFilter('champion', v)}
                       >
-                        <option value="">All queues</option>
-                        {[...new Set(games.map((g) => g.queueId))].sort().map((id) => (
+                        <option value="">All champions</option>
+                        {playedOptions.map(([id, name]) => (
                           <option key={id} value={id}>
-                            {queues[id] || `Queue ${id}`}
+                            {name}
                           </option>
                         ))}
                       </Select>
-                    )}
-                    <Select
-                      label="Patch"
-                      value={filter.patch}
-                      onChange={(v) => updateFilter('patch', v)}
-                    >
-                      <option value="">All patches</option>
-                      {[
-                        ...new Set(
-                          games.map((g) => g.gameVersion.split('.').slice(0, 2).join('.')),
-                        ),
-                      ]
-                        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-                        .map((p) => (
-                          <option key={p}>{p}</option>
+                      <Select
+                        label="Lane opponent"
+                        value={filter.opponent}
+                        onChange={(v) => updateFilter('opponent', v)}
+                      >
+                        <option value="">Any opponent</option>
+                        {opponentOptions.map(([id, name]) => (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
                         ))}
-                    </Select>
-                    <Select
-                      label="Result"
-                      value={filter.result}
-                      onChange={(v) => updateFilter('result', v)}
-                    >
-                      <option value="">All results</option>
-                      <option value="win">Wins</option>
-                      <option value="loss">Losses</option>
-                    </Select>
-                    <Select
-                      label="Sort"
-                      value={filter.oldest ? 'oldest' : 'newest'}
-                      onChange={(v) => updateFilter('oldest', v === 'oldest')}
-                    >
-                      <option value="newest">Newest first</option>
-                      <option value="oldest">Oldest first</option>
-                    </Select>
-                    <button
-                      className="text-link"
-                      onClick={() => {
-                        setFilter(emptyFilter)
-                        setLimit(20)
-                      }}
-                    >
-                      Clear filters
-                    </button>
-                  </div>
-                  <div className="league-history-record">
-                    <strong>
-                      {percent(record.winRate)} win rate · {record.wins}W – {record.losses}L
-                      {record.remakes ? ` · ${record.remakes} remakes` : ''}
-                    </strong>
-                    <span className="muted">
-                      Across {record.games + record.remakes} matching synced games · Result filter
-                      only changes the list
-                    </span>
-                  </div>
+                      </Select>
+                      <Select
+                        label="Lane"
+                        value={filter.role}
+                        onChange={(v) => updateFilter('role', v)}
+                      >
+                        <option value="">All lanes</option>
+                        {roles.map((role) => (
+                          <option key={role} value={role}>
+                            {roleNames[role]}
+                          </option>
+                        ))}
+                      </Select>
+                      {!soloOnly && (
+                        <Select
+                          label="Queue"
+                          value={filter.queue}
+                          onChange={(v) => updateFilter('queue', v)}
+                        >
+                          <option value="">All queues</option>
+                          {[...new Set(games.map((g) => g.queueId))].sort().map((id) => (
+                            <option key={id} value={id}>
+                              {queues[id] || `Queue ${id}`}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                      <Select
+                        label="Patch"
+                        value={filter.patch}
+                        onChange={(v) => updateFilter('patch', v)}
+                      >
+                        <option value="">All patches</option>
+                        {[
+                          ...new Set(
+                            games.map((g) => g.gameVersion.split('.').slice(0, 2).join('.')),
+                          ),
+                        ]
+                          .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+                          .map((p) => (
+                            <option key={p}>{p}</option>
+                          ))}
+                      </Select>
+                      <Select
+                        label="Result"
+                        value={filter.result}
+                        onChange={(v) => updateFilter('result', v)}
+                      >
+                        <option value="">All results</option>
+                        <option value="win">Wins</option>
+                        <option value="loss">Losses</option>
+                      </Select>
+                      <Select
+                        label="Sort"
+                        value={filter.oldest ? 'oldest' : 'newest'}
+                        onChange={(v) => updateFilter('oldest', v === 'oldest')}
+                      >
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                      </Select>
+                      <button
+                        className="text-link"
+                        onClick={() => {
+                          setFilter(emptyFilter)
+                          setLimit(20)
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  )}
                   {groupGamesByDay(filtered.slice(0, limit)).map((day) => (
                     <section
                       className="league-match-day"

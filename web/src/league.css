@@ -1326,3 +1326,30 @@ select:focus-visible {
 .league-player-rank small {
   color: var(--muted);
 }
+
+.league-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.league-filter-toggle {
+  position: relative;
+}
+.league-filter-toggle.active {
+  color: var(--accent, currentColor);
+}
+.filter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #b9a56a;
+  color: #1b1f1a;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}

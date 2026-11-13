@@ -118,9 +118,9 @@ test('home loads stats, champion and result filters, scoreboard, and keeps the v
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Home.' })).toBeVisible()
   await expect(page.getByLabel('League account')).toHaveValue(profile.id)
-  await expect(page.getByText('67% win rate · 2W – 1L')).toBeVisible()
+  await expect(page.getByLabel('Your champion')).toBeHidden()
+  await page.getByRole('button', { name: 'Filters', exact: true }).click()
   await page.getByLabel('Your champion').selectOption('103')
-  await expect(page.getByText('50% win rate · 1W – 1L')).toBeVisible()
   await page.getByLabel('Result', { exact: true }).selectOption('loss')
   await expect(page.getByRole('button', { name: /Scoreboard for/ })).toHaveCount(1)
   await page.getByRole('button', { name: /Scoreboard for 2/ }).click()
@@ -178,7 +178,7 @@ test('mobile home connects an account with keyboard access and fits the viewport
   await page.getByLabel('Riot ID').fill('Test Player#EUW')
   await page.getByRole('button', { name: 'Add account', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Recent games' })).toBeVisible()
-  await expect(page.getByText('67% win rate · 2W – 1L')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Scoreboard for/ })).toHaveCount(3)
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
@@ -251,6 +251,7 @@ test('match history groups local play dates and selector arrows stay inset in bo
     'Wednesday, 11 November 2026',
     'Tuesday, 10 November 2026',
   ])
+  await page.getByRole('button', { name: 'Filters', exact: true }).click()
   const champion = page.getByLabel('Your champion', { exact: true })
   expect(await champion.evaluate((el) => getComputedStyle(el).backgroundPosition)).toContain('12px')
   await expect(champion).toHaveCSS('padding-right', '36px')

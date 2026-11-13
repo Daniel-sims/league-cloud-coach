@@ -76,12 +76,12 @@ it('shows saved matches immediately, retains them on refresh failure and support
   const repo = repository()
   vi.mocked(repo.refreshProfile).mockRejectedValue(new Error('Riot is unavailable.'))
   render(<Home ownerId="owner" repository={repo} />)
-  expect(await screen.findByText('50% win rate · 1W – 1L')).toBeVisible()
+  expect((await screen.findAllByRole('button', { name: /Scoreboard for/ })).length).toBe(2)
   // Opening Home never syncs by itself.
   expect(repo.refreshProfile).not.toHaveBeenCalled()
   await userEvent.click(screen.getByRole('button', { name: 'Refresh match history' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Riot is unavailable.')
-  expect(screen.getByText('50% win rate · 1W – 1L')).toBeVisible()
+  expect(screen.getAllByRole('button', { name: /Scoreboard for/ })).toHaveLength(2)
   await userEvent.click(screen.getByRole('button', { name: /Scoreboard for 1/ }))
   expect(screen.getByText('Victory · Blue team')).toBeVisible()
   expect(screen.getByText('Defeat · Red team')).toBeVisible()
@@ -92,10 +92,10 @@ it('shows saved matches immediately, retains them on refresh failure and support
 })
 it('filters rows without changing the full matchup record, and switching profiles clears prior games', async () => {
   render(<Home ownerId="owner" repository={repository()} />)
-  await screen.findByText('50% win rate · 1W – 1L')
+  await screen.findAllByRole('button', { name: /Scoreboard for/ })
+  await userEvent.click(await screen.findByRole('button', { name: 'Filters' }))
   await userEvent.selectOptions(screen.getByLabelText('Result'), 'win')
   expect(screen.getAllByRole('button', { name: /Scoreboard for/ })).toHaveLength(1)
-  expect(screen.getByText('50% win rate · 1W – 1L')).toBeVisible()
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Refresh match history' })).toBeEnabled(),
   )
@@ -131,6 +131,7 @@ it('shows dated game groups in the selected order and removes days with no filte
   expect(
     within(screen.getByRole('region', { name: 'Tuesday, 10 November 2026' })).getByText('1 game'),
   ).toBeVisible()
+  await userEvent.click(await screen.findByRole('button', { name: 'Filters' }))
   await userEvent.selectOptions(screen.getByLabelText('Sort'), 'oldest')
   expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
     'Tuesday, 10 November 2026',
@@ -144,7 +145,7 @@ it('shows dated game groups in the selected order and removes days with no filte
 it('shows each player’s account level and opens a clicked player on the Summoners page', async () => {
   const repo = repository()
   render(<Home ownerId="owner" repository={repo} />)
-  await screen.findByText('50% win rate · 1W – 1L')
+  await screen.findAllByRole('button', { name: /Scoreboard for/ })
   await userEvent.click(screen.getAllByRole('button', { name: /Scoreboard for 1/ })[0])
   expect(screen.getAllByText('Lv. 150').length).toBeGreaterThan(0)
   await userEvent.click(screen.getAllByTitle("Open Zed's profile")[0])
@@ -156,7 +157,7 @@ it('shows each player’s account level and opens a clicked player on the Summon
 it('stays on Home when you click one of your own accounts in a scoreboard', async () => {
   window.location.hash = '#/home'
   render(<Home ownerId="owner" repository={repository()} />)
-  await screen.findByText('50% win rate · 1W – 1L')
+  await screen.findAllByRole('button', { name: /Scoreboard for/ })
   await userEvent.click(screen.getAllByRole('button', { name: /Scoreboard for 1/ })[0])
   await userEvent.click(screen.getAllByTitle("Open Ahri's profile")[0])
   expect(window.location.hash).toBe('#/home')
