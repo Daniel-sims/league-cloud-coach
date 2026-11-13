@@ -52,30 +52,29 @@ export function BlockList({ repository = blockRepository }: { repository?: Block
   }
   return (
     <section className="blocks-page">
-      <div className="blocks-head">
-        <div>
-          <span className="eyebrow">BLOCKS</span>
-          <h1>Blocks</h1>
-          <p className="blocks-lede">
-            A few games, played on purpose. Write as you go, then carry what you learned into the
-            next block.
-          </p>
-        </div>
-        <button className="button" onClick={() => void create()} disabled={creating}>
-          {creating ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}
-          New block
-        </button>
-      </div>
       {(error || createError) && <div className="notice error">{error || createError}</div>}
       {!blocks && !error ? (
         <div className="loading-state" role="status">
           <LoaderCircle className="spin" />
           Loading blocks…
         </div>
-      ) : blocks && blocks.length === 0 ? (
-        <p className="blocks-empty">No blocks yet. Start one before your next games.</p>
       ) : (
         <ul className="blocks-list">
+          <li>
+            <button
+              className="block-card block-new"
+              onClick={() => void create()}
+              disabled={creating}
+            >
+              {creating ? <LoaderCircle size={18} className="spin" /> : <Plus size={18} />}
+              <strong>New block</strong>
+              <span>
+                {blocks && blocks.length
+                  ? 'Starts with the points you carried forward last time.'
+                  : 'A few games, played on purpose. Write as you go, then carry what you learned into the next block.'}
+              </span>
+            </button>
+          </li>
           {blocks?.map((block) => (
             <li key={block.id}>
               <a className="block-card" href={`#/blocks/${block.id}`}>
