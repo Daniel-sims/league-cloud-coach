@@ -601,8 +601,15 @@ test('library restores metadata and image bytes before a slow refresh and clears
   held = false
   release()
   await expect(title()).toBeVisible()
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: 'Settings', exact: true })
+    .getByRole('button', { name: 'Sign out', exact: true })
+    .click()
+  await page
+    .getByRole('dialog', { name: 'Sign out?', exact: true })
+    .getByRole('button', { name: 'Sign out', exact: true })
+    .click()
   await expect(
     page.getByRole('button', { name: 'Continue with Google', exact: true }),
   ).toBeVisible()

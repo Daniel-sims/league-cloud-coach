@@ -2275,3 +2275,32 @@ strong {
 .anyone-link[open] summary {
   margin-bottom: 10px;
 }
+
+/* Signed-in shell has no top bar: the sidebar toggle lives in the sidebar. */
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sidebar-reveal {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 20;
+}
+@media (max-width: 600px) {
+  .sidebar-hide,
+  .sidebar-reveal {
+    display: none;
+  }
+}
+.settings-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}

@@ -261,7 +261,20 @@ export function App({ authError = null }: { authError?: string | null }) {
       className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''} ${ownVideoId ? 'video-workspace' : ''}`}
     >
       <aside className="sidebar" id="app-sidebar">
-        <Brand />
+        <div className="sidebar-head">
+          <Brand />
+          {session && member && !local && (
+            <button
+              className="icon-button sidebar-hide"
+              onClick={toggleSidebar}
+              aria-controls="app-sidebar"
+              aria-label="Hide sidebar"
+              title="Hide sidebar"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          )}
+        </div>
         <div className="workspace-label">YOUR WORKSPACE</div>
         <nav aria-label="Main navigation">
           <a className={`nav-item ${home ? 'active' : ''}`} href="#/home">
@@ -310,62 +323,77 @@ export function App({ authError = null }: { authError?: string | null }) {
         </div>
       </aside>
       <div className="main-shell">
-        <header className="topbar">
+        {session && member && !local && collapsed && (
           <button
-            className="icon-button sidebar-toggle"
+            className="icon-button sidebar-reveal"
             onClick={toggleSidebar}
             aria-controls="app-sidebar"
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
-            title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            aria-label="Show sidebar"
+            title="Show sidebar"
           >
-            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            <PanelLeftOpen size={18} />
           </button>
-          <div className="breadcrumb">
-            <Cloud size={16} />
-            <span>Workspace</span>
-            <span className="crumb-slash">/</span>
-            <strong>
-              {home
-                ? 'Home'
-                : summoners
-                  ? 'Summoners'
-                  : route.startsWith('/connect')
-                    ? 'Connected apps'
-                    : 'Video library'}
-            </strong>
-          </div>
-          <div className="topbar-actions">
-            {local ? (
-              <>
-                <span className="preview-label">LOCAL PREVIEW</span>
-                <a className="text-link" href="#/library">
-                  Exit preview <X size={14} />
-                </a>
-              </>
-            ) : session ? (
-              <>
-                <span className="account-avatar">{String(userName).slice(0, 1).toUpperCase()}</span>
-                <span className="account-name">{userName}</span>
-                <button
-                  className="button button-small secondary"
-                  onClick={() => {
-                    setSignOutError('')
-                    setConfirmSignOut(true)
-                  }}
-                >
-                  Sign out
+        )}
+        {!(session && member && !local) && (
+          <header className="topbar">
+            <button
+              className="icon-button sidebar-toggle"
+              onClick={toggleSidebar}
+              aria-controls="app-sidebar"
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+              title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            >
+              {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            </button>
+            <div className="breadcrumb">
+              <Cloud size={16} />
+              <span>Workspace</span>
+              <span className="crumb-slash">/</span>
+              <strong>
+                {home
+                  ? 'Home'
+                  : summoners
+                    ? 'Summoners'
+                    : route.startsWith('/connect')
+                      ? 'Connected apps'
+                      : 'Video library'}
+              </strong>
+            </div>
+            <div className="topbar-actions">
+              {local ? (
+                <>
+                  <span className="preview-label">LOCAL PREVIEW</span>
+                  <a className="text-link" href="#/library">
+                    Exit preview <X size={14} />
+                  </a>
+                </>
+              ) : session ? (
+                <>
+                  <span className="account-avatar">
+                    {String(userName).slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="account-name">{userName}</span>
+                  <button
+                    className="button button-small secondary"
+                    onClick={() => {
+                      setSignOutError('')
+                      setConfirmSignOut(true)
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <button className="button button-small" onClick={signIn} disabled={signingIn}>
+                  <GoogleIcon />
+                  {signingIn ? 'Connecting…' : 'Sign in'}
+                  <ArrowRight size={14} />
                 </button>
-              </>
-            ) : (
-              <button className="button button-small" onClick={signIn} disabled={signingIn}>
-                <GoogleIcon />
-                {signingIn ? 'Connecting…' : 'Sign in'}
-                <ArrowRight size={14} />
-              </button>
-            )}
-          </div>
-        </header>
+              )}
+            </div>
+          </header>
+        )}
         <main className={`main-content ${ownVideoId ? 'wide' : ''}`}>
           {authMessage && <ErrorNotice message={authMessage} />}
           {local && (
@@ -448,6 +476,11 @@ export function App({ authError = null }: { authError?: string | null }) {
           theme={theme}
           onThemeChange={setTheme}
           onClose={() => setSettings(false)}
+          userName={String(userName)}
+          onSignOut={() => {
+            setSignOutError('')
+            setConfirmSignOut(true)
+          }}
           onSaved={() => setSettingsVersion((old) => old + 1)}
         />
       )}

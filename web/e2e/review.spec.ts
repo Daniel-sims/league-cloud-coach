@@ -439,7 +439,7 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const wrap = await video.evaluate((v) => v.closest('.player-wrap')!.getBoundingClientRect())
   const panel = await timeline.boundingBox()
   // The player is centred beside the full-height timeline without a card.
-  expect(stage.y).toBeGreaterThanOrEqual(100)
+  expect(stage.y).toBeGreaterThanOrEqual(90)
   expect(wrap.bottom).toBeLessThanOrEqual(958)
   expect(Math.abs(panel!.y + panel!.height - (958 - 24))).toBeLessThan(2)
   expect(Math.round((stage.width / stage.height) * 9)).toBe(16)
@@ -997,10 +997,10 @@ for (const owner of [true, false]) {
     await page.screenshot({ path: testInfo.outputPath('cinema-mobile.png'), fullPage: true })
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: 'Enter cinema mode' })).toBeFocused()
-    await expect(page.locator(owner ? '.topbar' : '.watch-header')).toBeVisible()
+    await expect(page.locator(owner ? '.video-bar' : '.watch-header')).toBeVisible()
     await page.getByRole('button', { name: 'Enter cinema mode' }).click()
     await page.getByRole('button', { name: 'Exit cinema mode' }).click()
-    await expect(page.locator(owner ? '.topbar' : '.watch-header')).toBeVisible()
+    await expect(page.locator(owner ? '.video-bar' : '.watch-header')).toBeVisible()
   })
 }
 
@@ -1257,7 +1257,7 @@ test('running notes autosave privately, survive reload, and publish the polished
   await expect(notes.getByText('Private draft saved', { exact: true })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('running-notes-cinema.png') })
   await notes.getByRole('button', { name: 'Exit cinema mode' }).click()
-  await expect(page.locator('.topbar')).toBeVisible()
+  await expect(page.locator('.video-bar')).toBeVisible()
   await guestContext.close()
 })
 

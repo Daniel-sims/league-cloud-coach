@@ -10,11 +10,15 @@ export function Settings({
   onSaved,
   theme = 'light',
   onThemeChange,
+  userName,
+  onSignOut,
 }: {
   onClose: () => void
   onSaved: () => void
   theme?: Theme
   onThemeChange?: (theme: Theme) => void
+  userName?: string
+  onSignOut?: () => void
 }) {
   const [token, setToken] = useState('')
   const [platform, setPlatform] = useState('euw1')
@@ -45,8 +49,9 @@ export function Settings({
       .profiles()
       .then((rows) => {
         if (!active) return
-        setProfiles(rows)
-        setProfileId((old) => old || rows[0]?.id || '')
+        const list = rows ?? []
+        setProfiles(list)
+        setProfileId((old) => old || list[0]?.id || '')
       })
       .catch(() => {})
     return () => {
@@ -400,6 +405,14 @@ export function Settings({
           </button>
         )}
       </form>
+      {onSignOut && (
+        <section className="settings-account" aria-label="Account">
+          <span className="muted">Signed in as {userName}</span>
+          <button type="button" className="button secondary" onClick={onSignOut}>
+            Sign out
+          </button>
+        </section>
+      )}
     </Dialog>
   )
 }
