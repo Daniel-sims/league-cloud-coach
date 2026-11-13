@@ -321,21 +321,21 @@ export function Home({
                       <small className="muted">No current placement in this queue</small>
                     </div>
                   )}
-                  <div className="league-refresh">
-                    <button
-                      className="button secondary"
-                      disabled={Boolean(busy)}
-                      onClick={() => void sync()}
-                    >
-                      <RefreshCw size={15} className={busy ? 'spin' : ''} />
-                      {busy || 'Refresh match history'}
-                    </button>
-                    <small className="muted">
-                      {profile.syncedAt
+                  <button
+                    className="button button-small league-update"
+                    disabled={Boolean(busy)}
+                    aria-label={busy || 'Refresh match history'}
+                    title={
+                      busy ||
+                      (profile.syncedAt
                         ? `Last synced ${new Date(profile.syncedAt).toLocaleString('en-GB')}`
-                        : 'No games synced yet'}
-                    </small>
-                  </div>
+                        : 'No games synced yet')
+                    }
+                    onClick={() => void sync()}
+                  >
+                    <RefreshCw size={13} className={busy ? 'spin' : ''} />
+                    {busy ? 'Updating' : 'Update'}
+                  </button>
                 </section>
                 {queued.length > 0 && (
                   <SeasonChampions
