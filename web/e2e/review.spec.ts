@@ -1399,7 +1399,10 @@ test('our control bar replaces the browser controls: one action per key, click a
   await page.mouse.up()
   await expect.poll(time).toBeGreaterThan(1340)
   expect(await time()).toBeLessThan(1360)
-  expect(await page.evaluate(() => (window as unknown as { seeks: number }).seeks)).toBe(1)
+  const seeks = () => page.evaluate(() => (window as unknown as { seeks: number }).seeks)
+  await expect.poll(seeks).toBe(1)
+  await page.waitForTimeout(300)
+  expect(await seeks()).toBe(1)
   // Arrow keys on the focused scrubber step like everywhere else.
   expect((await press('ArrowRight')).moved).toBeCloseTo(1, 1)
   await bar.getByRole('button', { name: 'Back 30 seconds' }).click()
