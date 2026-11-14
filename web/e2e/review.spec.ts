@@ -865,6 +865,51 @@ test('drawing freezes a real frame, keeps failed saves, and persists a capture o
   await editor.getByRole('button', { name: 'Undo', exact: true }).click()
   expect(await partialAlpha()).toBeGreaterThanOrEqual(126)
   expect(await partialAlpha()).toBeLessThanOrEqual(129)
+  // Text: typed in place, edited by clicking it, moved by dragging it.
+  const inkIn = (top: number, bottom: number) =>
+    canvas.evaluate(
+      (c: HTMLCanvasElement, [top, bottom]) => {
+        const y = Math.floor(c.height * top)
+        const data = c
+          .getContext('2d')!
+          .getImageData(
+            Math.floor(c.width * 0.3),
+            y,
+            Math.floor(c.width * 0.15),
+            Math.floor(c.height * bottom) - y,
+          ).data
+        for (let i = 3; i < data.length; i += 4) if (data[i] > 0) return true
+        return false
+      },
+      [top, bottom],
+    )
+  await editor.getByRole('button', { name: 'Text', exact: true }).click()
+  await expect(editor.getByLabel('Width')).toHaveCount(0)
+  await editor.getByLabel('Text size').selectOption({ label: 'Large' })
+  await editor.getByLabel('Text style').selectOption({ label: 'Background' })
+  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.55)
+  const textBox = editor.getByRole('textbox', { name: 'Text on frame' })
+  await expect(textBox).toBeFocused()
+  await page.keyboard.type('Ward')
+  expect(await inkIn(0.55, 0.65)).toBe(true)
+  await page.keyboard.press('Enter')
+  await expect(textBox).toHaveCount(0)
+  expect(await inkIn(0.55, 0.65)).toBe(true)
+  expect(await inkIn(0.75, 0.85)).toBe(false)
+  await page.mouse.click(box.x + box.width * 0.31, box.y + box.height * 0.58)
+  await expect(textBox).toHaveValue('Ward')
+  await page.keyboard.press('Escape')
+  await expect(textBox).toHaveCount(0)
+  await expect(editor).toBeVisible()
+  await page.mouse.move(box.x + box.width * 0.31, box.y + box.height * 0.58)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.31, box.y + box.height * 0.78, { steps: 10 })
+  await page.mouse.up()
+  await expect(textBox).toHaveCount(0)
+  expect(await inkIn(0.55, 0.65)).toBe(false)
+  expect(await inkIn(0.75, 0.85)).toBe(true)
+  await editor.getByRole('button', { name: 'Undo', exact: true }).click()
+  expect(await inkIn(0.55, 0.65)).toBe(true)
   await editor.getByRole('button', { name: 'Pen', exact: true }).click()
   await editor.getByLabel('Note (optional)').fill('Hold this position')
   await page.screenshot({ path: testInfo.outputPath('drawing-editor.png') })

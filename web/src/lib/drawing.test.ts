@@ -1,5 +1,12 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { captureTabFrame, encodeCapture, paintStrokes, type Stroke } from './drawing'
+import {
+  captureTabFrame,
+  contrastFor,
+  encodeCapture,
+  paintStrokes,
+  textAt,
+  type Stroke,
+} from './drawing'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -82,4 +89,51 @@ it('reports unsupported tab capture and preserves browser cancellation without s
     mediaDevices: { getDisplayMedia: vi.fn().mockRejectedValue(denied) },
   })
   await expect(captureTabFrame(document.createElement('div'))).rejects.toBe(denied)
+})
+
+it('paints text at its corner with a contrasting outline or backdrop, and finds it again', () => {
+  const calls: string[] = []
+  const context = {
+    canvas: { width: 1000, height: 500 },
+    clearRect: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    roundRect: vi.fn(),
+    fill: vi.fn(() => calls.push('fill')),
+    measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
+    strokeText: vi.fn(() => calls.push('strokeText')),
+    fillText: vi.fn(() => calls.push('fillText')),
+    globalCompositeOperation: 'destination-out',
+    globalAlpha: 1,
+  } as unknown as CanvasRenderingContext2D
+  const text: Stroke = {
+    tool: 'text',
+    color: '#facc15',
+    width: 0,
+    opacity: 0.8,
+    fontSize: 0.04,
+    text: 'Ward\nhere',
+    points: [{ x: 0.1, y: 0.2 }],
+  }
+  paintStrokes(context, [text])
+  expect(context.globalCompositeOperation).toBe('source-over')
+  expect(context.globalAlpha).toBe(0.8)
+  // 40px text with 50px lines, each centred in its line.
+  expect(context.fillText).toHaveBeenNthCalledWith(1, 'Ward', 100, 125)
+  expect(context.fillText).toHaveBeenNthCalledWith(2, 'here', 100, 175)
+  expect(context.strokeStyle).toBe('#000000')
+  expect(calls).toEqual(['strokeText', 'strokeText', 'fillText', 'fillText'])
+  calls.length = 0
+  paintStrokes(context, [{ ...text, color: '#111827', textStyle: 'box' }])
+  expect(context.roundRect).toHaveBeenCalled()
+  expect(context.fillStyle).toBe('#111827')
+  expect(calls).toEqual(['fill', 'fillText', 'fillText'])
+  calls.length = 0
+  paintStrokes(context, [{ ...text, text: '  ' }])
+  expect(calls).toEqual([])
+  expect(textAt(context, [text], { x: 0.12, y: 0.25 })).toBe(0)
+  expect(textAt(context, [text], { x: 0.6, y: 0.25 })).toBe(-1)
+  expect(contrastFor('#ffffff')).toBe('#000000')
+  expect(contrastFor('#111827')).toBe('#ffffff')
 })

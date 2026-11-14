@@ -1082,6 +1082,37 @@
   cursor: crosshair;
   touch-action: none;
 }
+.drawing-stage canvas[data-tool='text'] {
+  cursor: text;
+}
+.drawing-text-hint {
+  margin: 0;
+}
+/* The canvas paints the letters; this box only carries the caret and selection. */
+.drawing-stage .drawing-text-input {
+  position: absolute;
+  z-index: 1;
+  box-sizing: content-box;
+  min-width: 2ch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  font-weight: 700;
+  white-space: pre;
+  overflow: hidden;
+  resize: none;
+  outline: 1px dashed rgba(255, 255, 255, 0.85);
+  outline-offset: 6px;
+}
+.drawing-stage .drawing-text-input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+.drawing-stage .drawing-text-input::selection {
+  background: rgba(56, 189, 248, 0.45);
+}
 .drawing-form {
   display: grid;
   gap: 12px;
@@ -1401,11 +1432,12 @@ body:has(.cinema-mode) .watch-main {
 }
 .drawing-sidebar .drawing-toolbar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 .drawing-sidebar .drawing-colors,
 .drawing-sidebar .drawing-width,
+.drawing-sidebar .drawing-text-hint,
 .drawing-opacity {
   grid-column: 1 / -1;
 }

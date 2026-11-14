@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type Ref } from 'react'
 import {
   ArrowUpRight,
   Camera,
@@ -7,6 +7,7 @@ import {
   Pencil,
   Redo2,
   Trash2,
+  Type,
   Undo2,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
@@ -14,8 +15,14 @@ import {
   canvasFor,
   encodeCapture,
   paintStrokes,
+  textAt,
+  textFontFamily,
+  textLayout,
+  textLineHeight,
   type DrawingTool,
+  type Point,
   type Stroke,
+  type TextStyle,
 } from '../lib/drawing'
 import {
   saveCoachName,
@@ -30,8 +37,25 @@ const tools = [
   { id: 'pen', name: 'Pen', Icon: Pencil },
   { id: 'highlighter', name: 'Highlighter', Icon: Highlighter },
   { id: 'arrow', name: 'Arrow', Icon: ArrowUpRight },
+  { id: 'text', name: 'Text', Icon: Type },
   { id: 'eraser', name: 'Eraser', Icon: Eraser },
 ] as const
+/** Pixel sizes on a 1280-wide frame; stored as a fraction of the width. */
+const textSizes = [
+  { px: 20, name: 'Small' },
+  { px: 32, name: 'Medium' },
+  { px: 48, name: 'Large' },
+  { px: 72, name: 'Huge' },
+]
+const textStyles: { id: TextStyle; name: string }[] = [
+  { id: 'outline', name: 'Outline' },
+  { id: 'box', name: 'Background' },
+  { id: 'plain', name: 'Plain' },
+]
+const textPlaceholder = 'Type here'
+/** Text being typed: a new block (index null) or a replacement for strokes[index]. */
+type TextEdit = { index: number | null; stroke: Stroke; key: number }
+type TextDrag = { index: number; start: Point; stroke: Stroke; moved: boolean }
 
 export function DrawingCapture({
   frame,
@@ -51,14 +75,21 @@ export function DrawingCapture({
 }) {
   const image = useRef<HTMLImageElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
+  const stage = useRef<HTMLDivElement>(null)
+  const textBox = useRef<HTMLTextAreaElement>(null)
   const active = useRef<Stroke | null>(null)
+  const drag = useRef<TextDrag | null>(null)
   const [size, setSize] = useState({ width: 1280, height: 720 })
   const [ready, setReady] = useState(false)
   const [tool, setTool] = useState<DrawingTool>('pen')
   const [color, setColor] = useState(colors[0])
   const [width, setWidth] = useState(4)
-  const [opacities, setOpacities] = useState({ pen: 100, highlighter: 35, arrow: 100 })
+  const [opacities, setOpacities] = useState({ pen: 100, highlighter: 35, arrow: 100, text: 100 })
   const opacity = tool === 'eraser' ? 100 : opacities[tool]
+  const [textSize, setTextSize] = useState(textSizes[1].px)
+  const [textStyle, setTextStyle] = useState<TextStyle>('outline')
+  const [editing, setEditing] = useState<TextEdit | null>(null)
+  const [stageWidth, setStageWidth] = useState(0)
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [redo, setRedo] = useState<Stroke[][]>([])
   const [history, setHistory] = useState<Stroke[][]>([])
@@ -67,17 +98,75 @@ export function DrawingCapture({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [drawing, setDrawing] = useState(false)
-  function repaint(next = strokes) {
+  /** Committed strokes with any text being typed or dragged laid over them. */
+  function layered(next: Stroke[], edit: TextEdit | null) {
+    let list = next
+    if (edit)
+      list =
+        edit.index === null
+          ? [...list, edit.stroke]
+          : list.map((stroke, index) => (index === edit.index ? edit.stroke : stroke))
+    const moving = drag.current
+    if (moving?.moved)
+      list = list.map((stroke, index) => (index === moving.index ? moving.stroke : stroke))
+    return active.current ? [...list, active.current] : list
+  }
+  function repaint(next = strokes, edit = editing) {
     const context = canvas.current?.getContext('2d')
-    if (context) paintStrokes(context, active.current ? [...next, active.current] : next)
+    if (context) paintStrokes(context, layered(next, edit))
   }
   useEffect(() => {
     repaint()
-  }, [strokes, size])
+  }, [strokes, size, editing])
+  useEffect(() => {
+    const element = stage.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setStageWidth(element.clientWidth))
+    observer.observe(element)
+    setStageWidth(element.clientWidth)
+    return () => observer.disconnect()
+  }, [])
   function commit(next: Stroke[]) {
     setHistory((all) => [...all, strokes])
     setRedo([])
     setStrokes(next)
+  }
+  /** Ends typing, keeping the text; empty text removes the block. Returns the strokes. */
+  function commitText(): Stroke[] {
+    if (!editing) return strokes
+    setEditing(null)
+    const text = editing.stroke.text?.replace(/\s+$/, '') ?? ''
+    const stroke = { ...editing.stroke, text }
+    let next: Stroke[]
+    if (editing.index === null) next = text ? [...strokes, stroke] : strokes
+    else {
+      const original = strokes[editing.index]
+      if (!text) next = strokes.filter((_, index) => index !== editing.index)
+      else if (JSON.stringify(original) === JSON.stringify(stroke)) next = strokes
+      else next = strokes.map((value, index) => (index === editing.index ? stroke : value))
+    }
+    if (next !== strokes) commit(next)
+    return next
+  }
+  /** Sidebar changes restyle the text being typed as well as future text. */
+  function restyle(change: Partial<Stroke>, refocus = false) {
+    if (!editing) return
+    setEditing({ ...editing, stroke: { ...editing.stroke, ...change } })
+    if (refocus) requestAnimationFrame(() => textBox.current?.focus())
+  }
+  function chooseTool(next: DrawingTool) {
+    if (next !== 'text') commitText()
+    setTool(next)
+  }
+  function hoverCursor(event: PointerEvent<HTMLCanvasElement>) {
+    if (active.current || drag.current) return
+    if (tool !== 'text') {
+      event.currentTarget.style.cursor = ''
+      return
+    }
+    const context = event.currentTarget.getContext('2d')
+    const over = context && textAt(context, strokes, point(event)) !== -1
+    event.currentTarget.style.cursor = over ? 'move' : 'text'
   }
   function point(event: PointerEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -87,6 +176,18 @@ export function DrawingCapture({
     }
   }
   function finish(event: PointerEvent<HTMLCanvasElement>, cancel = false) {
+    const moving = drag.current
+    if (moving && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      drag.current = null
+      setDrawing(false)
+      event.currentTarget.releasePointerCapture(event.pointerId)
+      if (cancel) repaint()
+      else if (moving.moved)
+        commit(strokes.map((stroke, index) => (index === moving.index ? moving.stroke : stroke)))
+      // A click without a drag edits the text.
+      else setEditing({ index: moving.index, stroke: strokes[moving.index], key: Date.now() })
+      return
+    }
     if (!active.current || !event.currentTarget.hasPointerCapture(event.pointerId)) return
     const stroke = active.current
     active.current = null
@@ -97,6 +198,8 @@ export function DrawingCapture({
   }
   async function save() {
     if (!ready || saving || drawing) return
+    // The canvas already shows text being typed; keep it in the drawing.
+    commitText()
     setSaving(true)
     setError('')
     try {
@@ -121,6 +224,7 @@ export function DrawingCapture({
       <div className="drawing-workspace">
         <div className="drawing-view">
           <div
+            ref={stage}
             className="drawing-stage"
             style={{
               maxWidth: `min(100%, calc((100dvh - 100px) * ${size.width / size.height}))`,
@@ -148,9 +252,43 @@ export function DrawingCapture({
               width={size.width}
               height={size.height}
               aria-label="Draw on the frozen video frame"
+              data-tool={tool}
+              // Keeps focus in the text box rather than moving it to the page.
+              onMouseDown={(event) => event.preventDefault()}
               onPointerDown={(event) => {
-                if (!ready || saving || event.button !== 0 || active.current) return
+                if (!ready || saving || event.button !== 0 || active.current || drag.current) return
                 event.preventDefault()
+                if (tool === 'text') {
+                  // A click away from the text being typed finishes it.
+                  if (editing) {
+                    commitText()
+                    return
+                  }
+                  const at = point(event)
+                  const hit = textAt(event.currentTarget.getContext('2d')!, strokes, at)
+                  if (hit !== -1) {
+                    event.currentTarget.setPointerCapture(event.pointerId)
+                    drag.current = { index: hit, start: at, stroke: strokes[hit], moved: false }
+                    setDrawing(true)
+                    return
+                  }
+                  setEditing({
+                    index: null,
+                    key: Date.now(),
+                    stroke: {
+                      tool: 'text',
+                      color,
+                      opacity: opacity / 100,
+                      width: 0,
+                      fontSize: textSize / 1280,
+                      textStyle,
+                      text: '',
+                      points: [at],
+                    },
+                  })
+                  return
+                }
+                commitText()
                 event.currentTarget.setPointerCapture(event.pointerId)
                 active.current = {
                   tool,
@@ -163,6 +301,27 @@ export function DrawingCapture({
                 repaint()
               }}
               onPointerMove={(event) => {
+                const moving = drag.current
+                if (moving && event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  const at = point(event)
+                  const dx = at.x - moving.start.x
+                  const dy = at.y - moving.start.y
+                  if (!moving.moved && Math.hypot(dx, dy) < 0.004) return
+                  const origin = strokes[moving.index].points[0]
+                  moving.moved = true
+                  moving.stroke = {
+                    ...moving.stroke,
+                    points: [
+                      {
+                        x: Math.max(0, Math.min(0.98, origin.x + dx)),
+                        y: Math.max(0, Math.min(0.98, origin.y + dy)),
+                      },
+                    ],
+                  }
+                  repaint()
+                  return
+                }
+                hoverCursor(event)
                 if (!active.current || !event.currentTarget.hasPointerCapture(event.pointerId))
                   return
                 if (active.current.points.length < 10000) active.current.points.push(point(event))
@@ -171,6 +330,11 @@ export function DrawingCapture({
               onPointerUp={(event) => finish(event)}
               onPointerCancel={(event) => finish(event, true)}
               onLostPointerCapture={() => {
+                if (drag.current) {
+                  drag.current = null
+                  setDrawing(false)
+                  repaint()
+                }
                 if (active.current) {
                   active.current = null
                   setDrawing(false)
@@ -178,6 +342,18 @@ export function DrawingCapture({
                 }
               }}
             />
+            {editing && canvas.current && stageWidth > 0 && (
+              <TextEditor
+                key={editing.key}
+                ref={textBox}
+                edit={editing}
+                canvas={canvas.current}
+                scale={stageWidth / size.width}
+                onChange={(text) => setEditing({ ...editing, stroke: { ...editing.stroke, text } })}
+                onCommit={commitText}
+                onCancel={() => setEditing(null)}
+              />
+            )}
           </div>
         </div>
         <aside className="drawing-sidebar" aria-label="Drawing controls and notes">
@@ -193,7 +369,7 @@ export function DrawingCapture({
                 aria-label={name}
                 title={name}
                 aria-pressed={tool === id}
-                onClick={() => setTool(id)}
+                onClick={() => chooseTool(id)}
                 disabled={saving || drawing}
               >
                 <Icon size={18} />
@@ -208,23 +384,71 @@ export function DrawingCapture({
                   title={colorNames[index]}
                   aria-pressed={color === value}
                   style={{ backgroundColor: value }}
-                  onClick={() => setColor(value)}
+                  onClick={() => {
+                    setColor(value)
+                    restyle({ color: value }, true)
+                  }}
                   disabled={saving || drawing}
                 />
               ))}
             </span>
-            <label className="drawing-width">
-              Width{' '}
-              <select
-                value={width}
-                onChange={(event) => setWidth(Number(event.target.value))}
-                disabled={saving || drawing}
-              >
-                <option value={2}>Thin</option>
-                <option value={4}>Medium</option>
-                <option value={8}>Thick</option>
-              </select>
-            </label>
+            {tool === 'text' ? (
+              <>
+                <label className="drawing-width">
+                  Text size{' '}
+                  <select
+                    value={textSize}
+                    onChange={(event) => {
+                      const px = Number(event.target.value)
+                      setTextSize(px)
+                      restyle({ fontSize: px / 1280 })
+                    }}
+                    disabled={saving || drawing}
+                  >
+                    {textSizes.map(({ px, name }) => (
+                      <option key={px} value={px}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="drawing-width">
+                  Text style{' '}
+                  <select
+                    value={textStyle}
+                    onChange={(event) => {
+                      const next = event.target.value as TextStyle
+                      setTextStyle(next)
+                      restyle({ textStyle: next })
+                    }}
+                    disabled={saving || drawing}
+                  >
+                    {textStyles.map(({ id, name }) => (
+                      <option key={id} value={id}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="field-hint drawing-text-hint">
+                  Click the frame to add text. Enter finishes, Shift+Enter adds a line. Drag text to
+                  move it, or click it to edit.
+                </p>
+              </>
+            ) : (
+              <label className="drawing-width">
+                Width{' '}
+                <select
+                  value={width}
+                  onChange={(event) => setWidth(Number(event.target.value))}
+                  disabled={saving || drawing}
+                >
+                  <option value={2}>Thin</option>
+                  <option value={4}>Medium</option>
+                  <option value={8}>Thick</option>
+                </select>
+              </label>
+            )}
             <label className="drawing-opacity">
               <span>
                 Opacity <output>{opacity}%</output>
@@ -239,8 +463,10 @@ export function DrawingCapture({
                 aria-valuetext={`${opacity}%`}
                 disabled={saving || drawing || tool === 'eraser'}
                 onChange={(event) => {
-                  if (tool !== 'eraser')
-                    setOpacities((current) => ({ ...current, [tool]: Number(event.target.value) }))
+                  if (tool === 'eraser') return
+                  const value = Number(event.target.value)
+                  setOpacities((current) => ({ ...current, [tool]: value }))
+                  if (tool === 'text') restyle({ opacity: value / 100 })
                 }}
               />
             </label>
@@ -248,7 +474,7 @@ export function DrawingCapture({
               className="icon-button"
               aria-label="Undo"
               title="Undo"
-              disabled={!history.length || saving || drawing}
+              disabled={!history.length || saving || drawing || !!editing}
               onClick={() => {
                 setRedo((all) => [...all, strokes])
                 setStrokes(history.at(-1)!)
@@ -261,7 +487,7 @@ export function DrawingCapture({
               className="icon-button"
               aria-label="Redo"
               title="Redo"
-              disabled={!redo.length || saving || drawing}
+              disabled={!redo.length || saving || drawing || !!editing}
               onClick={() => {
                 setHistory((all) => [...all, strokes])
                 setStrokes(redo.at(-1)!)
@@ -274,7 +500,7 @@ export function DrawingCapture({
               className="icon-button"
               aria-label="Clear drawing"
               title="Clear drawing"
-              disabled={!strokes.length || saving || drawing}
+              disabled={!strokes.length || saving || drawing || !!editing}
               onClick={() => commit([])}
             >
               <Trash2 size={18} />
@@ -337,6 +563,70 @@ export function DrawingCapture({
         </aside>
       </div>
     </Dialog>
+  )
+}
+
+/**
+ * A transparent text box over the canvas: the canvas paints the letters (so the
+ * preview matches the capture exactly) and the box supplies the caret,
+ * selection and keyboard.
+ */
+function TextEditor({
+  ref,
+  edit,
+  canvas,
+  scale,
+  onChange,
+  onCommit,
+  onCancel,
+}: {
+  ref: Ref<HTMLTextAreaElement>
+  edit: TextEdit
+  canvas: HTMLCanvasElement
+  scale: number
+  onChange(text: string): void
+  onCommit(): void
+  onCancel(): void
+}) {
+  const context = canvas.getContext('2d')
+  if (!context) return null
+  const box = textLayout(context, edit.stroke, textPlaceholder)
+  return (
+    <textarea
+      ref={ref}
+      className="drawing-text-input"
+      aria-label="Text on frame"
+      autoFocus
+      spellCheck={false}
+      maxLength={300}
+      rows={1}
+      wrap="off"
+      value={edit.stroke.text ?? ''}
+      placeholder={textPlaceholder}
+      style={{
+        left: box.x * scale,
+        top: box.y * scale,
+        width: box.width * scale + box.size * scale * 0.6,
+        height: box.height * scale,
+        fontSize: box.size * scale,
+        lineHeight: textLineHeight,
+        fontFamily: textFontFamily,
+        caretColor: edit.stroke.color,
+      }}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault()
+          onCommit()
+        } else if (event.key === 'Escape') {
+          // Cancels this text rather than closing the whole editor.
+          event.preventDefault()
+          event.stopPropagation()
+          onCancel()
+        }
+      }}
+    />
   )
 }
 
