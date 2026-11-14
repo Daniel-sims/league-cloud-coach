@@ -1259,8 +1259,8 @@ function MomentForm({
 }) {
   const [note, setNote] = useState(initial)
   const [busy, setBusy] = useState(false)
-  async function submit(event: FormEvent) {
-    event.preventDefault()
+  async function submit(event?: FormEvent) {
+    event?.preventDefault()
     if (busy) return
     setBusy(true)
     await onSave(note.trim())
@@ -1274,14 +1274,20 @@ function MomentForm({
         if (event.key === 'Escape') {
           event.preventDefault()
           onCancel()
+        } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+          // Plain Enter is a new line; Cmd/Ctrl+Enter saves, like comments.
+          event.preventDefault()
+          void submit()
         }
       }}
     >
-      <input
+      <textarea
         autoFocus
         aria-label="Why this moment matters"
         value={note}
         maxLength={500}
+        // Grows with the note, so a list of points stays readable while typing.
+        rows={Math.min(10, Math.max(3, note.split('\n').length + 1))}
         placeholder="What should the coach look at? (optional)"
         onChange={(event) => setNote(event.target.value)}
       />

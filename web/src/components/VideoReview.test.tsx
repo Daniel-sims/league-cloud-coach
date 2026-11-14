@@ -390,8 +390,11 @@ it('lets the owner mark key moments the guest can read and jump to but not chang
   const field = screen.getByLabelText('Why this moment matters')
   expect(field).toHaveValue('Why did I fight here?')
   await userEvent.clear(field)
-  await userEvent.type(field, 'Bad fight{Enter}')
-  expect(owner.updateMoment).toHaveBeenCalledWith('m1', 'Bad fight')
+  // Enter is a new line; Cmd/Ctrl+Enter saves.
+  await userEvent.type(field, 'Bad fight{Enter}Check the wave first')
+  expect(owner.updateMoment).not.toHaveBeenCalled()
+  await userEvent.keyboard('{Control>}{Enter}{/Control}')
+  expect(owner.updateMoment).toHaveBeenCalledWith('m1', 'Bad fight\nCheck the wave first')
   await userEvent.click(within(row).getByRole('button', { name: 'Remove key moment' }))
   expect(owner.deleteMoment).toHaveBeenCalledWith('m1')
   view.unmount()

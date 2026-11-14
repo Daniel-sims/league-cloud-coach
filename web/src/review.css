@@ -1745,6 +1745,23 @@ body:has(.cinema-mode) .watch-main {
   display: grid;
   gap: 8px;
 }
+.moment-form textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.moment-form textarea:focus-visible {
+  outline: 3px solid #b99b57;
+  outline-offset: 1px;
+}
 .moment-form-actions {
   display: flex;
   gap: 8px;
@@ -1764,5 +1781,6 @@ body:has(.cinema-mode) .watch-main {
 }
 .moment-note {
   margin: 2px 0 0;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
