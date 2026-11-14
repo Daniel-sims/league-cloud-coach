@@ -543,6 +543,38 @@ export function VideoReview({
       }
     }
   }, [controller, repository])
+  // Key moments: the student's flags for the coach, shown only on the timeline.
+  const canMoment = owner && Boolean(repository.addMoment)
+  const [momentDraft, setMomentDraft] = useState<{ id: string | null; note: string } | null>(null)
+  const startMoment = useCallback(() => {
+    showPanel(true)
+    notebook?.setView('timeline')
+    setMomentDraft({ id: null, note: '' })
+  }, [notebook?.setView])
+  useEffect(() => {
+    if (!canMoment) return
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== 'm' ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.defaultPrevented ||
+        !controller
+      )
+        return
+      if (
+        (event.target as HTMLElement | null)?.closest(
+          'input, textarea, select, [contenteditable], dialog[open]',
+        )
+      )
+        return
+      event.preventDefault()
+      startMoment()
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [canMoment, controller, startMoment])
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (
@@ -936,6 +968,21 @@ export function VideoReview({
                     >
                       <PanelRightClose size={15} />
                     </button>
+                    {canMoment && (
+                      <button
+                        className="icon-button"
+                        onClick={startMoment}
+                        disabled={!controller}
+                        aria-label="Mark this moment"
+                        title={
+                          controller
+                            ? 'Mark the current moment for your coach (M)'
+                            : 'Wait for the video to load'
+                        }
+                      >
+                        <Flag size={15} />
+                      </button>
+                    )}
                     <button
                       className="button button-small"
                       onClick={startComment}
@@ -948,27 +995,23 @@ export function VideoReview({
                     </button>
                   </div>
                 </header>
-                {data && (
-                  <KeyMoments
-                    moments={data.moments ?? []}
-                    editable={owner && Boolean(repository.addMoment)}
-                    timeLabel={commentTime}
-                    videoClock={!anchor}
-                    playheadMs={playheadMs}
-                    canMark={Boolean(controller)}
-                    onSeek={(ms) => controller?.seekTo(Math.max(0, ms) / 1000)}
-                    onMark={async (note) =>
-                      controller
-                        ? act(() =>
-                            repository.addMoment!(
-                              Math.round(controller.currentTime() * 1000),
-                              note,
-                            ),
-                          )
-                        : false
-                    }
-                    onSaveNote={(id, note) => act(() => repository.updateMoment!(id, note))}
-                    onDelete={(id) => void act(() => repository.deleteMoment!(id))}
+                {momentDraft && (
+                  <MomentForm
+                    initial={momentDraft.note}
+                    onCancel={() => setMomentDraft(null)}
+                    onSave={async (note) => {
+                      const ok = momentDraft.id
+                        ? await act(() => repository.updateMoment!(momentDraft.id!, note))
+                        : controller
+                          ? await act(() =>
+                              repository.addMoment!(
+                                Math.round(controller.currentTime() * 1000),
+                                note,
+                              ),
+                            )
+                          : false
+                      if (ok) setMomentDraft(null)
+                    }}
                   />
                 )}
                 {!owner && review && !anchor && (
@@ -1111,6 +1154,17 @@ export function VideoReview({
                             onSeek={() =>
                               controller?.seekTo(Math.max(0, item.moment.videoMs) / 1000)
                             }
+                            onEdit={
+                              canMoment
+                                ? () =>
+                                    setMomentDraft({ id: item.moment.id, note: item.moment.note })
+                                : undefined
+                            }
+                            onDelete={
+                              canMoment
+                                ? () => void act(() => repository.deleteMoment!(item.moment.id))
+                                : undefined
+                            }
                           />
                         ) : item.type === 'capture' ? (
                           <CaptureRow
@@ -1194,92 +1248,36 @@ export function VideoReview({
 }
 
 /// The student flags places the coach should look at; everyone can jump to them.
-function KeyMoments({
-  moments,
-  editable,
-  timeLabel,
-  videoClock,
-  playheadMs,
-  canMark,
-  onSeek,
-  onMark,
-  onSaveNote,
-  onDelete,
+function MomentForm({
+  initial,
+  onCancel,
+  onSave,
 }: {
-  moments: KeyMoment[]
-  editable: boolean
-  timeLabel(videoMs: number): string
-  videoClock: boolean
-  playheadMs: number | null
-  canMark: boolean
-  onSeek(videoMs: number): void
-  onMark(note: string): Promise<boolean>
-  onSaveNote(id: string, note: string): Promise<boolean>
-  onDelete(id: string): void
+  initial: string
+  onCancel(): void
+  onSave(note: string): Promise<void>
 }) {
-  const [open, setOpen] = useState(true)
-  const [marking, setMarking] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState(initial)
   const [busy, setBusy] = useState(false)
-  const input = useRef<HTMLInputElement>(null)
-  const startMark = useCallback(() => {
-    setEditing(null)
-    setNote('')
-    setMarking(true)
-  }, [])
-  useEffect(() => {
-    if (!editable) return
-    const key = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== 'm' ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        event.defaultPrevented ||
-        !canMark
-      )
-        return
-      if (
-        (event.target as HTMLElement | null)?.closest(
-          'input, textarea, select, [contenteditable], dialog[open]',
-        )
-      )
-        return
-      event.preventDefault()
-      setOpen(true)
-      startMark()
-    }
-    window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
-  }, [editable, canMark, startMark])
-  if (!editable && moments.length === 0) return null
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (busy) return
     setBusy(true)
-    const ok = editing ? await onSaveNote(editing, note.trim()) : await onMark(note.trim())
+    await onSave(note.trim())
     setBusy(false)
-    if (ok) {
-      setMarking(false)
-      setEditing(null)
-      setNote('')
-    }
   }
-  const form = (marking || editing) && (
+  return (
     <form
       className="moment-form"
       onSubmit={(event) => void submit(event)}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.preventDefault()
-          setMarking(false)
-          setEditing(null)
+          onCancel()
         }
       }}
     >
       <input
-        ref={input}
         autoFocus
         aria-label="Why this moment matters"
         value={note}
@@ -1288,14 +1286,7 @@ function KeyMoments({
         onChange={(event) => setNote(event.target.value)}
       />
       <div className="moment-form-actions">
-        <button
-          type="button"
-          className="button secondary button-small"
-          onClick={() => {
-            setMarking(false)
-            setEditing(null)
-          }}
-        >
+        <button type="button" className="button secondary button-small" onClick={onCancel}>
           Cancel
         </button>
         <button className="button button-small" disabled={busy}>
@@ -1303,94 +1294,6 @@ function KeyMoments({
         </button>
       </div>
     </form>
-  )
-  return (
-    <section className="key-moments" aria-label="Key moments">
-      <button
-        type="button"
-        className="key-moments-head"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <Flag size={14} aria-hidden="true" />
-        <strong>Key moments</strong>
-        <span>{moments.length}</span>
-      </button>
-      {open && (
-        <>
-          {moments.length === 0 && (
-            <p className="field-hint">
-              Mark the moments you want your coach to look at. They appear here for everyone with a
-              link.
-            </p>
-          )}
-          <ol className="key-moment-list">
-            {moments.map((moment) => (
-              <li
-                key={moment.id}
-                className={
-                  playheadMs !== null && Math.abs(playheadMs - moment.videoMs) < 5000
-                    ? 'is-current'
-                    : ''
-                }
-              >
-                <button
-                  type="button"
-                  className="key-moment-seek"
-                  onClick={() => onSeek(moment.videoMs)}
-                  title="Jump to this moment"
-                >
-                  <time>
-                    {timeLabel(moment.videoMs)}
-                    {videoClock ? ' video' : ''}
-                  </time>
-                  <span>{moment.note || 'Look here'}</span>
-                </button>
-                {editable && (
-                  <span className="key-moment-actions">
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label="Edit note"
-                      title="Edit note"
-                      onClick={() => {
-                        setMarking(false)
-                        setNote(moment.note)
-                        setEditing(moment.id)
-                      }}
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label="Remove key moment"
-                      title="Remove"
-                      onClick={() => onDelete(moment.id)}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ol>
-          {form}
-          {editable && !form && (
-            <button
-              type="button"
-              className="button secondary button-small"
-              disabled={!canMark}
-              onClick={startMark}
-              title="Mark the current moment for your coach (M)"
-            >
-              <Flag size={14} />
-              Mark this moment
-            </button>
-          )}
-        </>
-      )}
-    </section>
   )
 }
 

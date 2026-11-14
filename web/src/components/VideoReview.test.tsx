@@ -374,10 +374,10 @@ it('lets the owner mark key moments the guest can read and jump to but not chang
     deleteMoment: vi.fn(async () => {}),
   })
   const view = render(<VideoReview repository={owner} renderPlayer={player.render} />)
-  await userEvent.click(await screen.findByRole('button', { name: /Why did I fight here\?/ }))
-  expect(player.seekTo).toHaveBeenCalledWith(61)
-  // The flag is also a row on the timeline itself.
-  const row = screen.getByText('Key moment').closest('li')!
+  // Flags live only on the timeline itself, not in a separate list above it.
+  const row = (await screen.findByText('Key moment')).closest('li')!
+  expect(screen.queryByRole('region', { name: 'Key moments' })).toBeNull()
+  expect(screen.getAllByText('Why did I fight here?')).toHaveLength(1)
   expect(within(row).getByText('Why did I fight here?')).toBeVisible()
   await userEvent.click(within(row).getByRole('button', { name: 'Key moment' }))
   expect(player.seekTo).toHaveBeenLastCalledWith(61)
@@ -385,15 +385,24 @@ it('lets the owner mark key moments the guest can read and jump to but not chang
   await userEvent.type(screen.getByLabelText('Why this moment matters'), 'Wave state')
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
   expect(owner.addMoment).toHaveBeenCalledWith(95_400, 'Wave state')
-  await userEvent.click(screen.getByRole('button', { name: 'Remove key moment' }))
+  await waitFor(() => expect(screen.queryByLabelText('Why this moment matters')).toBeNull())
+  await userEvent.click(within(row).getByRole('button', { name: 'Edit note' }))
+  const field = screen.getByLabelText('Why this moment matters')
+  expect(field).toHaveValue('Why did I fight here?')
+  await userEvent.clear(field)
+  await userEvent.type(field, 'Bad fight{Enter}')
+  expect(owner.updateMoment).toHaveBeenCalledWith('m1', 'Bad fight')
+  await userEvent.click(within(row).getByRole('button', { name: 'Remove key moment' }))
   expect(owner.deleteMoment).toHaveBeenCalledWith('m1')
   view.unmount()
 
   const guest = Object.assign(repository('coach', base), { guestName: 'Coach Sam' })
   render(<VideoReview repository={guest} renderPlayer={player.render} />)
-  await userEvent.click(await screen.findByRole('button', { name: /Why did I fight here\?/ }))
+  const guestRow = (await screen.findByText('Key moment')).closest('li')!
+  await userEvent.click(within(guestRow).getByRole('button', { name: 'Key moment' }))
   expect(player.seekTo).toHaveBeenLastCalledWith(61)
   expect(screen.queryByRole('button', { name: 'Mark this moment' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Edit note' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Remove key moment' })).toBeNull()
 })
 

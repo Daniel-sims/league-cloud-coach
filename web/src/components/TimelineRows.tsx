@@ -515,6 +515,8 @@ export function MomentRow({
   videoClock,
   current,
   onSeek,
+  onEdit,
+  onDelete,
 }: {
   id: string
   note: string
@@ -522,6 +524,8 @@ export function MomentRow({
   videoClock: boolean
   current: boolean
   onSeek(): void
+  onEdit?(): void
+  onDelete?(): void
 }) {
   return (
     <li
@@ -537,9 +541,35 @@ export function MomentRow({
         <i />
       </span>
       <div className="timeline-body">
-        <button className="timeline-label" onClick={onSeek} title="Jump to this moment">
-          Key moment
-        </button>
+        <div className="comment-meta">
+          <button className="timeline-label" onClick={onSeek} title="Jump to this moment">
+            Key moment
+          </button>
+          {(onEdit || onDelete) && (
+            <span className="comment-actions">
+              {onEdit && (
+                <button
+                  className="icon-button"
+                  aria-label="Edit note"
+                  title="Edit note"
+                  onClick={onEdit}
+                >
+                  <Pencil size={13} />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  className="icon-button"
+                  aria-label="Remove key moment"
+                  title="Remove"
+                  onClick={onDelete}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </span>
+          )}
+        </div>
         {note && <p className="moment-note">{note}</p>}
       </div>
     </li>

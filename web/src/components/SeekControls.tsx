@@ -1,74 +1,74 @@
 import { Pause, Play } from 'lucide-react'
-import { useEffect, useRef, type KeyboardEvent } from 'react'
+import { useEffect, useRef } from 'react'
 
 type Modifiers = { ctrlKey: boolean; shiftKey: boolean }
 export const jumpSeconds = ({ ctrlKey, shiftKey }: Modifiers) => (ctrlKey ? 30 : shiftKey ? 10 : 1)
 export const seekPosition = (position: number, delta: number, duration: number) =>
   Math.max(0, Math.min(duration, position + delta))
 
-export function seekWithKeyboard(
-  event: KeyboardEvent<HTMLElement>,
-  seek: (delta: number) => boolean,
-) {
-  if (event.defaultPrevented || event.altKey || event.metaKey || event.nativeEvent.isComposing)
-    return
-  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-  const target = event.target
-  if (
-    target instanceof HTMLElement &&
-    (target.isContentEditable ||
-      target.closest(
-        'input, textarea, select, [contenteditable], [role="textbox"], [role="slider"]',
-      ))
-  )
-    return
-  if (!seek((event.key === 'ArrowLeft' ? -1 : 1) * jumpSeconds(event))) return
-  event.preventDefault()
-  event.stopPropagation()
+// Typing targets keep every key.
+const editing = 'input, textarea, select, [contenteditable], [role="textbox"], [role="combobox"]'
+// Widgets that use the arrow keys themselves.
+const arrowWidgets =
+  '[role="slider"], [role="separator"], [role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="tree"], [role="grid"]'
+
+/** What a keydown means for the player, or null when it belongs to someone else. */
+export function playerKey(event: KeyboardEvent): 'toggle' | number | null {
+  if (event.defaultPrevented || event.altKey || event.metaKey || event.isComposing) return null
+  const target = event.target instanceof Element ? event.target : null
+  if (target?.closest(editing) || (target instanceof HTMLElement && target.isContentEditable))
+    return null
+  // A modal (drawing editor, confirmations) owns the keyboard while open.
+  if (document.querySelector('dialog[open]')) return null
+  if (event.key === ' ') {
+    if (event.ctrlKey || event.shiftKey || target?.closest('[role="menu"]')) return null
+    return 'toggle'
+  }
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return null
+  if (target?.closest(arrowWidgets)) return null
+  return (event.key === 'ArrowLeft' ? -1 : 1) * jumpSeconds(event)
 }
 
 /**
- * Arrow-key seeking that doesn't depend on focus being inside the player: a
- * page-level listener, so it works as soon as the page is open. Keys already
- * claimed (the player's own capture handler, a dialog, a field) are left alone.
+ * Page-wide playback keys: Space plays/pauses, arrows seek 1s (Shift 10s,
+ * Ctrl 30s). Listens on window in the capture phase and claims the key, so
+ * the browser's own video controls never also act on it. Without that, a
+ * focused <video> toggled play twice per Space and its scrubber seeked by 1%
+ * of the duration (18–30s on a game) per arrow press.
  */
 export function useSeekKeys(seek: (delta: number) => boolean, togglePlay?: () => void) {
   const latest = useRef({ seek, togglePlay })
   latest.current = { seek, togglePlay }
   useEffect(() => {
-    let swallowSpaceUp = false
-    const typing = (target: EventTarget | null) =>
-      target instanceof HTMLElement &&
-      (target.isContentEditable ||
-        target.closest(
-          'input, textarea, select, [contenteditable], [role="textbox"], dialog[open]',
-        ))
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.altKey || event.metaKey || event.isComposing) return
-      if (typing(event.target)) return
-      if (event.key === ' ' && !event.ctrlKey && !event.shiftKey) {
+    let claimedSpace = false
+    const claim = (event: KeyboardEvent) => {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    const onKey = (event: KeyboardEvent) => {
+      const action = playerKey(event)
+      if (action === null) return
+      if (action === 'toggle') {
         if (!latest.current.togglePlay) return
-        latest.current.togglePlay()
-        // A focused button would otherwise also click on key-up.
-        swallowSpaceUp = true
-        event.preventDefault()
+        // Holding Space repeats keydown; toggling on each would flicker.
+        if (!event.repeat) latest.current.togglePlay()
+        claimedSpace = true
+        claim(event)
         return
       }
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-      if (event.target instanceof HTMLElement && event.target.closest('[role="slider"]')) return
-      if (!latest.current.seek((event.key === 'ArrowLeft' ? -1 : 1) * jumpSeconds(event))) return
-      event.preventDefault()
+      if (latest.current.seek(action)) claim(event)
     }
-    const onKeyUp = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== ' ' || !swallowSpaceUp) return
-      swallowSpaceUp = false
-      event.preventDefault()
+    const onKeyUp = (event: KeyboardEvent) => {
+      // A focused button would otherwise click on Space's key-up.
+      if (event.key !== ' ' || !claimedSpace) return
+      claimedSpace = false
+      claim(event)
     }
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('keyup', onKeyUp, true)
     return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keyup', onKeyUp, true)
     }
   }, [])
 }

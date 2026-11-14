@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, LoaderCircle, VideoOff } from 'lucide-react'
 import { isVideoId, youtubeURL } from '../lib/youtube'
-import { SeekControls, seekPosition, seekWithKeyboard, useSeekKeys } from './SeekControls'
+import { SeekControls, seekPosition, useSeekKeys } from './SeekControls'
 import type { PlayerController } from '../lib/player'
 
 type PlayerInstance = {
@@ -158,7 +158,7 @@ export function Player({
     }
   }, [videoId, title, attempt])
   return (
-    <div className="player-wrap" onKeyDownCapture={(event) => seekWithKeyboard(event, seek)}>
+    <div className="player-wrap">
       <div className="player-stage">
         <div className="player-host" ref={host} />
         {state === 'loading' && (

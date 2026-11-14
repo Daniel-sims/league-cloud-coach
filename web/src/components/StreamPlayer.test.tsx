@@ -197,6 +197,38 @@ it('seeks from arrow keys pressed anywhere on the page and holds the frame while
   expect(status).toHaveClass('over-video')
   expect(status.querySelector('span')).toHaveClass('sr-only')
 })
+it("claims Space and arrows before a focused video's native controls, toggling once per press", async () => {
+  await start()
+  const media = screen.getByLabelText('Private game') as HTMLVideoElement
+  Object.defineProperty(media, 'duration', { configurable: true, value: 1800 })
+  Object.defineProperty(media, 'readyState', { configurable: true, value: 1 })
+  fireEvent.loadedMetadata(media)
+  media.currentTime = 600
+  // Stands in for the browser's own controls, which also toggle and seek.
+  const native = vi.fn()
+  media.addEventListener('keydown', native)
+  let paused = true
+  Object.defineProperty(media, 'paused', { configurable: true, get: () => paused })
+  const play = vi.spyOn(media, 'play').mockImplementation(async () => {
+    paused = false
+  })
+  fireEvent.keyDown(media, { key: ' ' })
+  // Holding Space repeats keydown; that must not flip play state back and forth.
+  fireEvent.keyDown(media, { key: ' ', repeat: true })
+  fireEvent.keyDown(media, { key: ' ', repeat: true })
+  expect(play).toHaveBeenCalledOnce()
+  expect(fireEvent.keyUp(media, { key: ' ' })).toBe(false)
+  fireEvent.keyDown(media, { key: 'ArrowRight' })
+  expect(media.currentTime).toBe(601)
+  expect(native).not.toHaveBeenCalled()
+  // Typing in a field keeps its keys.
+  const field = document.body.appendChild(document.createElement('input'))
+  fireEvent.keyDown(field, { key: 'ArrowRight' })
+  fireEvent.keyDown(field, { key: ' ' })
+  expect(media.currentTime).toBe(601)
+  expect(play).toHaveBeenCalledOnce()
+  field.remove()
+})
 it('leaves unready media alone and accepts seek shortcuts from the visible seek buttons', async () => {
   await start()
   const media = screen.getByLabelText('Private game') as HTMLVideoElement

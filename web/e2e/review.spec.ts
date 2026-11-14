@@ -48,6 +48,9 @@ type State = {
   captures?: (ReviewCapture & { image: string; key?: string })[]
   failCaptureSave?: boolean
   failCommentSave?: boolean
+  /** Use real MediaSource playback (hls.js) instead of the native-HLS stand-in. */
+  mse?: boolean
+  lease?: () => { url: string; expiresAt: string }
 }
 
 // A disposable silent WAV gives the real video element a 120-second timeline.
@@ -67,14 +70,15 @@ wav.write('data', 36)
 wav.writeUInt32LE(samples, 40)
 
 async function mock(context: BrowserContext, state: State, owner: boolean) {
-  await context.addInitScript(() => {
-    Object.defineProperty(window, 'MediaSource', { value: undefined, configurable: true })
-    Object.defineProperty(window, 'ManagedMediaSource', { value: undefined, configurable: true })
-    const original = HTMLMediaElement.prototype.canPlayType
-    HTMLMediaElement.prototype.canPlayType = function (type) {
-      return type === 'application/vnd.apple.mpegurl' ? 'maybe' : original.call(this, type)
-    }
-  })
+  if (!state.mse)
+    await context.addInitScript(() => {
+      Object.defineProperty(window, 'MediaSource', { value: undefined, configurable: true })
+      Object.defineProperty(window, 'ManagedMediaSource', { value: undefined, configurable: true })
+      const original = HTMLMediaElement.prototype.canPlayType
+      HTMLMediaElement.prototype.canPlayType = function (type) {
+        return type === 'application/vnd.apple.mpegurl' ? 'maybe' : original.call(this, type)
+      }
+    })
   await context.route('https://customer-test.cloudflarestream.com/review.wav', (route) => {
     const range = route
       .request()
@@ -229,6 +233,7 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
       ]
     if (name === 'stream') {
       if (args.action === 'upload-sync') result = { imported: 0, pending: [] }
+      else if (state.lease) result = { ...state.lease(), sessionExpiresAt: null }
       else
         result = {
           url: 'https://customer-test.cloudflarestream.com/review.wav',
@@ -1290,4 +1295,174 @@ test('Teamfights filter independently hides teamfights while keeping solo kills'
   await page.getByLabel('Filter timeline', { exact: true }).click()
   await panel.getByRole('checkbox', { name: /Teamfights/ }).check()
   await expect(panel.getByRole('button', { name: 'Teamfight', exact: true })).toBeVisible()
+})
+
+test("playback keys act once even after clicking the browser's own video controls", async ({
+  page,
+}) => {
+  // A 30-minute timeline, so the native scrubber's 1% arrow step would be 18s.
+  const samples = 1800 * 8000
+  const long = Buffer.alloc(44 + samples, 128)
+  wav.copy(long, 0, 0, 44)
+  long.writeUInt32LE(36 + samples, 4)
+  long.writeUInt32LE(samples, 40)
+  const state: State = { review: null, anchor: null, comments: [], captures: [], calls: [] }
+  await mock(page.context(), state, true)
+  await page.context().route('https://customer-test.cloudflarestream.com/review.wav', (route) => {
+    const range = route
+      .request()
+      .headers()
+      .range?.match(/^bytes=(\d+)-(\d*)$/)
+    const start = range ? Number(range[1]) : 0
+    const end = range?.[2] ? Math.min(Number(range[2]), long.length - 1) : long.length - 1
+    return route.fulfill({
+      status: range ? 206 : 200,
+      contentType: 'audio/wav',
+      body: long.subarray(start, end + 1),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Accept-Ranges': 'bytes',
+        ...(range ? { 'Content-Range': `bytes ${start}-${end}/${long.length}` } : {}),
+      },
+    })
+  })
+  await signIn(page.context())
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/#/video/${recordingId}`)
+  const video = page.getByLabel('Ranked mid review', { exact: true })
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.duration)).toBe(1800)
+  await video.evaluate((v: HTMLVideoElement) => {
+    const w = window as unknown as { toggles: number }
+    w.toggles = 0
+    v.addEventListener('play', () => w.toggles++)
+    v.addEventListener('pause', () => w.toggles++)
+  })
+  const box = (await video.boundingBox())!
+  const toggles = () => page.evaluate(() => (window as unknown as { toggles: number }).toggles)
+  const time = () => video.evaluate((v: HTMLVideoElement) => v.currentTime)
+  const press = async (key: string) => {
+    const before = { time: await time(), toggles: await toggles() }
+    await page.keyboard.press(key)
+    await page.waitForTimeout(250)
+    return { moved: (await time()) - before.time, toggled: (await toggles()) - before.toggles }
+  }
+  const clicks = {
+    video: [box.x + box.width / 2, box.y + box.height / 2],
+    scrubber: [box.x + box.width / 2, box.y + box.height - 18],
+    play: [box.x + 20, box.y + box.height - 20],
+  }
+  for (const [name, [x, y]] of Object.entries(clicks)) {
+    await page.mouse.click(x, y)
+    await page.waitForTimeout(250)
+    // Pause first, so seeks are measured without playback drift.
+    if (!(await video.evaluate((v: HTMLVideoElement) => v.paused)))
+      expect((await press('Space')).toggled, name).toBe(1)
+    await video.evaluate((v: HTMLVideoElement) => (v.currentTime = Math.max(v.currentTime, 600)))
+    const right = await press('ArrowRight')
+    expect(right.moved, `${name}: ArrowRight`).toBeCloseTo(1, 1)
+    const back = await press('Shift+ArrowLeft')
+    expect(back.moved, `${name}: Shift+ArrowLeft`).toBeCloseTo(-10, 1)
+    expect((await press('Space')).toggled, `${name}: Space plays once`).toBe(1)
+    expect((await press('Space')).toggled, `${name}: Space pauses once`).toBe(1)
+  }
+  // Dragging the native scrubber still works.
+  const before = await time()
+  await page.mouse.move(box.x + box.width * 0.2, clicks.scrubber[1])
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.8, clicks.scrubber[1], { steps: 8 })
+  await page.mouse.up()
+  await expect.poll(time).toBeGreaterThan(before + 300)
+  expect((await press('ArrowRight')).moved).toBeCloseTo(1, 1)
+})
+
+test('lease renewal keeps hls.js playing from its buffer on freshly signed segments', async ({
+  page,
+}) => {
+  test.setTimeout(60_000)
+  const dir = new URL('./fixtures/hls/', import.meta.url)
+  const index = readFileSync(new URL('index.m3u8', dir), 'utf8')
+  const host = 'https://customer-test.cloudflarestream.com'
+  // Cloudflare-shaped: the lease token is in the manifest path, and every
+  // rendition/segment URL carries its own signature that dies with the lease.
+  let generation = 0
+  let valid = new Set<number>()
+  const rejected: string[] = []
+  const state: State = {
+    review: null,
+    anchor: null,
+    comments: [],
+    captures: [],
+    calls: [],
+    mse: true,
+    lease: () => {
+      generation += 1
+      valid.add(generation)
+      // Renews about two seconds after issue (the player renews 60s early).
+      return {
+        url: `${host}/token${generation}/manifest/video.m3u8`,
+        expiresAt: new Date(Date.now() + 62_000).toISOString(),
+      }
+    },
+  }
+  await mock(page.context(), state, true)
+  const cors = { 'Access-Control-Allow-Origin': '*' }
+  await page.context().route(`${host}/**`, async (route) => {
+    const url = new URL(route.request().url())
+    const manifest = url.pathname.match(/^\/token(\d+)\/manifest\/video\.m3u8$/)
+    if (manifest)
+      return route.fulfill({
+        headers: cors,
+        contentType: 'application/vnd.apple.mpegurl',
+        body: `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=200000,RESOLUTION=160x90,CODECS="avc1.64000c"\nstream_g${manifest[1]}.m3u8\n`,
+      })
+    const variant = url.pathname.match(/^\/token(\d+)\/manifest\/stream_g(\d+)\.m3u8$/)
+    if (variant) {
+      const sig = Number(variant[2])
+      // The renewed signature is live; the ones before it now expire.
+      valid = new Set([...valid].filter((g) => g >= sig))
+      return route.fulfill({
+        headers: cors,
+        contentType: 'application/vnd.apple.mpegurl',
+        body: index.replace(/^(?!#)(.+)$|URI="([^"]+)"/gm, (_, line?: string, uri?: string) =>
+          line ? `../../vid/${line}?s=${sig}` : `URI="../../vid/${uri}?s=${sig}"`,
+        ),
+      })
+    }
+    const file = url.pathname.match(/^\/vid\/([\w.]+)$/)
+    if (!file || !valid.has(Number(url.searchParams.get('s')))) {
+      rejected.push(url.pathname + url.search)
+      return route.fulfill({ status: 403, headers: cors })
+    }
+    // Slow segments, so loading spans several renewals.
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    return route.fulfill({
+      headers: cors,
+      contentType: 'video/mp4',
+      body: readFileSync(new URL(file[1], dir)),
+    })
+  })
+  await signIn(page.context())
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/#/video/${recordingId}`)
+  const video = page.getByLabel('Ranked mid review', { exact: true })
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThan(0)
+  await video.evaluate((v: HTMLVideoElement) => {
+    const w = window as unknown as { emptied: number }
+    w.emptied = 0
+    v.addEventListener('emptied', () => w.emptied++)
+  })
+  // The whole 40s video buffers while leases renew underneath it.
+  await expect
+    .poll(
+      () => video.evaluate((v: HTMLVideoElement) => (v.buffered.length ? v.buffered.end(0) : 0)),
+      {
+        timeout: 30_000,
+      },
+    )
+    .toBeGreaterThan(39)
+  expect(generation).toBeGreaterThanOrEqual(3)
+  expect(await video.evaluate((v: HTMLVideoElement) => v.buffered.start(0))).toBeLessThan(0.5)
+  // The media was never torn down, and no request used an expired signature.
+  expect(await page.evaluate(() => (window as unknown as { emptied: number }).emptied)).toBe(0)
+  expect(rejected).toEqual([])
 })

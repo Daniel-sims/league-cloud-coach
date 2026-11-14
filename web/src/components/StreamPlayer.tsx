@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type Hls from 'hls.js'
 import { LoaderCircle } from 'lucide-react'
-import { SeekControls, seekPosition, seekWithKeyboard, useSeekKeys } from './SeekControls'
+import { SeekControls, seekPosition, useSeekKeys } from './SeekControls'
 import {
   streamRequest,
   StreamAccessError,
@@ -10,6 +10,7 @@ import {
 } from '../lib/supabase'
 import type { PlayerController } from '../lib/player'
 import { canvasFor, encodeCapture } from '../lib/drawing'
+import { fetchPlaylist, SignedPlaylists, signedXhrSetup } from '../lib/signed-hls'
 
 export function StreamPlayer({
   title,
@@ -111,6 +112,7 @@ export function StreamPlayer({
     let terminated = false
     let timer: number | undefined
     let restorePosition: (() => void) | undefined
+    let playlists = new SignedPlaylists()
     const media = video.current!
     let session: string | null = null
     try {
@@ -153,12 +155,18 @@ export function StreamPlayer({
           if (disposed || terminated) return
           if (Hls.isSupported()) {
             hls = new Hls({
-              // Buffer well ahead so most seeks land in video already held.
-              // The byte cap matters as much as the time: gameplay bitrates
-              // hit the 60 MB default well inside 3 minutes.
-              maxBufferLength: recordingId ? 300 : 180,
-              maxMaxBufferLength: recordingId ? 600 : 300,
-              maxBufferSize: recordingId ? 600 * 1000 * 1000 : 300 * 1000 * 1000,
+              // Chrome caps a video SourceBuffer at about 150 MB. Asking for
+              // more than that fills the quota, and hls.js answers a full
+              // buffer at an unbuffered seek by flushing everything, so a skip
+              // ahead stalls and loses what was held. Stay under the cap:
+              // about two minutes ahead (bytes bite first at high bitrates)
+              // and a minute behind for quick rewinds.
+              maxBufferLength: 120,
+              maxMaxBufferLength: 180,
+              maxBufferSize: 80 * 1000 * 1000,
+              backBufferLength: 60,
+              startFragPrefetch: true,
+              xhrSetup: signedXhrSetup(playlists, fetchPlaylist),
             })
             hls.on(Hls.Events.ERROR, (_event, data) => {
               if (data.fatal && !disposed)
@@ -173,8 +181,17 @@ export function StreamPlayer({
               'This browser does not support video playback. Try a current version of Chrome or Safari.',
             )
         } else {
-          // Cloudflare signs segment URLs separately. Reload the playlist to obtain
-          // fresh segment signatures, preserving playback position and pause state.
+          // Cloudflare signs every playlist and segment URL. Re-sign what
+          // hls.js already knows without reloading, which would discard the
+          // buffer; fall back to a reload if the renewed playlists don't line up.
+          if (hls) {
+            try {
+              await playlists.renew(next.url, fetchPlaylist)
+              return
+            } catch {
+              if (disposed || terminated) return
+            }
+          }
           const position = media.currentTime
           const paused = media.paused
           if (restorePosition) media.removeEventListener('loadedmetadata', restorePosition)
@@ -185,6 +202,8 @@ export function StreamPlayer({
           }
           media.addEventListener('loadedmetadata', restorePosition, { once: true })
           if (hls) {
+            playlists = new SignedPlaylists()
+            hls.config.xhrSetup = signedXhrSetup(playlists, fetchPlaylist)
             hls.config.startPosition = position
             hls.loadSource(next.url)
           } else media.src = next.url
@@ -235,7 +254,7 @@ export function StreamPlayer({
     }
   }, [started, attempt, recordingId, shareToken])
   return (
-    <div className="player-wrap" onKeyDownCapture={(event) => seekWithKeyboard(event, seek)}>
+    <div className="player-wrap">
       {!started ? (
         <div className="stream-session-start">
           <h2>Ready for your review?</h2>
@@ -258,6 +277,18 @@ export function StreamPlayer({
               preload="auto"
               aria-label={title}
               onResize={(event) => readAspectRatio(event.currentTarget)}
+              // Chrome's built-in controls keep the keyboard once clicked: its
+              // scrubber turns arrows into 1%-of-the-video jumps, its buttons
+              // eat Space, and the page never sees either key. When a click
+              // (not Tab) puts focus there, hand it back so Space and arrows
+              // always reach the review shortcuts. The click itself still works.
+              onFocus={(event) => {
+                const media = event.currentTarget
+                if (media.matches(':focus-visible')) return
+                window.setTimeout(() => {
+                  if (document.activeElement === media) media.blur()
+                })
+              }}
               onLoadedMetadata={(event) => {
                 readAspectRatio(event.currentTarget)
                 setCanSeek(

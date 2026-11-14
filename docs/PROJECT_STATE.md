@@ -1,6 +1,30 @@
 # League Cloud Coach: current project state
 
-Last reviewed: 11 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+Last reviewed: 14 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+
+## Review playback: keys act once, renewal keeps the buffer, moments on the timeline
+
+Keyboard: one window capture-phase listener owns Space (play/pause, ignoring key
+repeat) and arrows (1s, Shift 10s, Ctrl 30s) and claims the key, so Chrome's own
+video controls never also act on it. Previously a focused video toggled twice per
+Space (play then pause), and after clicking the native scrubber Chrome swallowed
+arrows itself as 1%-of-duration jumps (18–30s on a game). Chrome never passes keys
+from its controls to the page, so a pointer (not Tab) focus on the video is
+released straight away; clicks and scrubber drags still work.
+
+Buffering: hls.js now asks for at most ~120s/80 MB ahead plus 60s behind. The old
+600 MB / unlimited back-buffer goal overran Chrome's ~150 MB SourceBuffer quota, and
+hls.js answers a full buffer at an unbuffered seek by flushing everything. Lease
+renewal (every ~4 minutes) no longer calls `hls.loadSource`, which recreated the
+MediaSource and discarded the buffer: `web/src/lib/signed-hls.ts` fetches the
+renewed playlists and points each request at the freshly signed URL at the same
+playlist position, falling back to the old reload if they don't line up. Covered
+by a real-hls.js browser test with Cloudflare-shaped signed URLs
+(`e2e/fixtures/hls/`). YouTube recordings keep YouTube's own keys while its
+iframe has focus.
+
+Key moments now appear only as timeline rows; owners mark from the flag button in
+the timeline header (or M) and edit/remove on the row. Frontend only.
 
 ## Named guest links, live review and key moments
 
