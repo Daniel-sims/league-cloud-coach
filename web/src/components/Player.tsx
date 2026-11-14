@@ -11,6 +11,15 @@ type PlayerInstance = {
   seekTo(seconds: number, allowSeekAhead: boolean): void
   playVideo(): void
   pauseVideo(): void
+  getPlayerState(): number
+  getVideoLoadedFraction(): number
+  getPlaybackRate(): number
+  setPlaybackRate(rate: number): void
+  getVolume(): number
+  setVolume(volume: number): void
+  isMuted(): boolean
+  mute(): void
+  unMute(): void
 }
 type YouTubeAPI = {
   Player: new (element: HTMLElement, options: Record<string, unknown>) => PlayerInstance
@@ -56,11 +65,14 @@ export function Player({
   title,
   onController,
   showSeekControls = true,
+  nativeControls = true,
 }: {
   videoId: string
   title: string
   onController?: (controller: PlayerController | null) => void
   showSeekControls?: boolean
+  /** Off when the review page supplies its own control bar. */
+  nativeControls?: boolean
 }) {
   const host = useRef<HTMLDivElement>(null)
   const instance = useRef<PlayerInstance | null>(null)
@@ -109,7 +121,13 @@ export function Player({
           videoId,
           width: '100%',
           height: '100%',
-          playerVars: { playsinline: 1, rel: 0, origin: window.location.origin },
+          playerVars: {
+            playsinline: 1,
+            rel: 0,
+            origin: window.location.origin,
+            // Our bar drives playback; YouTube's own keys would fight ours.
+            ...(nativeControls ? {} : { controls: 0, disablekb: 1 }),
+          },
           events: {
             onReady: () => {
               if (disposed) return
@@ -121,6 +139,20 @@ export function Player({
                 currentTime: () => player!.getCurrentTime(),
                 duration: () => player!.getDuration(),
                 seekTo: (seconds) => player!.seekTo(Math.max(0, seconds), true),
+                play: () => player!.playVideo(),
+                // 1 playing, 3 buffering (still intends to play).
+                paused: () => ![1, 3].includes(player!.getPlayerState()),
+                // YouTube only reports how much has loaded from the start.
+                buffered: () => [[0, player!.getVideoLoadedFraction() * player!.getDuration()]],
+                playbackRate: () => player!.getPlaybackRate(),
+                setPlaybackRate: (rate) => player!.setPlaybackRate(rate),
+                volume: () => player!.getVolume() / 100,
+                setVolume: (volume) => {
+                  player!.setVolume(Math.round(Math.max(0, Math.min(1, volume)) * 100))
+                  if (volume > 0) player!.unMute()
+                },
+                muted: () => player!.isMuted(),
+                setMuted: (muted) => (muted ? player!.mute() : player!.unMute()),
               })
             },
             // 1 playing, 3 buffering (still intends to play); anything else is stopped.
@@ -156,11 +188,15 @@ export function Player({
       player?.destroy()
       instance.current = null
     }
-  }, [videoId, title, attempt])
+  }, [videoId, title, attempt, nativeControls])
   return (
     <div className="player-wrap">
       <div className="player-stage">
         <div className="player-host" ref={host} />
+        {!nativeControls && state === 'ready' && (
+          // Keeps clicks and keys out of the iframe so our shortcuts always work.
+          <div className="player-click-shield" onClick={togglePlay} aria-hidden="true" />
+        )}
         {state === 'loading' && (
           <div className="player-loading" role="status">
             <LoaderCircle className="spin" size={22} />

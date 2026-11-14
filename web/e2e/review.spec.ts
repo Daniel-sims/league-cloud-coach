@@ -443,8 +443,13 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const stage = await video.evaluate((v) => v.parentElement!.getBoundingClientRect())
   const wrap = await video.evaluate((v) => v.closest('.player-wrap')!.getBoundingClientRect())
   const panel = await timeline.boundingBox()
-  // The player is centred beside the full-height timeline without a card.
-  expect(stage.y).toBeGreaterThanOrEqual(90)
+  const top = await page.locator('.review-container').evaluate((e) => e.getBoundingClientRect().y)
+  // The player is centred beside the full-height timeline without a card,
+  // below the page heading, with our control bar in view.
+  expect(stage.y).toBeGreaterThanOrEqual(top)
+  expect(
+    (await page.getByRole('group', { name: 'Player controls' }).boundingBox())!.y,
+  ).toBeGreaterThanOrEqual(stage.y + stage.height - 1)
   expect(wrap.bottom).toBeLessThanOrEqual(958)
   expect(Math.abs(panel!.y + panel!.height - (958 - 24))).toBeLessThan(2)
   expect(Math.round((stage.width / stage.height) * 9)).toBe(16)
@@ -498,7 +503,10 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await expect(guest.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
   await expect(guestTimeline.getByRole('button', { name: 'Sync clock' })).toHaveCount(0)
   await seekVideo(guest, 'Ranked mid review', 72)
-  await guestTimeline.getByRole('button', { name: 'Comment', exact: true }).click()
+  await guest
+    .getByRole('group', { name: 'Player controls' })
+    .getByRole('button', { name: 'Comment', exact: true })
+    .click()
   await guestTimeline.getByLabel('Your name').fill('Coach Sam')
   await guestTimeline.getByLabel('Comment text').fill('Yes — wave was crashing, base here.')
   await guestTimeline.getByRole('button', { name: 'Add', exact: true }).click()
@@ -626,7 +634,7 @@ test('desktop timeline fills the available window independently of the video hei
   await page.goto(`/#/video/${recordingId}`)
   const timeline = page.getByRole('region', { name: 'Review timeline' })
   const video = await seekVideo(page, 'Ranked mid review', 30)
-  const wrap = page.locator('.review-video .player-wrap')
+  const wrap = page.locator('.review-video .review-player')
   await expect
     .poll(async () => {
       const box = (await timeline.boundingBox())!
@@ -742,7 +750,7 @@ async function drawingVideo(context: BrowserContext) {
 }
 
 async function expectReadableCapture(page: Page) {
-  const row = page.locator('.kind-capture').first()
+  const row = page.locator('li.kind-capture').first()
   await row.scrollIntoViewIfNeeded()
   const layout = await row.evaluate((element) => {
     const time = element.querySelector('.timeline-time')!.textContent
@@ -966,7 +974,7 @@ for (const owner of [true, false]) {
     expect(panel.y + panel.height).toBe(900)
     expect(panel.x + panel.width).toBe(1440)
     const videoColumn = (await page.locator('.review-video').boundingBox())!
-    const playerBounds = (await page.locator('.review-video .player-wrap').boundingBox())!
+    const playerBounds = (await page.locator('.review-video .review-player').boundingBox())!
     expect(videoColumn.x).toBe(0)
     expect(videoColumn.width).toBe(panel.x)
     expect(Math.abs(playerBounds.y + playerBounds.height / 2 - 450)).toBeLessThan(1)
@@ -1297,16 +1305,21 @@ test('Teamfights filter independently hides teamfights while keeping solo kills'
   await expect(panel.getByRole('button', { name: 'Teamfight', exact: true })).toBeVisible()
 })
 
-test("playback keys act once even after clicking the browser's own video controls", async ({
+test('our control bar replaces the browser controls: one action per key, click and drag', async ({
   page,
-}) => {
-  // A 30-minute timeline, so the native scrubber's 1% arrow step would be 18s.
+}, testInfo) => {
   const samples = 1800 * 8000
   const long = Buffer.alloc(44 + samples, 128)
   wav.copy(long, 0, 0, 44)
   long.writeUInt32LE(36 + samples, 4)
   long.writeUInt32LE(samples, 40)
-  const state: State = { review: null, anchor: null, comments: [], captures: [], calls: [] }
+  const state: State = {
+    review: reviewPayload(),
+    anchor: { gameTimeSeconds: 0, videoOffsetSeconds: 0 },
+    comments: [],
+    captures: [],
+    calls: [],
+  }
   await mock(page.context(), state, true)
   await page.context().route('https://customer-test.cloudflarestream.com/review.wav', (route) => {
     const range = route
@@ -1331,13 +1344,18 @@ test("playback keys act once even after clicking the browser's own video control
   await page.goto(`/#/video/${recordingId}`)
   const video = page.getByLabel('Ranked mid review', { exact: true })
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.duration)).toBe(1800)
+  expect(await video.evaluate((v: HTMLVideoElement) => v.controls)).toBe(false)
+  const bar = page.getByRole('group', { name: 'Player controls' })
+  const scrubber = bar.getByRole('slider', { name: 'Seek' })
+  await expect(scrubber).toHaveAttribute('aria-valuemax', '1800')
+  await expect(bar.locator('.bar-marker').first()).toBeAttached()
   await video.evaluate((v: HTMLVideoElement) => {
     const w = window as unknown as { toggles: number }
     w.toggles = 0
     v.addEventListener('play', () => w.toggles++)
     v.addEventListener('pause', () => w.toggles++)
+    v.currentTime = 600
   })
-  const box = (await video.boundingBox())!
   const toggles = () => page.evaluate(() => (window as unknown as { toggles: number }).toggles)
   const time = () => video.evaluate((v: HTMLVideoElement) => v.currentTime)
   const press = async (key: string) => {
@@ -1346,33 +1364,51 @@ test("playback keys act once even after clicking the browser's own video control
     await page.waitForTimeout(250)
     return { moved: (await time()) - before.time, toggled: (await toggles()) - before.toggles }
   }
-  const clicks = {
-    video: [box.x + box.width / 2, box.y + box.height / 2],
-    scrubber: [box.x + box.width / 2, box.y + box.height - 18],
-    play: [box.x + 20, box.y + box.height - 20],
+  // Clicking the picture plays/pauses once.
+  const box = (await video.boundingBox())!
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  await expect.poll(toggles).toBe(1)
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  await expect.poll(toggles).toBe(2)
+  // Keys act once whatever was clicked last.
+  for (const target of [
+    bar.getByRole('button', { name: 'Forward 10 seconds' }),
+    bar.getByRole('button', { name: /^(Play|Pause)$/ }),
+    video,
+  ]) {
+    await target.click()
+    if (!(await video.evaluate((v: HTMLVideoElement) => v.paused))) await press('Space')
+    await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 600))
+    expect((await press('ArrowRight')).moved).toBeCloseTo(1, 1)
+    expect((await press('Shift+ArrowLeft')).moved).toBeCloseTo(-10, 1)
+    expect((await press('Space')).toggled).toBe(1)
+    expect((await press('Space')).toggled).toBe(1)
   }
-  for (const [name, [x, y]] of Object.entries(clicks)) {
-    await page.mouse.click(x, y)
-    await page.waitForTimeout(250)
-    // Pause first, so seeks are measured without playback drift.
-    if (!(await video.evaluate((v: HTMLVideoElement) => v.paused)))
-      expect((await press('Space')).toggled, name).toBe(1)
-    await video.evaluate((v: HTMLVideoElement) => (v.currentTime = Math.max(v.currentTime, 600)))
-    const right = await press('ArrowRight')
-    expect(right.moved, `${name}: ArrowRight`).toBeCloseTo(1, 1)
-    const back = await press('Shift+ArrowLeft')
-    expect(back.moved, `${name}: Shift+ArrowLeft`).toBeCloseTo(-10, 1)
-    expect((await press('Space')).toggled, `${name}: Space plays once`).toBe(1)
-    expect((await press('Space')).toggled, `${name}: Space pauses once`).toBe(1)
-  }
-  // Dragging the native scrubber still works.
-  const before = await time()
-  await page.mouse.move(box.x + box.width * 0.2, clicks.scrubber[1])
+  // The scrubber seeks once, on release, wherever it was dragged to.
+  await video.evaluate((v: HTMLVideoElement) => {
+    const w = window as unknown as { seeks: number }
+    w.seeks = 0
+    v.addEventListener('seeking', () => w.seeks++)
+  })
+  const track = (await bar.locator('.bar-track').boundingBox())!
+  await page.mouse.move(track.x + track.width * 0.2, track.y + track.height / 2)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.8, clicks.scrubber[1], { steps: 8 })
+  await page.mouse.move(track.x + track.width * 0.5, track.y + track.height / 2, { steps: 10 })
+  await page.mouse.move(track.x + track.width * 0.75, track.y + track.height / 2, { steps: 10 })
+  await expect(bar.locator('.bar-peek')).toBeVisible()
   await page.mouse.up()
-  await expect.poll(time).toBeGreaterThan(before + 300)
+  await expect.poll(time).toBeGreaterThan(1340)
+  expect(await time()).toBeLessThan(1360)
+  expect(await page.evaluate(() => (window as unknown as { seeks: number }).seeks)).toBe(1)
+  // Arrow keys on the focused scrubber step like everywhere else.
   expect((await press('ArrowRight')).moved).toBeCloseTo(1, 1)
+  await bar.getByRole('button', { name: 'Back 30 seconds' }).click()
+  await expect.poll(time).toBeLessThan(1330)
+  await bar.getByLabel('Playback speed').selectOption('1.5')
+  expect(await video.evaluate((v: HTMLVideoElement) => v.playbackRate)).toBe(1.5)
+  await bar.getByRole('button', { name: 'Mute' }).click()
+  expect(await video.evaluate((v: HTMLVideoElement) => v.muted)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('player-bar.png') })
 })
 
 test('lease renewal keeps hls.js playing from its buffer on freshly signed segments', async ({

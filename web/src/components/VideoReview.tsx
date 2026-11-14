@@ -35,6 +35,7 @@ import { CompleteReview, ReviewNotebook, type ReviewNotebookModel } from './Revi
 import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
 import { CaptureRow, CommentRow, EventRow, MomentRow, patchOf } from './TimelineRows'
+import { PlayerBar, type BarMarker } from './PlayerBar'
 import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
@@ -132,6 +133,7 @@ export function VideoReview({
   )
   const [openMenu, setOpenMenu] = useState<'settings' | 'filter' | null>(null)
   const cinemaButton = useRef<HTMLButtonElement>(null)
+  const playerBox = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     if (!cinema) return
     const previousScroll = window.scrollY
@@ -264,7 +266,8 @@ export function VideoReview({
     if (!box) return
     const measure = () => {
       const top = box.getBoundingClientRect().top + window.scrollY
-      const wrap = box.querySelector<HTMLElement>('.player-wrap')
+      // Everything under the picture: player notices plus our control bar.
+      const wrap = box.querySelector<HTMLElement>('.review-player')
       const stage = box.querySelector<HTMLElement>('.player-stage')
       const chrome = wrap && stage && !stage.hidden ? wrap.offsetHeight - stage.offsetHeight : 0
       const media = box.querySelector('video')
@@ -281,7 +284,7 @@ export function VideoReview({
     observer?.observe(box)
     const wrap = box.querySelector('.review-video')
     if (wrap) observer?.observe(wrap)
-    const player = box.querySelector('.player-wrap')
+    const player = box.querySelector('.review-player')
     if (player) observer?.observe(player)
     window.addEventListener('resize', measure)
     return () => {
@@ -406,6 +409,30 @@ export function VideoReview({
       (a, b) => a.sortMs - b.sortMs || (a.id < b.id ? -1 : 1),
     )
   }, [entries, comments, captures, moments, hidden, anchor, review?.matchId])
+  // Ticks on the control bar's scrubber, matching what the timeline shows.
+  const markers = useMemo<BarMarker[]>(
+    () =>
+      items.map((item) =>
+        item.type === 'event'
+          ? {
+              id: item.id,
+              ms: item.sortMs,
+              className: `kind-${item.entry.kind}`,
+              label: item.entry.label,
+            }
+          : item.type === 'comment'
+            ? {
+                id: item.id,
+                ms: item.sortMs,
+                className: `comment-${item.comment.kind}`,
+                label: 'Comment',
+              }
+            : item.type === 'capture'
+              ? { id: item.id, ms: item.sortMs, className: 'kind-capture', label: 'Drawing' }
+              : { id: item.id, ms: item.sortMs, className: 'kind-moment', label: 'Key moment' },
+      ),
+    [items],
+  )
   const eventComments = useMemo(() => {
     const grouped = new Map<string, ReviewComment[]>()
     if (hidden.has(commentsKey)) return grouped
@@ -817,24 +844,66 @@ export function VideoReview({
         style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}
       >
         <div className="review-video">
-          <div className="review-player">
+          <div className="review-player" ref={playerBox}>
             {renderPlayer(setController)}
-            {data && repository.addCapture && (
-              <div className="review-video-settings">
-                <button
-                  className="button secondary button-small"
-                  disabled={!controller?.pause || preparingDrawing}
-                  onClick={() => {
-                    closeSettings()
-                    void startDrawing()
-                  }}
-                  title="Pause and draw on this frame (D); YouTube prompts you to share this tab"
-                >
-                  <Pencil size={15} />
-                  {preparingDrawing ? 'Freezing frame…' : 'Draw'}
-                </button>
-              </div>
-            )}
+            <PlayerBar
+              controller={controller}
+              timeLabel={commentTime}
+              clockName={anchor ? 'game' : 'video'}
+              markers={markers}
+              fullscreenTarget={playerBox}
+              actions={
+                <>
+                  {data && repository.addCapture && (
+                    <button
+                      className="button secondary button-small"
+                      disabled={!controller?.pause || preparingDrawing}
+                      onClick={() => {
+                        closeSettings()
+                        void startDrawing()
+                      }}
+                      aria-label="Draw"
+                      title="Pause and draw on this frame (D); YouTube prompts you to share this tab"
+                    >
+                      <Pencil size={15} />
+                      <span className="bar-label">
+                        {preparingDrawing ? 'Freezing frame…' : 'Draw'}
+                      </span>
+                    </button>
+                  )}
+                  {canMoment && (
+                    <button
+                      className="button secondary button-small"
+                      onClick={startMoment}
+                      disabled={!controller}
+                      aria-label="Mark this moment"
+                      title={
+                        controller
+                          ? 'Mark the current moment for your coach (M)'
+                          : 'Wait for the video to load'
+                      }
+                    >
+                      <Flag size={15} />
+                      <span className="bar-label">Mark</span>
+                    </button>
+                  )}
+                  {data && (
+                    <button
+                      className="button button-small"
+                      onClick={startComment}
+                      disabled={!controller || composing !== null || editing !== null}
+                      aria-label="Comment"
+                      title={
+                        controller ? 'Comment at the playhead (N)' : 'Wait for the video to load'
+                      }
+                    >
+                      <MessageSquarePlus size={15} />
+                      <span className="bar-label">Comment</span>
+                    </button>
+                  )}
+                </>
+              }
+            />
           </div>
           {!panelOpen && actionError && (
             <p className="notice error" role="alert">
@@ -967,31 +1036,6 @@ export function VideoReview({
                       title="Hide timeline"
                     >
                       <PanelRightClose size={15} />
-                    </button>
-                    {canMoment && (
-                      <button
-                        className="icon-button"
-                        onClick={startMoment}
-                        disabled={!controller}
-                        aria-label="Mark this moment"
-                        title={
-                          controller
-                            ? 'Mark the current moment for your coach (M)'
-                            : 'Wait for the video to load'
-                        }
-                      >
-                        <Flag size={15} />
-                      </button>
-                    )}
-                    <button
-                      className="button button-small"
-                      onClick={startComment}
-                      disabled={!controller || composing !== null || editing !== null}
-                      aria-label="Comment"
-                      title={controller ? 'Comment at the playhead' : 'Wait for the video to load'}
-                    >
-                      <MessageSquarePlus size={15} />
-                      <span className="review-comment-label">Comment</span>
                     </button>
                   </div>
                 </header>

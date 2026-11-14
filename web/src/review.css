@@ -224,19 +224,6 @@
   box-shadow: 0 8px 24px #0000001f;
 }
 /* Draw sits at the top-left, clear of the game clock at the top-right. */
-.review-video-settings {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 6;
-}
-.review-video-settings > button {
-  background: var(--paper);
-  box-shadow: 0 2px 8px #00000026;
-}
 /* Anchor header menus to the panel, not an individual toolbar icon. */
 .review-settings-menu {
   width: min(280px, calc(100vw - 32px));
@@ -1783,4 +1770,244 @@ body:has(.cinema-mode) .watch-main {
   margin: 2px 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Our control bar under the review video (the browser's own controls are off). */
+.player-bar {
+  container: player-bar / inline-size;
+  --bar-ink: #e9ece4;
+  --bar-dim: #9aa293;
+  background: #121512;
+  color: var(--bar-ink);
+  padding: 2px 10px 8px;
+  display: grid;
+  gap: 4px;
+  user-select: none;
+}
+.bar-scrubber {
+  position: relative;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+.bar-scrubber.disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.bar-track {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: #ffffff26;
+  transition: height 0.1s;
+}
+.bar-scrubber:hover .bar-track,
+.bar-scrubber:focus-visible .bar-track {
+  height: 8px;
+}
+.bar-scrubber:focus-visible .bar-track {
+  outline: 2px solid #b99b57;
+  outline-offset: 4px;
+}
+.bar-buffered,
+.bar-played {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 3px;
+}
+.bar-buffered {
+  background: #ffffff40;
+}
+.bar-played {
+  background: var(--gold, #c9a45c);
+}
+.bar-marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--dot, var(--event-neutral));
+  pointer-events: none;
+}
+.bar-marker.kind-moment {
+  width: 5px;
+  margin-left: -2.5px;
+  top: -6px;
+  bottom: -6px;
+}
+.bar-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px #0008;
+  pointer-events: none;
+}
+.bar-peek {
+  position: absolute;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #000d;
+  color: #fff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+.bar-peek small {
+  color: var(--bar-dim);
+  font-size: 11px;
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bar-transport,
+.bar-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.bar-tools {
+  gap: 6px;
+  margin-left: auto;
+}
+.bar-step,
+.bar-play {
+  min-width: 34px;
+  height: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bar-ink);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.bar-play {
+  min-width: 40px;
+  display: grid;
+  place-items: center;
+}
+.bar-step:hover:not(:disabled),
+.bar-play:hover:not(:disabled) {
+  background: #ffffff1a;
+}
+.bar-step:disabled,
+.bar-play:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.bar-time {
+  margin-left: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bar-time small {
+  margin-left: 5px;
+  color: var(--bar-dim);
+}
+.bar-speed {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid #ffffff2e;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bar-ink);
+  font: inherit;
+  font-size: 12px;
+}
+.bar-speed option {
+  color: initial;
+}
+.bar-volume {
+  display: flex;
+  align-items: center;
+}
+.bar-volume input {
+  width: 72px;
+  accent-color: var(--gold, #c9a45c);
+}
+.player-bar .icon-button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bar-ink);
+}
+.player-bar .icon-button:hover:not(:disabled),
+[data-theme] .player-bar .icon-button:hover:not(:disabled) {
+  background: #ffffff1a;
+  color: #fff;
+}
+[data-theme='dark'] .player-bar .icon-button {
+  color: var(--bar-ink);
+}
+/* Narrower bars keep one row: action labels and the volume slider go first. */
+@container player-bar (max-width: 940px) {
+  .bar-label,
+  .bar-volume input {
+    display: none;
+  }
+}
+@container player-bar (max-width: 520px) {
+  .bar-step:is([aria-label$='1 second']) {
+    display: none;
+  }
+  .bar-time small {
+    display: none;
+  }
+}
+/* Clicks over a YouTube picture play/pause through our bar, not the iframe. */
+.player-click-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+/* Fullscreen takes the picture and our bar together. */
+.review-player:fullscreen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+.review-player:fullscreen .player-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.review-player:fullscreen .player-stage {
+  width: min(100%, calc((100vh - 96px) * var(--review-aspect, 1.77777778)));
+  margin: auto;
 }

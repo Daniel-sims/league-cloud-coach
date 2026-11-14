@@ -27,6 +27,15 @@ it('uses the same jumps for YouTube controls, bounds seeks, and cleans up the pl
       getCurrentTime = () => position
       getDuration = () => 120
       seekTo = seekTo
+      getPlayerState = () => 2
+      getVideoLoadedFraction = () => 0.5
+      getPlaybackRate = () => 1
+      setPlaybackRate = vi.fn()
+      getVolume = () => 100
+      setVolume = vi.fn()
+      isMuted = () => false
+      mute = vi.fn()
+      unMute = vi.fn()
     },
   }
   const view = render(<Player videoId="aqz-KE-bpKQ" title="Test game" />)

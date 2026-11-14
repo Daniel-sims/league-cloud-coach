@@ -18,12 +18,15 @@ export function StreamPlayer({
   shareToken,
   onController,
   showSeekControls = true,
+  nativeControls = true,
 }: {
   title: string
   recordingId?: string
   shareToken?: string
   onController?: (controller: PlayerController | null) => void
   showSeekControls?: boolean
+  /** Off when the review page supplies its own control bar. */
+  nativeControls?: boolean
 }) {
   const video = useRef<HTMLVideoElement>(null)
   const [started, setStarted] = useState(Boolean(recordingId))
@@ -73,6 +76,26 @@ export function StreamPlayer({
       duration: () => media.duration,
       seekTo: (seconds) => {
         media.currentTime = Math.max(0, Math.min(media.duration || seconds, seconds))
+      },
+      play: () => void media.play().catch(() => {}),
+      paused: () => media.paused,
+      buffered: () =>
+        Array.from({ length: media.buffered.length }, (_, i): [number, number] => [
+          media.buffered.start(i),
+          media.buffered.end(i),
+        ]),
+      playbackRate: () => media.playbackRate,
+      setPlaybackRate: (rate) => {
+        media.playbackRate = rate
+      },
+      volume: () => media.volume,
+      setVolume: (volume) => {
+        media.volume = Math.max(0, Math.min(1, volume))
+        if (volume > 0) media.muted = false
+      },
+      muted: () => media.muted,
+      setMuted: (muted) => {
+        media.muted = muted
       },
     })
     return () => onController(null)
@@ -272,7 +295,7 @@ export function StreamPlayer({
             <video
               ref={video}
               crossOrigin="anonymous"
-              controls
+              controls={nativeControls}
               playsInline
               preload="auto"
               aria-label={title}
@@ -284,11 +307,13 @@ export function StreamPlayer({
               // always reach the review shortcuts. The click itself still works.
               onFocus={(event) => {
                 const media = event.currentTarget
-                if (media.matches(':focus-visible')) return
+                if (!nativeControls || media.matches(':focus-visible')) return
                 window.setTimeout(() => {
                   if (document.activeElement === media) media.blur()
                 })
               }}
+              // With our own control bar, clicking the picture plays/pauses.
+              onClick={nativeControls ? undefined : togglePlay}
               onLoadedMetadata={(event) => {
                 readAspectRatio(event.currentTarget)
                 setCanSeek(

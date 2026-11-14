@@ -1839,6 +1839,7 @@ function OwnVideo({
                     title={record.title}
                     onController={onController}
                     showSeekControls={false}
+                    nativeControls={false}
                   />
                 ) : (
                   <Player
@@ -1846,6 +1847,7 @@ function OwnVideo({
                     title={record.title}
                     onController={onController}
                     showSeekControls={false}
+                    nativeControls={false}
                   />
                 )
               }
@@ -1980,6 +1982,7 @@ function Watch({ token }: { token: string }) {
                     title={video.title}
                     onController={onController}
                     showSeekControls={false}
+                    nativeControls={false}
                   />
                 ) : (
                   <Player
@@ -1987,6 +1990,7 @@ function Watch({ token }: { token: string }) {
                     title={video.title}
                     onController={onController}
                     showSeekControls={false}
+                    nativeControls={false}
                   />
                 )
               }

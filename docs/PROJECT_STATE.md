@@ -2,6 +2,21 @@
 
 Last reviewed: 14 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Review page has its own control bar
+
+The review video no longer uses the browser's (or YouTube's) built-in controls.
+`web/src/components/PlayerBar.tsx` sits under the picture for both providers:
+±1/10/30s steps, play/pause, a scrubber with buffered ranges, timeline-coloured
+ticks for events/comments/drawings/key moments and a hover/drag preview in game
+time (seeks once on release, so drags don't make hls.js fetch every position),
+speed, volume, Draw / Mark / Comment, and fullscreen (F) of the picture plus bar.
+Clicking the picture plays/pauses; a click shield keeps YouTube's iframe from
+taking focus or keys (YouTube runs with `controls: 0, disablekb: 1`; its buffered
+bar is YouTube's loaded fraction). `PlayerController` gained play/paused/buffered/
+rate/volume/muted. Draw left the video overlay and Comment/Mark left the timeline
+header. Non-review players keep native controls. iPhone Safari lacks element
+fullscreen, so the button is hidden there. Frontend only.
+
 ## Review playback: keys act once, renewal keeps the buffer, moments on the timeline
 
 Keyboard: one window capture-phase listener owns Space (play/pause, ignoring key
