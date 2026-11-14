@@ -111,8 +111,24 @@ export function PlayerBar({
   const span = state.duration / zoom
   const viewStart = Math.max(0, Math.min(state.duration - span, view.start))
   const viewEnd = viewStart + span
-  const latest = useRef({ duration: state.duration, zoom, span, viewStart, width, maxZoom })
-  latest.current = { duration: state.duration, zoom, span, viewStart, width, maxZoom }
+  const latest = useRef({
+    duration: state.duration,
+    time: state.time,
+    zoom,
+    span,
+    viewStart,
+    width,
+    maxZoom,
+  })
+  latest.current = {
+    duration: state.duration,
+    time: state.time,
+    zoom,
+    span,
+    viewStart,
+    width,
+    maxZoom,
+  }
 
   useEffect(() => {
     if (!controller) {
@@ -151,7 +167,7 @@ export function PlayerBar({
   const latestZoom = useRef(zoomTo)
   latestZoom.current = zoomTo
 
-  // Wheel or pinch over the scrubber zooms around the pointer; a sideways
+  // Wheel or pinch over the scrubber zooms; a sideways
   // swipe (or Shift + wheel) pans. Needs a non-passive listener to stop the
   // page scrolling or the browser zooming.
   useEffect(() => {
@@ -168,8 +184,12 @@ export function PlayerBar({
         setView({ zoom: now.zoom, start: now.viewStart + (delta / now.width) * now.span })
         return
       }
+      // Zoom into where you are: the playhead stays put while it's on the
+      // bar; scrolled away from it, the time under the pointer does.
       const box = track.current!.getBoundingClientRect()
-      const anchor = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width))
+      const pointer = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width))
+      const playhead = (now.time - now.viewStart) / now.span
+      const anchor = playhead >= 0 && playhead <= 1 ? playhead : pointer
       const factor = Math.exp(-event.deltaY * scale * (event.ctrlKey ? 0.01 : 0.002))
       latestZoom.current(now.zoom * factor, anchor)
     }
@@ -177,9 +197,9 @@ export function PlayerBar({
     return () => element.removeEventListener('wheel', wheel)
   }, [])
 
-  // While zoomed, keep the playhead in view: when it moves out of the window
-  // (playing past the edge, or a seek elsewhere) the window jumps to it. A
-  // paused playhead stays put so you can pan away to look around.
+  // While zoomed, keep the playhead in view: when it moves out of the visible
+  // stretch (playing past the edge, or a seek elsewhere) the bar scrolls to it.
+  // A paused playhead stays put so you can scroll away to look around.
   const lastTime = useRef(state.time)
   useEffect(() => {
     const previous = lastTime.current
@@ -278,7 +298,13 @@ export function PlayerBar({
       <div className="bar-seek">
         <div
           ref={scrubber}
-          className={`bar-scrubber ${ready ? '' : 'disabled'}`}
+          className={[
+            'bar-scrubber',
+            ready ? '' : 'disabled',
+            // Zoomed in: the track's edges fade where there's more video beyond.
+            zoomed && viewStart > 0.5 ? 'more-before' : '',
+            zoomed && viewEnd < state.duration - 0.5 ? 'more-after' : '',
+          ].join(' ')}
           role="slider"
           tabIndex={ready ? 0 : -1}
           aria-label="Seek"
@@ -363,7 +389,7 @@ export function PlayerBar({
             disabled={!ready || !zoomed}
             onClick={() => zoomTo(zoom / 2)}
             aria-label="Zoom out"
-            title="Zoom the timeline out (scroll over it, or -)"
+            title="Zoom the bar out (scroll over it, or -)"
           >
             <ZoomOut size={16} />
           </button>
@@ -382,39 +408,12 @@ export function PlayerBar({
             disabled={!ready || zoom >= maxZoom}
             onClick={() => zoomTo(zoom * 2)}
             aria-label="Zoom in"
-            title="Zoom the timeline in (scroll over it, or +)"
+            title="Zoom the bar in around the playhead (scroll over it, or +)"
           >
             <ZoomIn size={16} />
           </button>
         </span>
       </div>
-      {zoomed && (
-        <div className="bar-overview">
-          <span>{timeLabel(viewStart * 1000)}</span>
-          <div
-            className="bar-overview-track"
-            title="Click to move the zoomed window"
-            onPointerDown={(event) => {
-              const box = event.currentTarget.getBoundingClientRect()
-              const at = ((event.clientX - box.left) / box.width) * state.duration
-              setView({ zoom, start: at - span / 2 })
-            }}
-          >
-            <span
-              className="bar-overview-window"
-              style={{
-                left: `${(viewStart / state.duration) * 100}%`,
-                width: `${(span / state.duration) * 100}%`,
-              }}
-            />
-            <span
-              className="bar-overview-head"
-              style={{ left: `${(state.time / state.duration) * 100}%` }}
-            />
-          </div>
-          <span>{timeLabel(viewEnd * 1000)}</span>
-        </div>
-      )}
       <div className="bar-row">
         <div className="bar-transport">
           {steps

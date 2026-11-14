@@ -1437,41 +1437,50 @@ test('our control bar replaces the browser controls: one action per key, click a
   await expect(bar.locator('.bar-marker .bar-icon svg').first()).toBeVisible()
   await expect(bar.locator('.bar-time')).not.toContainText(/game|video/)
   await page.screenshot({ path: testInfo.outputPath('player-bar.png') })
-  // Zoom: buttons, wheel around the pointer, and the window follows the playhead.
+  // Zoom: buttons and wheel zoom the bar around the playhead, which stays in view.
   await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 900))
   await expect(bar.getByRole('button', { name: 'Zoom out' })).toBeDisabled()
   await bar.getByRole('button', { name: 'Zoom in' }).click()
   await bar.getByRole('button', { name: 'Zoom in' }).click()
   await expect(bar.getByRole('button', { name: 'Reset zoom' })).toHaveText('4×')
-  await expect(bar.locator('.bar-overview')).toBeVisible()
-  const markerCount = async () => bar.locator('.bar-marker').count()
+  const zoomTrack = (await bar.locator('.bar-track').boundingBox())!
+  const middle = zoomTrack.y + zoomTrack.height / 2
+  const seconds = (label: string) =>
+    label
+      .match(/\d+(:\d\d)+/)![0]
+      .split(':')
+      .reduce((total, part) => total * 60 + Number(part), 0)
+  // How much video the track spans, read from the hover times at its edges.
   const span = async () => {
-    const [from, to] = await bar.locator('.bar-overview > span').allTextContents()
-    const seconds = (label: string) =>
-      label.split(':').reduce((total, part) => total * 60 + Number(part), 0)
-    return seconds(to) - seconds(from)
+    const at = async (x: number) => {
+      await page.mouse.move(x, middle)
+      return seconds((await bar.locator('.bar-peek').textContent())!)
+    }
+    return (await at(zoomTrack.x + zoomTrack.width - 1)) - (await at(zoomTrack.x + 1))
   }
   expect(await span()).toBeGreaterThan(440)
   expect(await span()).toBeLessThan(460)
-  const zoomTrack = (await bar.locator('.bar-track').boundingBox())!
-  await page.mouse.move(zoomTrack.x + zoomTrack.width / 2, zoomTrack.y + zoomTrack.height / 2)
+  await expect(bar.locator('.bar-scrubber')).toHaveClass(/more-before/)
+  await expect(bar.locator('.bar-scrubber')).toHaveClass(/more-after/)
+  await page.mouse.move(zoomTrack.x + zoomTrack.width / 2, middle)
   await page.mouse.wheel(0, -400)
   await expect.poll(span).toBeLessThan(300)
+  // Zooming keeps the playhead where it was on the bar.
+  await expect(bar.locator('.bar-thumb')).toBeVisible()
+  await page.mouse.move(zoomTrack.x + zoomTrack.width / 2, middle)
   await bar.screenshot({ path: testInfo.outputPath('player-bar-zoomed.png') })
   // Clicking the zoomed track still seeks to the time under the pointer.
   const peeked = await bar.locator('.bar-peek').textContent()
   await page.mouse.click(zoomTrack.x + zoomTrack.width / 2, zoomTrack.y + zoomTrack.height / 2)
   const target = peeked!.match(/\d+:\d\d(:\d\d)?/)![0]
   await expect(bar.locator('.bar-time')).toContainText(target)
-  // A seek outside the window brings the window to the playhead.
+  // A seek outside the zoomed stretch scrolls the bar to the playhead.
+  await page.mouse.move(zoomTrack.x + zoomTrack.width / 2, middle - 200)
   await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 1700))
-  await expect
-    .poll(async () => (await bar.locator('.bar-overview > span').first().textContent()) ?? '')
-    .toMatch(/^2[3-9]:/)
   await expect(bar.locator('.bar-thumb')).toBeVisible()
   await bar.getByRole('button', { name: 'Reset zoom' }).click()
-  await expect(bar.locator('.bar-overview')).toBeHidden()
-  expect(await markerCount()).toBeGreaterThan(0)
+  await expect(bar.locator('.bar-scrubber')).not.toHaveClass(/more-before|more-after/)
+  expect(await bar.locator('.bar-marker').count()).toBeGreaterThan(0)
 })
 
 test('lease renewal keeps hls.js playing from its buffer on freshly signed segments', async ({

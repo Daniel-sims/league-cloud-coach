@@ -13,14 +13,15 @@ sidebar. Showing it lasts until you leave the page and is not stored; the old
 
 Scrubber markers carry a small kind icon (`kindIcons`/`commentIcons` in
 `VideoReview.tsx`). Icons closer than 14 px keep only the first one; zooming in
-spreads them out. The scrubber zooms from the whole video down to a 20 s window,
-using the wheel or a pinch (around the pointer), the zoom buttons at the
-scrubber's end, or + / - / 0 on the focused scrubber. A sideways swipe or
-Shift+wheel pans. While zoomed, an overview line shows the window, and clicking
-it moves the window. When the playhead leaves the window, by playing or seeking,
-the window jumps to it; panning while paused is left alone. A click (not a drag)
-within 6 px of a marker seeks exactly to it. The clock no longer says
-"game"/"video". Frontend only.
+spreads them out. The scrubber zooms in place, with no overview strip, from the
+whole video down to a 20 s stretch. You zoom with the wheel or a pinch, the zoom
+buttons at the scrubber's end, or + / - / 0 on the focused scrubber. Zooming keeps
+the playhead fixed on the bar while it is visible; otherwise it zooms around the
+pointer. A sideways swipe or Shift+wheel pans. While zoomed, an edge with more
+video beyond it fades out (`more-before` / `more-after`). When the playhead leaves
+the visible stretch, by playing or seeking, the bar scrolls to it; panning while
+paused is left alone. A click (not a drag) within 6 px of a marker seeks exactly to
+it. The clock no longer says "game"/"video". Frontend only.
 
 ## Bigger review video, comment-only flags, full screen = cinema
 

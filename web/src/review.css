@@ -1951,44 +1951,24 @@ body:has(.cinema-mode) .watch-main {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* While zoomed: where the window sits in the whole video. */
-.bar-overview {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  color: var(--bar-dim);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.bar-overview-track {
-  position: relative;
-  height: 12px;
-  cursor: pointer;
-}
-.bar-overview-track::before {
+/* Zoomed in, the bar fades out at an edge with more video beyond it. */
+.bar-scrubber.more-before::before,
+.bar-scrubber.more-after::after {
   content: '';
   position: absolute;
-  inset: 5px 0;
-  border-radius: 1px;
-  background: #ffffff26;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  z-index: 1;
 }
-.bar-overview-window {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  min-width: 4px;
-  border: 1px solid #ffffff80;
-  border-radius: 3px;
-  background: #ffffff1a;
+.bar-scrubber.more-before::before {
+  left: 0;
+  background: linear-gradient(to right, #121512, transparent);
 }
-.bar-overview-head {
-  position: absolute;
-  top: 1px;
-  bottom: 1px;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--gold, #c9a45c);
+.bar-scrubber.more-after::after {
+  right: 0;
+  background: linear-gradient(to left, #121512, transparent);
 }
 .bar-zoom {
   display: flex;
