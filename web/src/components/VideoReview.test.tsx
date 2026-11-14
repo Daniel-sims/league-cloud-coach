@@ -357,7 +357,7 @@ it('groups linked comments under an event and saves new notes at event time, not
   expect(await within(thread).findByText('Move as five.')).toBeInTheDocument()
 })
 
-it('lets the owner mark key moments the guest can read and jump to but not change', async () => {
+it('shows existing key moments on the timeline; the owner edits or removes them, nobody adds new ones', async () => {
   const time = { seconds: 95.4 }
   const player = fakePlayer(time)
   const base: ReviewData = {
@@ -381,11 +381,8 @@ it('lets the owner mark key moments the guest can read and jump to but not chang
   expect(within(row).getByText('Why did I fight here?')).toBeVisible()
   await userEvent.click(within(row).getByRole('button', { name: 'Key moment' }))
   expect(player.seekTo).toHaveBeenLastCalledWith(61)
-  await userEvent.click(screen.getByRole('button', { name: 'Mark this moment' }))
-  await userEvent.type(screen.getByLabelText('Why this moment matters'), 'Wave state')
-  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-  expect(owner.addMoment).toHaveBeenCalledWith(95_400, 'Wave state')
-  await waitFor(() => expect(screen.queryByLabelText('Why this moment matters')).toBeNull())
+  // New notes are tagged comments; there is no separate Mark action.
+  expect(screen.queryByRole('button', { name: 'Mark this moment' })).toBeNull()
   await userEvent.click(within(row).getByRole('button', { name: 'Edit note' }))
   const field = screen.getByLabelText('Why this moment matters')
   expect(field).toHaveValue('Why did I fight here?')
@@ -395,6 +392,7 @@ it('lets the owner mark key moments the guest can read and jump to but not chang
   expect(owner.updateMoment).not.toHaveBeenCalled()
   await userEvent.keyboard('{Control>}{Enter}{/Control}')
   expect(owner.updateMoment).toHaveBeenCalledWith('m1', 'Bad fight\nCheck the wave first')
+  await waitFor(() => expect(screen.queryByLabelText('Why this moment matters')).toBeNull())
   await userEvent.click(within(row).getByRole('button', { name: 'Remove key moment' }))
   expect(owner.deleteMoment).toHaveBeenCalledWith('m1')
   view.unmount()

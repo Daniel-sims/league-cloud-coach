@@ -6,7 +6,6 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
-  type RefObject,
 } from 'react'
 import type { PlayerController } from '../lib/player'
 import { jumpSeconds } from './SeekControls'
@@ -59,22 +58,26 @@ export function PlayerBar({
   clockName,
   markers,
   actions,
-  fullscreenTarget,
+  expanded,
+  onExpand,
 }: {
   controller: PlayerController | null
   timeLabel(videoMs: number): string
   clockName: string
   markers: BarMarker[]
   actions?: ReactNode
-  fullscreenTarget: RefObject<HTMLElement | null>
+  /** Video + timeline filling the window (the review's cinema mode). */
+  expanded: boolean
+  onExpand(): void
 }) {
   const [state, setState] = useState<Snapshot>(empty)
   // Where the scrubber is being dragged to; the seek happens on release so a
   // drag doesn't make the player fetch every position it passes over.
   const [drag, setDrag] = useState<number | null>(null)
   const [hover, setHover] = useState<number | null>(null)
-  const [fullscreen, setFullscreen] = useState(false)
   const track = useRef<HTMLDivElement>(null)
+  const latestExpand = useRef(onExpand)
+  latestExpand.current = onExpand
   const ready = Boolean(controller) && state.duration > 0
 
   useEffect(() => {
@@ -88,16 +91,6 @@ export function PlayerBar({
     return () => clearInterval(timer)
   }, [controller])
 
-  useEffect(() => {
-    const change = () =>
-      setFullscreen(
-        Boolean(document.fullscreenElement) &&
-          document.fullscreenElement === fullscreenTarget.current,
-      )
-    document.addEventListener('fullscreenchange', change)
-    return () => document.removeEventListener('fullscreenchange', change)
-  }, [fullscreenTarget])
-
   const refresh = () => controller && setState(read(controller))
   function seekTo(seconds: number) {
     if (!controller || !ready) return
@@ -110,12 +103,6 @@ export function PlayerBar({
     else controller.pause?.()
     refresh()
   }
-  function toggleFullscreen() {
-    const target = fullscreenTarget.current
-    if (!target) return
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
-    else void target.requestFullscreen?.().catch(() => {})
-  }
   useEffect(() => {
     const key = (event: globalThis.KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'f' || event.metaKey || event.ctrlKey || event.altKey) return
@@ -123,11 +110,11 @@ export function PlayerBar({
       const target = event.target as HTMLElement | null
       if (target?.closest('input, textarea, select, [contenteditable], dialog[open]')) return
       event.preventDefault()
-      toggleFullscreen()
+      latestExpand.current()
     }
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
-  })
+  }, [])
 
   const fraction = (event: PointerEvent) => {
     const box = track.current!.getBoundingClientRect()
@@ -246,11 +233,11 @@ export function PlayerBar({
                 onSeek={() => seekTo(state.time + step)}
               />
             ))}
-          <span className="bar-time">
-            {timeLabel(shown * 1000)} / {timeLabel(state.duration * 1000)}
-            <small>{clockName}</small>
-          </span>
         </div>
+        <span className="bar-time">
+          {timeLabel(shown * 1000)} / {timeLabel(state.duration * 1000)}
+          <small>{clockName}</small>
+        </span>
         <div className="bar-tools">
           {controller?.setPlaybackRate && (
             <select
@@ -302,16 +289,17 @@ export function PlayerBar({
             </span>
           )}
           {actions}
-          {typeof document !== 'undefined' && document.fullscreenEnabled && (
-            <button
-              className="icon-button"
-              onClick={toggleFullscreen}
-              aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              title={fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
-            >
-              {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-            </button>
-          )}
+          <button
+            className="icon-button"
+            onClick={onExpand}
+            aria-label={expanded ? 'Exit full screen' : 'Full screen'}
+            aria-pressed={expanded}
+            title={
+              expanded ? 'Exit full screen (F or Escape)' : 'Full screen: video and timeline (F)'
+            }
+          >
+            {expanded ? <Minimize size={16} /> : <Maximize size={16} />}
+          </button>
         </div>
       </div>
     </div>

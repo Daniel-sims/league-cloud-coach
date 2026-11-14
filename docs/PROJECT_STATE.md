@@ -2,6 +2,17 @@
 
 Last reviewed: 14 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Bigger review video, comment-only flags, full screen = cinema
+
+The video column sits on the bottom edge level with the timeline (spare height
+gathers above). Until the reader drags the divider, the timeline narrows from 420
+to as little as 390 px when that lets the video use more height. Video pages keep
+their own sidebar preference, hidden by default (`league-cloud-coach-sidebar-video`);
+other pages keep `league-cloud-coach-sidebar`. The control bar centres the clock,
+and its full-screen button (and F) toggles cinema mode, video plus timeline. Mark
+is gone: new flags are tagged comments. Existing key moments still show on the
+timeline, and the owner can edit or remove them. Frontend only.
+
 ## Review page has its own control bar
 
 The review video no longer uses the browser's (or YouTube's) built-in controls.
@@ -9,7 +20,7 @@ The review video no longer uses the browser's (or YouTube's) built-in controls.
 ±1/10/30s steps, play/pause, a scrubber with buffered ranges, timeline-coloured
 ticks for events/comments/drawings/key moments and a hover/drag preview in game
 time (seeks once on release, so drags don't make hls.js fetch every position),
-speed, volume, Draw / Mark / Comment, and fullscreen (F) of the picture plus bar.
+speed, volume, Draw / Comment, and full screen.
 Clicking the picture plays/pauses; a click shield keeps YouTube's iframe from
 taking focus or keys (YouTube runs with `controls: 0, disablekb: 1`; its buffered
 bar is YouTube's loaded fraction). `PlayerController` gained play/paused/buffered/

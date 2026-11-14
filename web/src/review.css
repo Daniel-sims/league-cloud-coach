@@ -43,7 +43,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* Sits on the bottom edge, level with the timeline; spare height gathers above. */
+  justify-content: flex-end;
   height: max(280px, calc(100dvh - var(--review-top, 220px) - 24px));
 }
 .review-video .player-stage {
@@ -1268,7 +1269,7 @@ body:has(.cinema-mode) .watch-main {
 .cinema-mode .review-video {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-end;
   height: 100dvh;
   background: #000;
 }
@@ -1874,12 +1875,12 @@ body:has(.cinema-mode) .watch-main {
   color: var(--bar-dim);
   font-size: 11px;
 }
+/* Transport left, the clock centred under the picture, tools right. */
 .bar-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
 }
 .bar-transport,
 .bar-tools {
@@ -1889,7 +1890,7 @@ body:has(.cinema-mode) .watch-main {
 }
 .bar-tools {
   gap: 6px;
-  margin-left: auto;
+  justify-self: end;
 }
 .bar-step,
 .bar-play {
@@ -1920,8 +1921,8 @@ body:has(.cinema-mode) .watch-main {
   cursor: default;
 }
 .bar-time {
-  margin-left: 10px;
-  font-size: 12px;
+  justify-self: center;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1975,6 +1976,23 @@ body:has(.cinema-mode) .watch-main {
     display: none;
   }
 }
+/* Phones: the clock gets its own centred line above the buttons. */
+@container player-bar (max-width: 600px) {
+  .bar-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 2px;
+  }
+  .bar-time {
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
+  .bar-tools {
+    margin-left: auto;
+  }
+}
 @container player-bar (max-width: 520px) {
   .bar-step:is([aria-label$='1 second']) {
     display: none;
@@ -1989,25 +2007,4 @@ body:has(.cinema-mode) .watch-main {
   inset: 0;
   z-index: 1;
   cursor: pointer;
-}
-/* Fullscreen takes the picture and our bar together. */
-.review-player:fullscreen {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  max-width: none;
-  width: 100%;
-  height: 100%;
-  background: #000;
-}
-.review-player:fullscreen .player-wrap {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.review-player:fullscreen .player-stage {
-  width: min(100%, calc((100vh - 96px) * var(--review-aspect, 1.77777778)));
-  margin: auto;
 }

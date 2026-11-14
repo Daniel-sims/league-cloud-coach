@@ -136,22 +136,37 @@ export function App({ authError = null }: { authError?: string | null }) {
   const [authMessage, setAuthMessage] = useState(authError || '')
   const [signingIn, setSigningIn] = useState(false)
   const [help, setHelp] = useState(false)
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem('league-cloud-coach-sidebar') === 'collapsed'
-    } catch {
-      return false
+  // Video pages keep their own sidebar preference, hidden by default so the
+  // review video gets the width.
+  const [sidebarPrefs, setSidebarPrefs] = useState(() => {
+    const read = (key: string, fallback: boolean) => {
+      try {
+        const value = localStorage.getItem(key)
+        return value === null ? fallback : value === 'collapsed'
+      } catch {
+        return fallback
+      }
+    }
+    return {
+      page: read('league-cloud-coach-sidebar', false),
+      video: read('league-cloud-coach-sidebar-video', true),
     }
   })
+  const videoRoute = /^\/(?:preview\/)?video\/[a-f0-9-]+$/.test(route)
+  const collapsed = videoRoute ? sidebarPrefs.video : sidebarPrefs.page
   function toggleSidebar() {
     const next = !collapsed
-    setCollapsed(next)
+    setSidebarPrefs((prefs) => (videoRoute ? { ...prefs, video: next } : { ...prefs, page: next }))
     try {
-      localStorage.setItem('league-cloud-coach-sidebar', next ? 'collapsed' : 'open')
+      localStorage.setItem(
+        videoRoute ? 'league-cloud-coach-sidebar-video' : 'league-cloud-coach-sidebar',
+        next ? 'collapsed' : 'open',
+      )
     } catch {
       // Layout preference only.
     }
   }
+
   const [setup, setSetup] = useState(false)
   const [settings, setSettings] = useState(false)
   const [settingsVersion, setSettingsVersion] = useState(0)

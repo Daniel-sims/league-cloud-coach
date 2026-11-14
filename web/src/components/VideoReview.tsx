@@ -83,6 +83,8 @@ const openStorage = 'league-cloud-coach-timeline'
 const detailStorage = 'league-cloud-coach-timeline-detail'
 const minPanel = 300
 const defaultPanel = 420
+// Narrowest the timeline goes on its own to give the video more room.
+const comfortPanel = 390
 function stored(key: string) {
   try {
     return localStorage.getItem(key)
@@ -133,7 +135,6 @@ export function VideoReview({
   )
   const [openMenu, setOpenMenu] = useState<'settings' | 'filter' | null>(null)
   const cinemaButton = useRef<HTMLButtonElement>(null)
-  const playerBox = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     if (!cinema) return
     const previousScroll = window.scrollY
@@ -217,6 +218,9 @@ export function VideoReview({
     const saved = Number(stored(widthStorage))
     return Number.isFinite(saved) && saved >= minPanel ? saved : defaultPanel
   })
+  // Until the reader drags the divider, the timeline narrows (to a comfortable
+  // minimum) whenever that lets the video use more of the window's height.
+  const userSized = useRef(Number(stored(widthStorage)) >= minPanel)
   const [panelOpen, setPanelOpen] = useState(() => stored(openStorage) !== 'closed')
   useEffect(() => {
     if (notebook?.view === 'notes') {
@@ -230,6 +234,7 @@ export function VideoReview({
     store(openStorage, open ? 'open' : 'closed')
   }
   function resizeTo(width: number, persist = false) {
+    userSized.current = true
     const total = container.current?.getBoundingClientRect().width ?? 0
     const next = Math.round(Math.min(Math.max(width, minPanel), Math.max(minPanel, total - 496)))
     setPanelWidth(next)
@@ -278,9 +283,25 @@ export function VideoReview({
       box.style.setProperty('--review-aspect', `${aspect}`)
       box.style.setProperty('--review-top', `${Math.round(top)}px`)
       box.style.setProperty('--review-chrome', `${Math.max(0, chrome)}px`)
+      const layout = box.querySelector<HTMLElement>('.review-layout')
+      if (userSized.current || !layout || layout.classList.contains('timeline-collapsed')) return
+      // The same height the video column gets in CSS, less our control bar.
+      const height = cinema
+        ? window.innerHeight - Math.max(0, chrome)
+        : window.innerHeight - top - Math.max(0, chrome) - 24
+      const ideal = layout.clientWidth - 16 - height * aspect
+      const fit = Math.round(Math.min(defaultPanel, Math.max(comfortPanel, ideal)))
+      // Next frame, so resizing doesn't re-enter the observer that called us.
+      setPanelWidth((width) => (width === fit ? width : fit))
     }
     measure()
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    let frame = 0
+    // Measured a frame later: our own size changes would otherwise re-enter the observer.
+    const schedule = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(measure)
+    }
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
     observer?.observe(box)
     const wrap = box.querySelector('.review-video')
     if (wrap) observer?.observe(wrap)
@@ -288,6 +309,7 @@ export function VideoReview({
     if (player) observer?.observe(player)
     window.addEventListener('resize', measure)
     return () => {
+      cancelAnimationFrame(frame)
       observer?.disconnect()
       window.removeEventListener('resize', measure)
     }
@@ -570,38 +592,10 @@ export function VideoReview({
       }
     }
   }, [controller, repository])
-  // Key moments: the student's flags for the coach, shown only on the timeline.
-  const canMoment = owner && Boolean(repository.addMoment)
-  const [momentDraft, setMomentDraft] = useState<{ id: string | null; note: string } | null>(null)
-  const startMoment = useCallback(() => {
-    showPanel(true)
-    notebook?.setView('timeline')
-    setMomentDraft({ id: null, note: '' })
-  }, [notebook?.setView])
-  useEffect(() => {
-    if (!canMoment) return
-    const key = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== 'm' ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        event.defaultPrevented ||
-        !controller
-      )
-        return
-      if (
-        (event.target as HTMLElement | null)?.closest(
-          'input, textarea, select, [contenteditable], dialog[open]',
-        )
-      )
-        return
-      event.preventDefault()
-      startMoment()
-    }
-    window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
-  }, [canMoment, controller, startMoment])
+  // Key moments (older flags for the coach) show on the timeline; new notes are
+  // tagged comments. The owner can still edit or remove existing moments.
+  const canMoment = owner && Boolean(repository.updateMoment)
+  const [momentDraft, setMomentDraft] = useState<{ id: string; note: string } | null>(null)
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (
@@ -844,14 +838,18 @@ export function VideoReview({
         style={{ '--panel-width': `${panelWidth}px` } as CSSProperties}
       >
         <div className="review-video">
-          <div className="review-player" ref={playerBox}>
+          <div className="review-player">
             {renderPlayer(setController)}
             <PlayerBar
               controller={controller}
               timeLabel={commentTime}
               clockName={anchor ? 'game' : 'video'}
               markers={markers}
-              fullscreenTarget={playerBox}
+              expanded={cinema}
+              onExpand={() => {
+                if (!cinema) showPanel(true)
+                setCinema(!cinema)
+              }}
               actions={
                 <>
                   {data && repository.addCapture && (
@@ -869,22 +867,6 @@ export function VideoReview({
                       <span className="bar-label">
                         {preparingDrawing ? 'Freezing frame…' : 'Draw'}
                       </span>
-                    </button>
-                  )}
-                  {canMoment && (
-                    <button
-                      className="button secondary button-small"
-                      onClick={startMoment}
-                      disabled={!controller}
-                      aria-label="Mark this moment"
-                      title={
-                        controller
-                          ? 'Mark the current moment for your coach (M)'
-                          : 'Wait for the video to load'
-                      }
-                    >
-                      <Flag size={15} />
-                      <span className="bar-label">Mark</span>
                     </button>
                   )}
                   {data && (
@@ -1044,16 +1026,7 @@ export function VideoReview({
                     initial={momentDraft.note}
                     onCancel={() => setMomentDraft(null)}
                     onSave={async (note) => {
-                      const ok = momentDraft.id
-                        ? await act(() => repository.updateMoment!(momentDraft.id!, note))
-                        : controller
-                          ? await act(() =>
-                              repository.addMoment!(
-                                Math.round(controller.currentTime() * 1000),
-                                note,
-                              ),
-                            )
-                          : false
+                      const ok = await act(() => repository.updateMoment!(momentDraft.id, note))
                       if (ok) setMomentDraft(null)
                     }}
                   />

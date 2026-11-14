@@ -432,12 +432,20 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     .last()
     .screenshot({ path: testInfo.outputPath('matchup-light.png') })
   // Collapsing the sidebar gives the video the width; the choice survives reload.
+  // Video pages start with the sidebar hidden so the video gets the width;
+  // showing it narrows the video, and the choice is remembered for video pages.
+  await expect(page.locator('#app-sidebar')).toBeHidden()
   const before = await video.evaluate((v) => v.getBoundingClientRect().width)
+  await page.getByRole('button', { name: 'Show sidebar' }).click()
+  await expect(page.locator('#app-sidebar')).toBeVisible()
+  await expect
+    .poll(() => video.evaluate((v) => v.getBoundingClientRect().width))
+    .toBeLessThan(before)
   await page.getByRole('button', { name: 'Hide sidebar' }).click()
   await expect(page.locator('#app-sidebar')).toBeHidden()
   await expect
     .poll(() => video.evaluate((v) => v.getBoundingClientRect().width))
-    .toBeGreaterThan(before)
+    .toBeCloseTo(before, -1)
   await page.setViewportSize({ width: 1903, height: 958 })
   await page.waitForTimeout(100)
   const stage = await video.evaluate((v) => v.parentElement!.getBoundingClientRect())
@@ -643,7 +651,8 @@ test('desktop timeline fills the available window independently of the video hei
     .toBeLessThan(2)
   const initial = (await timeline.boundingBox())!
   const player = (await wrap.boundingBox())!
-  expect(Math.abs(player.y + player.height / 2 - (initial.y + initial.height / 2))).toBeLessThan(2)
+  // The player and its bar sit on the timeline's bottom edge.
+  expect(Math.abs(player.y + player.height - (initial.y + initial.height))).toBeLessThan(2)
   expect(
     await page.locator('.player-stage').evaluate((element) => ({
       radius: getComputedStyle(element).borderRadius,
@@ -653,7 +662,10 @@ test('desktop timeline fills the available window independently of the video hei
   const recalls = timeline.locator('.kind-recall')
   await expect(recalls.first()).toBeVisible()
   await expect(recalls.locator('img, .timeline-inventory, .timeline-detail')).toHaveCount(0)
-  expect(initial.height).toBeGreaterThan((await wrap.boundingBox())!.height + 100)
+  // The video grows to use the height; the timeline still spans the full column.
+  const used = (await wrap.boundingBox())!.height
+  expect(initial.height).toBeGreaterThanOrEqual(used - 1)
+  expect(used).toBeGreaterThan(initial.height * 0.85)
   expect(
     await video.evaluate((v) =>
       Math.round(
@@ -681,7 +693,8 @@ test('desktop timeline fills the available window independently of the video hei
     .toBeLessThan(0.01)
   const fitted = (await wrap.boundingBox())!
   const column = (await page.locator('.review-video').boundingBox())!
-  expect(Math.abs(fitted.y + fitted.height / 2 - (column.y + column.height / 2))).toBeLessThan(2)
+  // Sits on the column's bottom edge, centred across it.
+  expect(Math.abs(fitted.y + fitted.height - (column.y + column.height))).toBeLessThan(2)
   expect(Math.abs(fitted.x + fitted.width / 2 - (column.x + column.width / 2))).toBeLessThan(2)
   expect(
     Math.min(Math.abs(fitted.height - column.height), Math.abs(fitted.width - column.width)),
