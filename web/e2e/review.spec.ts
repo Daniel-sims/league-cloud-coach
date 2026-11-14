@@ -1477,6 +1477,11 @@ test('our control bar replaces the browser controls: one action per key, click a
   // A seek outside the zoomed stretch scrolls the bar to the playhead.
   await page.mouse.move(zoomTrack.x + zoomTrack.width / 2, middle - 200)
   await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 1700))
+  await expect
+    .poll(async () =>
+      Number(await bar.getByRole('slider', { name: 'Seek' }).getAttribute('aria-valuenow')),
+    )
+    .toBeGreaterThanOrEqual(1700)
   await expect(bar.locator('.bar-thumb')).toBeVisible()
   await bar.getByRole('button', { name: 'Reset zoom' }).click()
   await expect(bar.locator('.bar-scrubber')).not.toHaveClass(/more-before|more-after/)

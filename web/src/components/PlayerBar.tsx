@@ -181,7 +181,10 @@ export function PlayerBar({
       const sideways = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)
       if (sideways) {
         const delta = (event.shiftKey && !event.deltaX ? event.deltaY : event.deltaX) * scale
-        setView({ zoom: now.zoom, start: now.viewStart + (delta / now.width) * now.span })
+        setView((current) => ({
+          ...current,
+          start: now.viewStart + (delta / now.width) * now.span,
+        }))
         return
       }
       // Zoom into where you are: the playhead stays put while it's on the
@@ -205,8 +208,9 @@ export function PlayerBar({
     const previous = lastTime.current
     lastTime.current = state.time
     if (zoom <= 1 || drag !== null || Math.abs(state.time - previous) < 0.01) return
+    // Only moves the window, so it can't undo a zoom change that lands with it.
     if (state.time < viewStart || state.time > viewEnd)
-      setView({ zoom, start: state.time - span * 0.1 })
+      setView((current) => ({ ...current, start: state.time - span * 0.1 }))
   }, [state.time, zoom, span, viewStart, viewEnd, drag])
 
   const refresh = () => controller && setState(read(controller))
