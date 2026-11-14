@@ -254,3 +254,87 @@ it('leaves unready media alone and accepts seek shortcuts from the visible seek 
   fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
   expect(pause).toHaveBeenCalled()
 })
+it('steps playback speed with - and +, leaving them to typing, Ctrl zoom and the scrubber', async () => {
+  await start()
+  const media = screen.getByLabelText('Private game') as HTMLVideoElement
+  Object.defineProperty(media, 'duration', { configurable: true, value: 180 })
+  fireEvent.loadedMetadata(media)
+  expect(media.playbackRate).toBe(1)
+  expect(fireEvent.keyDown(document.body, { key: '+', shiftKey: true })).toBe(false)
+  expect(media.playbackRate).toBe(1.25)
+  fireEvent.keyDown(document.body, { key: '=' })
+  expect(media.playbackRate).toBe(1.5)
+  fireEvent.keyDown(document.body, { key: '-' })
+  fireEvent.keyDown(document.body, { key: '-' })
+  fireEvent.keyDown(document.body, { key: '-' })
+  expect(media.playbackRate).toBe(0.75)
+  for (let i = 0; i < 5; i++) fireEvent.keyDown(document.body, { key: '-' })
+  expect(media.playbackRate).toBe(0.25)
+  for (let i = 0; i < 9; i++) fireEvent.keyDown(document.body, { key: '+' })
+  expect(media.playbackRate).toBe(2)
+  // Ctrl/Cmd +/- belong to the browser's page zoom.
+  expect(fireEvent.keyDown(document.body, { key: '-', ctrlKey: true })).toBe(true)
+  expect(fireEvent.keyDown(document.body, { key: '-', metaKey: true })).toBe(true)
+  expect(media.playbackRate).toBe(2)
+  const input = document.body.appendChild(document.createElement('input'))
+  expect(fireEvent.keyDown(input, { key: '-' })).toBe(true)
+  const slider = document.body.appendChild(document.createElement('div'))
+  slider.setAttribute('role', 'slider')
+  expect(fireEvent.keyDown(slider, { key: '-' })).toBe(true)
+  expect(media.playbackRate).toBe(2)
+  input.remove()
+  slider.remove()
+})
+it('resyncs sound and picture with one seek in place once a speed change settles', async () => {
+  await start()
+  const media = screen.getByLabelText('Private game') as HTMLVideoElement
+  Object.defineProperty(media, 'duration', { configurable: true, value: 180 })
+  Object.defineProperty(media, 'readyState', { configurable: true, value: 4 })
+  let paused = false
+  Object.defineProperty(media, 'paused', { configurable: true, get: () => paused })
+  fireEvent.loadedMetadata(media)
+  media.currentTime = 42
+  const seeks = vi.fn()
+  const time = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime')!
+  Object.defineProperty(media, 'currentTime', {
+    configurable: true,
+    get: () => time.get!.call(media),
+    set: (value: number) => {
+      seeks(value)
+      time.set!.call(media, value)
+    },
+  })
+  // A burst of changes resyncs once, after the last.
+  fireEvent.keyDown(document.body, { key: '+' })
+  fireEvent.rateChange(media)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(100)
+  })
+  fireEvent.keyDown(document.body, { key: '+' })
+  fireEvent.rateChange(media)
+  expect(seeks).not.toHaveBeenCalled()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(400)
+  })
+  expect(seeks).toHaveBeenCalledExactlyOnceWith(42)
+  // A seek of the viewer's own in between already resyncs.
+  seeks.mockClear()
+  fireEvent.rateChange(media)
+  fireEvent.seeking(media)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(400)
+  })
+  expect(seeks).not.toHaveBeenCalled()
+  // Changed while paused: resync when playback resumes.
+  paused = true
+  fireEvent.rateChange(media)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(400)
+  })
+  expect(seeks).not.toHaveBeenCalled()
+  paused = false
+  fireEvent.playing(media)
+  expect(seeks).toHaveBeenCalledExactlyOnceWith(42)
+  fireEvent.playing(media)
+  expect(seeks).toHaveBeenCalledOnce()
+})

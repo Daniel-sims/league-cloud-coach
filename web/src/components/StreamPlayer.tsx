@@ -8,7 +8,7 @@ import {
   viewerSession,
   type PlaybackLease,
 } from '../lib/supabase'
-import type { PlayerController } from '../lib/player'
+import { stepSpeed, type PlayerController } from '../lib/player'
 import { canvasFor, encodeCapture } from '../lib/drawing'
 import { fetchPlaylist, SignedPlaylists, signedXhrSetup } from '../lib/signed-hls'
 
@@ -124,7 +124,34 @@ export function StreamPlayer({
     if (media.paused) void media.play().catch(() => {})
     else media.pause()
   }
-  useSeekKeys(seek, togglePlay)
+  function changeSpeed(direction: 1 | -1) {
+    const media = video.current
+    if (!media || !canSeek || stopped) return false
+    media.playbackRate = stepSpeed(media.playbackRate, direction)
+    return true
+  }
+  useSeekKeys(seek, togglePlay, changeSpeed)
+  // Chrome can let the sound drift a little from the picture after a speed
+  // change, and it stays off until the next seek. A seek to where we already
+  // are flushes audio and video together and restarts them on one clock, so
+  // do that once the speed settles (one resync for a burst of changes), or
+  // when playback resumes if it changed while paused. Any seek in between
+  // already resyncs, so it cancels the pending one.
+  const resync = useRef<{ timer?: number; pending: boolean }>({ pending: false })
+  function cancelResync() {
+    clearTimeout(resync.current.timer)
+    resync.current.pending = false
+  }
+  function resyncNow(media: HTMLVideoElement) {
+    if (!resync.current.pending || media.paused || media.seeking || media.readyState < 3) return
+    cancelResync()
+    media.currentTime = media.currentTime
+  }
+  function speedChanged(media: HTMLVideoElement) {
+    clearTimeout(resync.current.timer)
+    resync.current.pending = true
+    if (!media.paused) resync.current.timer = window.setTimeout(() => resyncNow(media), 300)
+  }
   useEffect(() => {
     if (!started) return
     let disposed = false
@@ -269,6 +296,7 @@ export function StreamPlayer({
       disposed = true
       clearInterval(timer)
       clearTimeout(waitTimer.current)
+      clearTimeout(resync.current.timer)
       if (restorePosition) media.removeEventListener('loadedmetadata', restorePosition)
       hls?.destroy()
       media.pause()
@@ -329,8 +357,13 @@ export function StreamPlayer({
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
               onEnded={() => setPlaying(false)}
+              onRateChange={(event) => speedChanged(event.currentTarget)}
               onCanPlay={stopWaiting}
-              onPlaying={stopWaiting}
+              onPlaying={(event) => {
+                stopWaiting()
+                resyncNow(event.currentTarget)
+              }}
+              onSeeking={cancelResync}
               onSeeked={stopWaiting}
               onWaiting={() => {
                 if (stopped) return

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, LoaderCircle, VideoOff } from 'lucide-react'
 import { isVideoId, youtubeURL } from '../lib/youtube'
 import { SeekControls, seekPosition, useSeekKeys } from './SeekControls'
-import type { PlayerController } from '../lib/player'
+import { stepSpeed, type PlayerController } from '../lib/player'
 
 type PlayerInstance = {
   destroy(): void
@@ -95,7 +95,13 @@ export function Player({
     if (playing) player.pauseVideo()
     else player.playVideo()
   }
-  useSeekKeys(seek, togglePlay)
+  function changeSpeed(direction: 1 | -1) {
+    const player = instance.current
+    if (state !== 'ready' || !player) return false
+    player.setPlaybackRate(stepSpeed(player.getPlaybackRate(), direction))
+    return true
+  }
+  useSeekKeys(seek, togglePlay, changeSpeed)
   useEffect(() => {
     if (!isVideoId(videoId)) return
     let disposed = false

@@ -17,7 +17,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import type { PlayerController } from '../lib/player'
+import { playbackSpeeds, type PlayerController } from '../lib/player'
 import { jumpSeconds } from './SeekControls'
 
 export type BarMarker = {
@@ -35,7 +35,6 @@ const iconGap = 14
 /** A click this close to a marker, in pixels, lands exactly on it. */
 const snapPixels = 6
 
-const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
 const steps = [-30, -10, -1, 1, 10, 30]
 
 type Snapshot = {
@@ -458,7 +457,8 @@ export function PlayerBar({
             <select
               className="bar-speed"
               aria-label="Playback speed"
-              title="Playback speed"
+              title="Playback speed (- slower, + faster)"
+              aria-keyshortcuts="- +"
               value={state.rate}
               disabled={!ready}
               onChange={(event) => {
@@ -466,7 +466,7 @@ export function PlayerBar({
                 refresh()
               }}
             >
-              {speeds.map((speed) => (
+              {playbackSpeeds.map((speed) => (
                 <option key={speed} value={speed}>
                   {speed}×
                 </option>

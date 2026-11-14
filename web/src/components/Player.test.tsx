@@ -14,6 +14,7 @@ it('uses the same jumps for YouTube controls, bounds seeks, and cleans up the pl
   const destroy = vi.fn()
   const playVideo = vi.fn()
   const pauseVideo = vi.fn()
+  const setPlaybackRate = vi.fn()
   let events: { onStateChange: (event: { data: number }) => void } | undefined
   window.YT = {
     Player: class {
@@ -30,7 +31,7 @@ it('uses the same jumps for YouTube controls, bounds seeks, and cleans up the pl
       getPlayerState = () => 2
       getVideoLoadedFraction = () => 0.5
       getPlaybackRate = () => 1
-      setPlaybackRate = vi.fn()
+      setPlaybackRate = setPlaybackRate
       getVolume = () => 100
       setVolume = vi.fn()
       isMuted = () => false
@@ -53,6 +54,10 @@ it('uses the same jumps for YouTube controls, bounds seeks, and cleans up the pl
   position = 119
   fireEvent.keyDown(forward, { key: 'ArrowRight', shiftKey: true })
   expect(seekTo).toHaveBeenLastCalledWith(120, true)
+  fireEvent.keyDown(forward, { key: '+', shiftKey: true })
+  expect(setPlaybackRate).toHaveBeenLastCalledWith(1.25)
+  fireEvent.keyDown(forward, { key: '-' })
+  expect(setPlaybackRate).toHaveBeenLastCalledWith(0.75)
   fireEvent.click(screen.getByRole('button', { name: 'Play' }))
   expect(playVideo).toHaveBeenCalledOnce()
   await act(async () => events!.onStateChange({ data: 1 }))

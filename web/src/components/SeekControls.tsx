@@ -13,13 +13,20 @@ const arrowWidgets =
   '[role="slider"], [role="separator"], [role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="tree"], [role="grid"]'
 
 /** What a keydown means for the player, or null when it belongs to someone else. */
-export function playerKey(event: KeyboardEvent): 'toggle' | number | null {
+export function playerKey(event: KeyboardEvent): 'toggle' | 'faster' | 'slower' | number | null {
   if (event.defaultPrevented || event.altKey || event.metaKey || event.isComposing) return null
   const target = event.target instanceof Element ? event.target : null
   if (target?.closest(editing) || (target instanceof HTMLElement && target.isContentEditable))
     return null
   // A modal (drawing editor, confirmations) owns the keyboard while open.
   if (document.querySelector('dialog[open]')) return null
+  // - and + (= is + without Shift) change speed. Ctrl with them is browser
+  // zoom, and a focused slider (the scrubber zooms with them) keeps them.
+  const speed = { '-': 'slower', _: 'slower', '+': 'faster', '=': 'faster' } as const
+  if (event.key in speed) {
+    if (event.ctrlKey || target?.closest(arrowWidgets)) return null
+    return speed[event.key as keyof typeof speed]
+  }
   if (event.key === ' ') {
     if (event.ctrlKey || event.shiftKey || target?.closest('[role="menu"]')) return null
     return 'toggle'
@@ -31,14 +38,19 @@ export function playerKey(event: KeyboardEvent): 'toggle' | number | null {
 
 /**
  * Page-wide playback keys: Space plays/pauses, arrows seek 1s (Shift 10s,
- * Ctrl 30s). Listens on window in the capture phase and claims the key, so
+ * Ctrl 30s), - and + step the playback speed down and up. Listens on window in the capture phase and claims the key, so
  * the browser's own video controls never also act on it. Without that, a
  * focused <video> toggled play twice per Space and its scrubber seeked by 1%
  * of the duration (18–30s on a game) per arrow press.
  */
-export function useSeekKeys(seek: (delta: number) => boolean, togglePlay?: () => void) {
-  const latest = useRef({ seek, togglePlay })
-  latest.current = { seek, togglePlay }
+export function useSeekKeys(
+  seek: (delta: number) => boolean,
+  togglePlay?: () => void,
+  /** Steps the speed one menu entry; false when the player can't yet. */
+  changeSpeed?: (direction: 1 | -1) => boolean,
+) {
+  const latest = useRef({ seek, togglePlay, changeSpeed })
+  latest.current = { seek, togglePlay, changeSpeed }
   useEffect(() => {
     let claimedSpace = false
     const claim = (event: KeyboardEvent) => {
@@ -54,6 +66,10 @@ export function useSeekKeys(seek: (delta: number) => boolean, togglePlay?: () =>
         if (!event.repeat) latest.current.togglePlay()
         claimedSpace = true
         claim(event)
+        return
+      }
+      if (action === 'faster' || action === 'slower') {
+        if (latest.current.changeSpeed?.(action === 'faster' ? 1 : -1)) claim(event)
         return
       }
       if (latest.current.seek(action)) claim(event)
