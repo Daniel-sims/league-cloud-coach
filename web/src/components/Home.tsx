@@ -39,6 +39,7 @@ export function Home({
   const [profiles, setProfiles] = useState<LeagueProfile[]>([])
   const [selected, setSelected] = useState('')
   const [matches, setMatches] = useState<LeagueMatch[]>([])
+  const [recordings, setRecordings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [error, setError] = useState('')
@@ -129,6 +130,18 @@ export function Home({
       active = false
     }
   }, [selected, repository])
+
+  // Games the companion uploaded video for, paired by match id.
+  useEffect(() => {
+    let active = true
+    repository
+      .matchRecordings?.()
+      .then((map) => active && setRecordings(map))
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [repository, selected])
 
   // Another player: Summoners owns lookups, so hand off to their profile page.
   function openPlayer(player: Participant) {
@@ -550,6 +563,7 @@ export function Home({
                           onOpenPlayer={openPlayer}
                           busy={Boolean(busy)}
                           loadRanks={repository.matchRanks}
+                          recordingId={recordings[game.id]}
                         />
                       ))}
                     </section>

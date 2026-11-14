@@ -1353,3 +1353,8 @@ select:focus-visible {
   line-height: 16px;
   text-align: center;
 }
+.league-match-recording {
+  display: inline-block;
+  margin: 0 20px 14px;
+  font-size: 0.9rem;
+}

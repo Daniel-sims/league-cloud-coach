@@ -322,11 +322,14 @@ export function MatchRow({
   onOpenPlayer,
   busy,
   loadRanks,
+  recordingId,
 }: {
   game: Game
   onOpenPlayer: (player: Participant) => void
   busy: boolean
   loadRanks?: LoadRanks
+  /** Uploaded recording paired with this game by match id. */
+  recordingId?: string
 }) {
   const [open, setOpen] = useState(false)
   const { ranks, loading: ranksLoading } = useScoreboardRanks(g, loadRanks, open)
@@ -385,6 +388,11 @@ export function MatchRow({
           <span className="sr-only">Scoreboard for {g.id}</span>
         </span>
       </button>
+      {recordingId && (
+        <a className="text-link league-match-recording" href={`#/video/${recordingId}`}>
+          Watch recording
+        </a>
+      )}
       {open && (
         <div className="league-scoreboard" id={`score-${g.id}`}>
           <div className="league-game-meta">

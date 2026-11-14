@@ -10,6 +10,8 @@ export type ViewedProfile = Pick<
 export interface LeagueRepository {
   profiles(): Promise<LeagueProfile[]>
   matches(id: string): Promise<LeagueMatch[]>
+  /** Match id -> recording id for games the owner has uploaded video for. */
+  matchRecordings?(): Promise<Record<string, string>>
   connect(riotId: string, platform: string): Promise<{ id: string }>
   findPlayer(platform: string, riotId: string): Promise<{ puuid: string; profile: ViewedProfile }>
   viewPlayer(platform: string, puuid: string): Promise<{ profile: ViewedProfile }>
@@ -60,6 +62,7 @@ const fetchMatchPage = (id: string, known: string[], limit: number) =>
 export const leagueRepository: LeagueRepository = {
   profiles: () => rpc('list_league_profiles'),
   matches: (id) => cachedMatches(id, fetchMatchPage),
+  matchRecordings: () => rpc<Record<string, string>>('list_match_recordings'),
   connect: (riotId, platform) => riotRequest({ action: 'connect', riotId, platform }),
   findPlayer: (platform, riotId) => riotRequest({ action: 'find-player', platform, riotId }),
   viewPlayer: (platform, puuid) => riotRequest({ action: 'view-player', platform, puuid }),
