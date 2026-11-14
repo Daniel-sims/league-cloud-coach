@@ -493,6 +493,8 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   const reviewUrl = page.url()
   await page.getByRole('button', { name: 'Show sidebar' }).click()
   await page.getByRole('link', { name: 'Video library' }).first().click()
+  await expect(page).toHaveURL(/#\/library$/)
+  await expect(page.getByRole('heading', { name: /Video library/ })).toBeVisible()
   await expect(page.locator('#app-sidebar')).toBeVisible()
   await page.goto(reviewUrl)
   await expect(page.locator('#app-sidebar')).toBeHidden()
