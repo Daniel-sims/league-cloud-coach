@@ -1785,9 +1785,18 @@ body:has(.cinema-mode) .watch-main {
   gap: 4px;
   user-select: none;
 }
+.bar-seek {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
 .bar-scrubber {
+  flex: 1;
+  min-width: 0;
   position: relative;
   height: 22px;
+  /* Room above the track for the markers' icons. */
+  padding-top: 17px;
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -1844,6 +1853,22 @@ body:has(.cinema-mode) .watch-main {
   top: -6px;
   bottom: -6px;
 }
+.bar-icon {
+  position: absolute;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #121512;
+  color: var(--dot, var(--bar-ink));
+}
+.bar-marker.kind-moment .bar-icon {
+  bottom: calc(100% - 1px);
+}
 .bar-thumb {
   position: absolute;
   top: 50%;
@@ -1857,7 +1882,7 @@ body:has(.cinema-mode) .watch-main {
 }
 .bar-peek {
   position: absolute;
-  bottom: 24px;
+  bottom: 36px;
   transform: translateX(-50%);
   display: grid;
   justify-items: center;
@@ -1926,9 +1951,69 @@ body:has(.cinema-mode) .watch-main {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.bar-time small {
-  margin-left: 5px;
+/* While zoomed: where the window sits in the whole video. */
+.bar-overview {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   color: var(--bar-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.bar-overview-track {
+  position: relative;
+  height: 12px;
+  cursor: pointer;
+}
+.bar-overview-track::before {
+  content: '';
+  position: absolute;
+  inset: 5px 0;
+  border-radius: 1px;
+  background: #ffffff26;
+}
+.bar-overview-window {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  min-width: 4px;
+  border: 1px solid #ffffff80;
+  border-radius: 3px;
+  background: #ffffff1a;
+}
+.bar-overview-head {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--gold, #c9a45c);
+}
+.bar-zoom {
+  display: flex;
+  align-items: center;
+  margin-bottom: -4px;
+}
+.player-bar .bar-zoom .icon-button {
+  width: 28px;
+  height: 28px;
+}
+.bar-zoom-level {
+  min-width: 34px;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bar-ink);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.bar-zoom-level:hover {
+  background: #ffffff1a;
 }
 .bar-speed {
   height: 30px;
@@ -1994,10 +2079,8 @@ body:has(.cinema-mode) .watch-main {
   }
 }
 @container player-bar (max-width: 520px) {
-  .bar-step:is([aria-label$='1 second']) {
-    display: none;
-  }
-  .bar-time small {
+  .bar-step:is([aria-label$='1 second']),
+  .bar-zoom-level {
     display: none;
   }
 }

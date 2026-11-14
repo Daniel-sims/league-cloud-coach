@@ -2,6 +2,19 @@
 
 Last reviewed: 14 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Scrubber icons and zoom
+
+Scrubber markers carry a small kind icon (`kindIcons`/`commentIcons` in
+`VideoReview.tsx`). Icons closer than 14 px keep only the first one; zooming in
+spreads them out. The scrubber zooms from the whole video down to a 20 s window,
+using the wheel or a pinch (around the pointer), the zoom buttons at the
+scrubber's end, or + / - / 0 on the focused scrubber. A sideways swipe or
+Shift+wheel pans. While zoomed, an overview line shows the window, and clicking
+it moves the window. When the playhead leaves the window, by playing or seeking,
+the window jumps to it; panning while paused is left alone. A click (not a drag)
+within 6 px of a marker seeks exactly to it. The clock no longer says
+"game"/"video". Frontend only.
+
 ## Bigger review video, comment-only flags, full screen = cinema
 
 The video column sits on the bottom edge level with the timeline (spare height

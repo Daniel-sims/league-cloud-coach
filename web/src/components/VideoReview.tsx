@@ -13,11 +13,16 @@ import {
 } from 'react'
 import {
   ArrowDownToLine,
+  Brain,
+  CircleHelp,
   Clock3,
+  Crosshair,
   Filter,
   Flag,
+  House,
   Link2,
   LoaderCircle,
+  MessageSquare,
   MessageSquarePlus,
   Maximize2,
   NotebookPen,
@@ -27,7 +32,13 @@ import {
   PanelRightOpen,
   RefreshCw,
   Settings,
+  Skull,
+  Star,
+  Swords,
   Trash2,
+  Users,
+  Zap,
+  type LucideIcon,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { EventContextMenu, type EventMenuTarget } from './EventContextMenu'
@@ -64,6 +75,22 @@ import {
   type ReviewRepository,
   type ReviewCapture,
 } from '../lib/review'
+
+// What each tick on the control bar's scrubber shows above its line.
+const kindIcons: Record<EntryKind, LucideIcon> = {
+  ultimate: Zap,
+  kill: Crosshair,
+  death: Skull,
+  fight: Swords,
+  recall: House,
+  matchup: Users,
+  objective: Flag,
+}
+const commentIcons: Record<CommentKind, LucideIcon> = {
+  comment: MessageSquare,
+  question: CircleHelp,
+  mindset: Brain,
+}
 import {
   championIcon,
   gamesFor,
@@ -441,17 +468,31 @@ export function VideoReview({
               ms: item.sortMs,
               className: `kind-${item.entry.kind}`,
               label: item.entry.label,
+              icon: kindIcons[item.entry.kind],
             }
           : item.type === 'comment'
             ? {
                 id: item.id,
                 ms: item.sortMs,
                 className: `comment-${item.comment.kind}`,
-                label: 'Comment',
+                label: commentKinds.find((k) => k.kind === item.comment.kind)?.name ?? 'Comment',
+                icon: commentIcons[item.comment.kind],
               }
             : item.type === 'capture'
-              ? { id: item.id, ms: item.sortMs, className: 'kind-capture', label: 'Drawing' }
-              : { id: item.id, ms: item.sortMs, className: 'kind-moment', label: 'Key moment' },
+              ? {
+                  id: item.id,
+                  ms: item.sortMs,
+                  className: 'kind-capture',
+                  label: 'Drawing',
+                  icon: Pencil,
+                }
+              : {
+                  id: item.id,
+                  ms: item.sortMs,
+                  className: 'kind-moment',
+                  label: 'Key moment',
+                  icon: Star,
+                },
       ),
     [items],
   )
@@ -843,7 +884,6 @@ export function VideoReview({
             <PlayerBar
               controller={controller}
               timeLabel={commentTime}
-              clockName={anchor ? 'game' : 'video'}
               markers={markers}
               expanded={cinema}
               onExpand={() => {
