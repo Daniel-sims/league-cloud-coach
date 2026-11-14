@@ -136,7 +136,7 @@ export function Home({
     let active = true
     repository
       .matchRecordings?.()
-      .then((map) => active && setRecordings(map))
+      .then((map) => active && setRecordings(map ?? {}))
       .catch(() => undefined)
     return () => {
       active = false

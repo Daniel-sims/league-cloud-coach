@@ -103,6 +103,7 @@ async function setup(
       else result = { nextStart: 3, hasMore: false }
     }
     if (name === 'list_recordings') result = []
+    if (name === 'list_match_recordings') result = { '1': '00000000-0000-4000-8000-000000000001' }
     if (name === 'stream') result = { imported: 0, pending: [] }
     await route.fulfill({
       status: 200,
@@ -119,6 +120,11 @@ test('home loads stats, champion and result filters, scoreboard, and keeps the v
   await expect(page.getByRole('heading', { name: 'Home.' })).toBeVisible()
   await expect(page.getByLabel('League account')).toHaveValue(profile.id)
   await expect(page.getByLabel('Your champion')).toBeHidden()
+  await expect(page.getByRole('link', { name: 'Watch recording' })).toHaveCount(1)
+  await expect(page.getByRole('link', { name: 'Watch recording' })).toHaveAttribute(
+    'href',
+    '#/video/00000000-0000-4000-8000-000000000001',
+  )
   await page.getByRole('button', { name: 'Filters', exact: true }).click()
   await page.getByLabel('Your champion').selectOption('103')
   await page.getByLabel('Result', { exact: true }).selectOption('loss')
