@@ -431,9 +431,8 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     .locator('.matchup-card')
     .last()
     .screenshot({ path: testInfo.outputPath('matchup-light.png') })
-  // Collapsing the sidebar gives the video the width; the choice survives reload.
-  // Video pages start with the sidebar hidden so the video gets the width;
-  // showing it narrows the video, and the choice is remembered for video pages.
+  // Reviews open with the sidebar hidden so the video gets the width; showing
+  // it narrows the video.
   await expect(page.locator('#app-sidebar')).toBeHidden()
   const before = await video.evaluate((v) => v.getBoundingClientRect().width)
   await page.getByRole('button', { name: 'Show sidebar' }).click()
@@ -490,6 +489,14 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await page.screenshot({ path: testInfo.outputPath('review-timeline-hidden.png') })
   await page.getByRole('button', { name: 'Show timeline' }).click()
   await expect(timeline).toBeVisible()
+  // Arriving at a review always hides the sidebar, even if it was shown last time.
+  const reviewUrl = page.url()
+  await page.getByRole('button', { name: 'Show sidebar' }).click()
+  await page.getByRole('link', { name: 'Video library' }).first().click()
+  await expect(page.locator('#app-sidebar')).toBeVisible()
+  await page.goto(reviewUrl)
+  await expect(page.locator('#app-sidebar')).toBeHidden()
+  await page.getByRole('button', { name: 'Show sidebar' }).click()
   await page.reload()
   await expect(page.getByRole('button', { name: 'Show sidebar' })).toBeVisible()
   await page.getByRole('button', { name: 'Show sidebar' }).click()

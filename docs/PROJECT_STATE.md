@@ -2,6 +2,13 @@
 
 Last reviewed: 14 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
 
+## Reviews always open without the sidebar
+
+Arriving at a review (`/video/:id` or `/preview/video/:id`) always hides the app
+sidebar. Showing it lasts until you leave the page and is not stored; the old
+`league-cloud-coach-sidebar-video` key is no longer read. Other pages keep
+`league-cloud-coach-sidebar`. Frontend only.
+
 ## Scrubber icons and zoom
 
 Scrubber markers carry a small kind icon (`kindIcons`/`commentIcons` in
@@ -19,9 +26,8 @@ within 6 px of a marker seeks exactly to it. The clock no longer says
 
 The video column sits on the bottom edge level with the timeline (spare height
 gathers above). Until the reader drags the divider, the timeline narrows from 420
-to as little as 390 px when that lets the video use more height. Video pages keep
-their own sidebar preference, hidden by default (`league-cloud-coach-sidebar-video`);
-other pages keep `league-cloud-coach-sidebar`. The control bar centres the clock,
+to as little as 390 px when that lets the video use more height. Reviews open with
+the sidebar hidden (see above). The control bar centres the clock,
 and its full-screen button (and F) toggles cinema mode, video plus timeline. Mark
 is gone: new flags are tagged comments. Existing key moments still show on the
 timeline, and the owner can edit or remove them. Frontend only.

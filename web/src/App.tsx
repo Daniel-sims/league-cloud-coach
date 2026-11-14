@@ -136,32 +136,32 @@ export function App({ authError = null }: { authError?: string | null }) {
   const [authMessage, setAuthMessage] = useState(authError || '')
   const [signingIn, setSigningIn] = useState(false)
   const [help, setHelp] = useState(false)
-  // Video pages keep their own sidebar preference, hidden by default so the
-  // review video gets the width.
-  const [sidebarPrefs, setSidebarPrefs] = useState(() => {
-    const read = (key: string, fallback: boolean) => {
-      try {
-        const value = localStorage.getItem(key)
-        return value === null ? fallback : value === 'collapsed'
-      } catch {
-        return fallback
-      }
-    }
-    return {
-      page: read('league-cloud-coach-sidebar', false),
-      video: read('league-cloud-coach-sidebar-video', true),
+  // Reviews always open with the sidebar hidden so the video gets the width;
+  // showing it lasts until you leave. Other pages remember their own choice.
+  const [pageCollapsed, setPageCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('league-cloud-coach-sidebar') === 'collapsed'
+    } catch {
+      return false
     }
   })
+  const [videoCollapsed, setVideoCollapsed] = useState(true)
   const videoRoute = /^\/(?:preview\/)?video\/[a-f0-9-]+$/.test(route)
-  const collapsed = videoRoute ? sidebarPrefs.video : sidebarPrefs.page
+  const [lastRoute, setLastRoute] = useState(route)
+  if (route !== lastRoute) {
+    setLastRoute(route)
+    if (videoRoute) setVideoCollapsed(true)
+  }
+  const collapsed = videoRoute ? videoCollapsed : pageCollapsed
   function toggleSidebar() {
     const next = !collapsed
-    setSidebarPrefs((prefs) => (videoRoute ? { ...prefs, video: next } : { ...prefs, page: next }))
+    if (videoRoute) {
+      setVideoCollapsed(next)
+      return
+    }
+    setPageCollapsed(next)
     try {
-      localStorage.setItem(
-        videoRoute ? 'league-cloud-coach-sidebar-video' : 'league-cloud-coach-sidebar',
-        next ? 'collapsed' : 'open',
-      )
+      localStorage.setItem('league-cloud-coach-sidebar', next ? 'collapsed' : 'open')
     } catch {
       // Layout preference only.
     }
