@@ -139,9 +139,14 @@ export type TimelineEntry = {
   items?: ItemStack[]
   fight?: FightCard
   ultimate?: UltimateCard
+  takedown?: TakedownCard
   matchup?: MatchupCard
   objective?: ObjectiveCard
 }
+
+export type Person = { name: string; championId?: number; isPlayer: boolean }
+/// A standalone kill or death: who landed it, who fell and who helped.
+export type TakedownCard = { killer?: Person; victim: Person; assists: Person[] }
 
 /// An objective takedown: which monster, who got it and who helped, and how
 /// many of that kind the team now holds.
@@ -443,9 +448,20 @@ function killEntries(c: Context, inFights: Set<Kill>): TimelineEntry[] {
         kind: moment.kind,
         label: moment.label,
         detail: moment.detail,
+        takedown: {
+          killer: kill.killer > 0 ? person(c, kill.killer) : undefined,
+          victim: person(c, kill.victim)!,
+          assists: kill.assists.flatMap((id) => person(c, id) ?? []),
+        },
       },
     ]
   })
+}
+
+function person(c: Context, id: number): Person | undefined {
+  return c.payload.participants.some((x) => x.id === id)
+    ? { name: c.name(id), championId: c.championId(id), isPlayer: id === c.player }
+    : undefined
 }
 
 // Fights: greedy clustering within 25 s and 3500 units of a cluster's last kill.

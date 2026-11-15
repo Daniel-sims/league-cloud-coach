@@ -2425,3 +2425,41 @@ body:has(.cinema-mode) .watch-main {
     min-width: 0;
   }
 }
+
+.takedown-card {
+  gap: 4px;
+}
+.takedown-card.kill {
+  border-left-color: var(--event-kill);
+}
+.takedown-card.death {
+  border-left-color: var(--event-death);
+}
+.takedown-people {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.takedown-arrow {
+  color: var(--muted);
+}
+.takedown-assists {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+.takedown-card small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.takedown-card .takedown-assists small {
+  margin-right: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  font-size: 9px;
+}
+.takedown-detail {
+  font-size: 11px !important;
+}

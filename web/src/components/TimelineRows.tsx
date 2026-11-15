@@ -10,6 +10,8 @@ import {
   type ItemStack,
   type MatchupCard,
   type ObjectiveCard,
+  type Person,
+  type TakedownCard,
   type TimelineEntry,
 } from '../lib/review-timeline'
 import {
@@ -248,11 +250,14 @@ export function EventRow({
             {entry.items && entry.items.length > 0 && (
               <ItemCard stacks={entry.items} patch={patch} />
             )}
-            {entry.detail && entry.kind !== 'recall' && (
+            {entry.detail && entry.kind !== 'recall' && !entry.takedown && (
               <p className="timeline-detail">{entry.detail}</p>
             )}
             {entry.fight && (
               <Fight card={entry.fight} seekable={seekable} onSeekTime={onSeekTime} />
+            )}
+            {entry.takedown && (
+              <Takedown card={entry.takedown} detail={entry.detail} kind={entry.kind} />
             )}
             {entry.ultimate && (
               <Ultimate card={entry.ultimate} seekable={seekable} onSeekTime={onSeekTime} />
@@ -415,6 +420,36 @@ function Fight({
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+function Takedown({ card, detail, kind }: { card: TakedownCard; detail?: string; kind: string }) {
+  const who = (p: Person) => (
+    <span
+      key={`${p.name}-${p.isPlayer}`}
+      className={`fight-champion ${p.isPlayer ? 'player' : ''}`}
+      title={p.isPlayer ? `You (${p.name})` : p.name}
+    >
+      {p.championId ? <img src={championIcon(p.championId)} alt={p.name} loading="lazy" /> : p.name}
+    </span>
+  )
+  return (
+    <div className={`timeline-card takedown-card ${kind}`}>
+      <div className="takedown-people">
+        {card.killer ? who(card.killer) : <small>Executed</small>}
+        <span className="takedown-arrow" aria-hidden="true">
+          →
+        </span>
+        {who(card.victim)}
+        {card.assists.length > 0 && (
+          <span className="takedown-assists">
+            <small>Assists</small>
+            {card.assists.map(who)}
+          </span>
+        )}
+      </div>
+      {detail && <small className="takedown-detail">{detail}</small>}
     </div>
   )
 }
