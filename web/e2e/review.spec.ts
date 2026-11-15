@@ -431,20 +431,9 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
     .locator('.matchup-card')
     .last()
     .screenshot({ path: testInfo.outputPath('matchup-light.png') })
-  // Reviews open with the sidebar hidden so the video gets the width; showing
-  // it narrows the video.
+  // Reviews never offer the sidebar; you go back to reach it.
   await expect(page.locator('#app-sidebar')).toBeHidden()
-  const before = await video.evaluate((v) => v.getBoundingClientRect().width)
-  await page.getByRole('button', { name: 'Show sidebar' }).click()
-  await expect(page.locator('#app-sidebar')).toBeVisible()
-  await expect
-    .poll(() => video.evaluate((v) => v.getBoundingClientRect().width))
-    .toBeLessThan(before)
-  await page.getByRole('button', { name: 'Hide sidebar' }).click()
-  await expect(page.locator('#app-sidebar')).toBeHidden()
-  await expect
-    .poll(() => video.evaluate((v) => v.getBoundingClientRect().width))
-    .toBeCloseTo(before, -1)
+  await expect(page.getByRole('button', { name: 'Show sidebar' })).toHaveCount(0)
   await page.setViewportSize({ width: 1903, height: 958 })
   await page.waitForTimeout(100)
   const stage = await video.evaluate((v) => v.parentElement!.getBoundingClientRect())
@@ -489,19 +478,17 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await page.screenshot({ path: testInfo.outputPath('review-timeline-hidden.png') })
   await page.getByRole('button', { name: 'Show timeline' }).click()
   await expect(timeline).toBeVisible()
-  // Arriving at a review always hides the sidebar, even if it was shown last time.
+  // The sidebar is back on the library page.
   const reviewUrl = page.url()
-  await page.getByRole('button', { name: 'Show sidebar' }).click()
-  await page.getByRole('link', { name: 'Video library' }).first().click()
+  await page.getByRole('link', { name: 'Back to library' }).click()
   await expect(page).toHaveURL(/#\/library$/)
   await expect(page.getByRole('heading', { name: /Video library/ })).toBeVisible()
   await expect(page.locator('#app-sidebar')).toBeVisible()
   await page.goto(reviewUrl)
   await expect(page.locator('#app-sidebar')).toBeHidden()
-  await page.getByRole('button', { name: 'Show sidebar' }).click()
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Show sidebar' })).toBeVisible()
-  await page.getByRole('button', { name: 'Show sidebar' }).click()
+  await expect(page.locator('#app-sidebar')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Show sidebar' })).toHaveCount(0)
   await page.setViewportSize({ width: 1440, height: 900 })
 
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } })

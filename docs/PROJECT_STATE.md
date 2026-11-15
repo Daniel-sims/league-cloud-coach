@@ -750,3 +750,7 @@ Ultimate casts carry a card like League Helper's: location, a Quiet/Won/Lost/Tra
 badge from kills in the 3 s before to 15 s after the cast, and the player's own
 credited moments. Teamfight cards add a "Your part" section; kill/assist/death
 moments no longer show timestamps (the time stays in each button's accessible name).
+
+## No sidebar in a review
+
+The review screen never shows the sidebar or its toggle; use the back arrow to return to the library.

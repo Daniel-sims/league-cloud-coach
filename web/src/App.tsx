@@ -154,8 +154,8 @@ export function App({ authError = null }: { authError?: string | null }) {
   const [authMessage, setAuthMessage] = useState(authError || '')
   const [signingIn, setSigningIn] = useState(false)
   const [help, setHelp] = useState(false)
-  // Reviews always open with the sidebar hidden so the video gets the width;
-  // showing it lasts until you leave. Other pages remember their own choice.
+  // Reviews never show the sidebar (you go back to reach it) so the video gets
+  // the width. Other pages remember their own choice.
   const [pageCollapsed, setPageCollapsed] = useState(() => {
     try {
       return localStorage.getItem('league-cloud-coach-sidebar') === 'collapsed'
@@ -163,20 +163,11 @@ export function App({ authError = null }: { authError?: string | null }) {
       return false
     }
   })
-  const [videoCollapsed, setVideoCollapsed] = useState(true)
   const videoRoute = /^\/(?:preview\/)?video\/[a-f0-9-]+$/.test(route)
-  const [lastRoute, setLastRoute] = useState(route)
-  if (route !== lastRoute) {
-    setLastRoute(route)
-    if (videoRoute) setVideoCollapsed(true)
-  }
-  const collapsed = videoRoute ? videoCollapsed : pageCollapsed
+  const collapsed = videoRoute || pageCollapsed
   function toggleSidebar() {
+    if (videoRoute) return
     const next = !collapsed
-    if (videoRoute) {
-      setVideoCollapsed(next)
-      return
-    }
     setPageCollapsed(next)
     try {
       localStorage.setItem('league-cloud-coach-sidebar', next ? 'collapsed' : 'open')
@@ -375,7 +366,7 @@ export function App({ authError = null }: { authError?: string | null }) {
         </div>
       </aside>
       <div className="main-shell">
-        {session && member && !local && collapsed && (
+        {session && member && !local && collapsed && !videoRoute && (
           <button
             className="icon-button sidebar-reveal"
             onClick={toggleSidebar}
@@ -388,16 +379,18 @@ export function App({ authError = null }: { authError?: string | null }) {
         )}
         {!(session && member && !local) && (
           <header className="topbar">
-            <button
-              className="icon-button sidebar-toggle"
-              onClick={toggleSidebar}
-              aria-controls="app-sidebar"
-              aria-expanded={!collapsed}
-              aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
-              title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
-            >
-              {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-            </button>
+            {!videoRoute && (
+              <button
+                className="icon-button sidebar-toggle"
+                onClick={toggleSidebar}
+                aria-controls="app-sidebar"
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+                title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+              >
+                {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+              </button>
+            )}
             <div className="breadcrumb">
               <Cloud size={16} />
               <span>Workspace</span>
