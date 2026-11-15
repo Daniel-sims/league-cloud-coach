@@ -63,8 +63,9 @@ conflicting edits from another tab cannot silently overwrite saved notes.
 
 ### Review timeline
 
-The timeline shows fights, kills, ultimate casts and neutral objectives (dragons,
-Baron, Herald and grubs where present). Objective icons show the securing team in their tooltip and border
+Choose **Simple** in the timeline cog for compact, named events showing your deaths,
+ultimate casts and neutral objectives (dragons, Baron, Herald and grubs where
+present). Objective icons show the securing team in their tooltip and border
 colour; they seek to the exact event time. Scuttle timestamps are not available
 in the data currently stored by this app.
 
@@ -78,7 +79,8 @@ On desktop, the timeline fills the available window height independently of the 
 Right-click an event and choose **Add comment** to start or continue its discussion.
 Keyboard users can focus the event and press **Shift+F10**. The composer names
 the event and uses its exact timestamp. Players and coaches see the discussion
-beneath the event, with existing editing and moderation rules. The header's
+beneath the event, with existing editing and moderation rules. Simple mode shows
+the event name beside its icon; it has no repeated Comment buttons. The header's
 **Comment** button still adds a general playhead note. Existing notes stay intact.
 If an event is hidden or a different game is attached, its comments retain an
 explicit event caption in the timeline. **Teamfights** in the filter independently

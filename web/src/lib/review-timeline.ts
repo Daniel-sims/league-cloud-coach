@@ -362,6 +362,28 @@ export function buildTimeline(payload: ReviewPayload): TimelineEntry[] {
   ].sort((a, b) => a.gameTimeMs - b.gameTimeMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
+/// The simple timeline: every one of the player's deaths (teamfight or not)
+/// ultimate casts and neutral objectives, rendered as compact named events.
+export function simpleEntries(payload: ReviewPayload, anchor: ClockAnchor | null): TimelineEntry[] {
+  const c = context(payload)
+  const deaths = payload.kills.flatMap((kill): TimelineEntry[] => {
+    const moment = killMoment(kill, c)
+    if (moment?.kind !== 'death') return []
+    return [
+      {
+        id: `death-${kill.t}`,
+        gameTimeMs: kill.t,
+        kind: 'death',
+        label: moment.label,
+        detail: moment.detail,
+      },
+    ]
+  })
+  return [...deaths, ...ultimateEntries(payload, anchor), ...objectiveEntries(c)].sort(
+    (a, b) => a.gameTimeMs - b.gameTimeMs,
+  )
+}
+
 /// The kinds represented inside a row. Visibility filters use the primary kind
 /// so disabling Teamfights cannot be overridden by its kill/death moments.
 export function filterKinds(entry: TimelineEntry): EntryKind[] {
