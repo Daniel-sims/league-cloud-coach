@@ -28,6 +28,10 @@ export type ReviewPayload = {
     position: string;
     /** End-of-game item0–item6 from the match summary (0 = empty slot). */
     finalItems?: number[];
+    /** Summoner spell ids [D, F], as in the match summary. */
+    spells?: number[];
+    /** Keystone rune id and secondary rune tree id. */
+    runes?: number[];
   }[];
   frames: { t: number; snapshots: Record<string, ReviewSnapshot> }[];
   kills: {
@@ -86,6 +90,9 @@ type MatchSummary = {
     item4?: number;
     item5?: number;
     item6?: number;
+    summoner1Id?: number;
+    summoner2Id?: number;
+    perks?: { styles?: { style?: number; selections?: { perk?: number }[] }[] };
   }[];
 };
 
@@ -111,6 +118,21 @@ function finalItems(p: MatchSummary["participants"][number]) {
   return items.every((i) => Number.isInteger(i) && i! >= 0)
     ? { finalItems: items as number[] }
     : {};
+}
+
+const positive = (v: unknown): v is number =>
+  Number.isInteger(v) && (v as number) > 0;
+// Summoner spells, keystone and secondary tree, as the in-game scoreboard shows them.
+function loadout(p: MatchSummary["participants"][number]) {
+  const spells = [p.summoner1Id, p.summoner2Id];
+  const runes = [
+    p.perks?.styles?.[0]?.selections?.[0]?.perk,
+    p.perks?.styles?.[1]?.style,
+  ];
+  return {
+    ...(spells.every(positive) ? { spells: spells as number[] } : {}),
+    ...(runes.every(positive) ? { runes: runes as number[] } : {}),
+  };
 }
 
 export function reduceTimeline(
@@ -145,6 +167,7 @@ export function reduceTimeline(
             teamId: p.teamId,
             position: p.teamPosition ?? "",
             ...finalItems(p),
+            ...loadout(p),
           },
         ]
       : [];

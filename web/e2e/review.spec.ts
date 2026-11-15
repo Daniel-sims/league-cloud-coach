@@ -1648,6 +1648,12 @@ test('the board shows everyone’s items and score at the playhead', async ({ pa
   await expect(me.locator('.timeline-item small')).toHaveText('2')
   // Six item slots and a trinket slot, filled or empty, like the in-game inventory.
   await expect(me.locator('.timeline-item')).toHaveCount(7)
+  // Two summoner spells and two rune slots beside each portrait, as in game.
+  await expect(me.locator('.board-loadout > *')).toHaveCount(4)
+  // Named once Data Dragon answers, by id until then.
+  await expect(
+    me.locator('.board-loadout').locator('[title="Arcane Comet"], [title="Keystone 8229"]'),
+  ).toHaveCount(1)
   await expect(board.getByLabel(/^Kills: Blue 4, Red \d+$/)).toBeVisible()
   await expect(board.locator('.board-team.red li')).toHaveCount(5)
   await expect(board.locator('.board-team.blue li')).toHaveCount(5)

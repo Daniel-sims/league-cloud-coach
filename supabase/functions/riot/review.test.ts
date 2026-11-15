@@ -26,6 +26,15 @@ const match = {
       item4: 0,
       item5: 0,
       item6: 3364,
+      summoner1Id: 4,
+      summoner2Id: 14,
+      perks: {
+        statPerks: { offense: 5008 },
+        styles: [
+          { style: 8200, selections: [{ perk: 8229 }, { perk: 8226 }] },
+          { style: 8300, selections: [{ perk: 8345 }] },
+        ],
+      },
     },
     {
       puuid: "them",
@@ -148,6 +157,8 @@ it("reduces a Riot timeline to the review payload without account identities", (
       teamId: 100,
       position: "MIDDLE",
       finalItems: [3157, 0, 0, 0, 0, 0, 3364],
+      spells: [4, 14],
+      runes: [8229, 8300],
     },
     {
       id: 8,

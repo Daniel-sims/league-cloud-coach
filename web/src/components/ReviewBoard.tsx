@@ -4,6 +4,7 @@ import { championIcon } from '../lib/league'
 import { boardAt, replayAll, trinkets, type BoardPlayer, type BoardTeam } from '../lib/board'
 import { clock, stacks, type ReviewPayload } from '../lib/review-timeline'
 import { Items, patchOf } from './TimelineRows'
+import { LoadoutIcons } from './Loadout'
 
 const k = (gold: number) => `${(gold / 1000).toFixed(1)}k`
 const side = (teamId: number) => (teamId === 100 ? 'Blue' : 'Red')
@@ -26,6 +27,7 @@ export function ReviewBoard({
   const board = boardAt(review, replays, at)
   const patch = patchOf(review.gameVersion)
   const unchecked = review.participants.every((p) => !p.finalItems)
+  const noLoadout = review.participants.every((p) => !p.runes)
   const [blue, red] = board.teams
   return (
     <div className="review-board-layer">
@@ -66,6 +68,8 @@ export function ReviewBoard({
             : 'Level, CS and gold arrive with the first minute.'}
           {unchecked &&
             ' This review has no final items, so a support’s quest upgrade can’t be named.'}
+          {noLoadout &&
+            ' This review has no runes or summoner spells yet; Refresh timeline (cog → Change game) adds them.'}
         </footer>
       </section>
     </div>
@@ -162,6 +166,7 @@ function PlayerRow({
   const trinket = stacks(p.items.filter((i) => trinkets.has(i))).slice(0, 1)
   return (
     <li className={focused ? 'focused' : ''}>
+      <LoadoutIcons spells={p.spells ?? []} runes={p.runes ?? []} className="board-loadout" />
       <span className="board-champion" title={p.championName}>
         <img src={championIcon(p.championId)} alt="" width={28} height={28} loading="lazy" />
         {p.level !== null && <small aria-label={`level ${p.level}`}>{p.level}</small>}

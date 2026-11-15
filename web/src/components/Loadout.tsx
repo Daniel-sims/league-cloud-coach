@@ -63,18 +63,39 @@ function useAssets() {
   return assets
 }
 export function Loadout({ player }: { player: Participant }) {
-  const assets = useAssets()
   const keystone = player.perks?.styles[0]?.selections[0]?.perk
   const secondary = (player.perks?.styles[1] as { style?: number } | undefined)?.style
-  const icons = [
-    assets.spells[player.summoner1Id],
-    assets.spells[player.summoner2Id],
-    keystone ? assets.runes[keystone] : undefined,
-    secondary ? assets.runes[secondary] : undefined,
+  return (
+    <LoadoutIcons spells={[player.summoner1Id, player.summoner2Id]} runes={[keystone, secondary]} />
+  )
+}
+
+/** Two summoner spells then keystone and secondary tree; unknown ids draw an empty slot. */
+export function LoadoutIcons({
+  spells,
+  runes,
+  className = 'league-loadout',
+}: {
+  spells: (number | undefined)[]
+  runes: (number | undefined)[]
+  className?: string
+}) {
+  const assets = useAssets()
+  const slots = [
+    ...[0, 1].map((i) => ({
+      id: spells[i],
+      asset: spells[i] ? assets.spells[spells[i]] : undefined,
+      kind: 'Summoner spell',
+    })),
+    ...[0, 1].map((i) => ({
+      id: runes[i],
+      asset: runes[i] ? assets.runes[runes[i]] : undefined,
+      kind: i === 0 ? 'Keystone' : 'Secondary runes',
+    })),
   ]
   return (
-    <div className="league-loadout" aria-label="Summoner spells and runes">
-      {icons.map((asset, i) =>
+    <div className={className} aria-label="Summoner spells and runes">
+      {slots.map(({ id, asset, kind }, i) =>
         asset ? (
           <img
             key={i}
@@ -86,13 +107,7 @@ export function Loadout({ player }: { player: Participant }) {
             loading="lazy"
           />
         ) : (
-          <span
-            key={i}
-            className="league-empty-item"
-            title={
-              i < 2 ? `Summoner spell ${i === 0 ? player.summoner1Id : player.summoner2Id}` : 'Rune'
-            }
-          />
+          <span key={i} className="league-empty-item" title={id ? `${kind} ${id}` : kind} />
         ),
       )}
     </div>

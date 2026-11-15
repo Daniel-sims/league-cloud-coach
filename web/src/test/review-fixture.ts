@@ -49,6 +49,7 @@ export function reviewPayload(): ReviewPayload {
       championId: championId as number,
       position: position as string,
       teamId: index < 5 ? 100 : 200,
+      ...(index === 2 ? { spells: [4, 14], runes: [8229, 8300] } : {}),
     })),
     frames: [
       { t: 0, snapshots: { 3: snap(500, 0), 8: snap(500, 0) } },

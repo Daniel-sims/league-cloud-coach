@@ -45,6 +45,10 @@ export type ReviewPayload = {
     position: string
     /** End-of-game item0–item6 (0 = empty); absent on older reviews. */
     finalItems?: number[]
+    /** Summoner spell ids [D, F]; absent on older reviews. */
+    spells?: number[]
+    /** Keystone rune id and secondary tree id; absent on older reviews. */
+    runes?: number[]
   }[]
   frames: { t: number; snapshots: Record<string, Snapshot> }[]
   kills: Kill[]

@@ -195,6 +195,16 @@ describe("companion authorization and publish", () => {
     expect(validReview(withFinals)).toBe(false);
     Object.assign(withFinals.participants[0], { finalItems: ["3157"] });
     expect(validReview(withFinals)).toBe(false);
+    const withLoadout = payload();
+    Object.assign(withLoadout.participants[0], {
+      spells: [4, 14],
+      runes: [8229, 8300],
+    });
+    expect(validReview(withLoadout)).toBe(true);
+    Object.assign(withLoadout.participants[0], { runes: [8229, 8300, 8345] });
+    expect(validReview(withLoadout)).toBe(false);
+    Object.assign(withLoadout.participants[0], { runes: [0, 8300] });
+    expect(validReview(withLoadout)).toBe(false);
     expect(validReview({ ...payload(), playerId: 2 })).toBe(false);
     expect(
       validReview({

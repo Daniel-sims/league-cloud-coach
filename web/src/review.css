@@ -2184,7 +2184,7 @@ body:has(.cinema-mode) .watch-main {
   --board-line: #3a4038;
   pointer-events: auto;
   position: relative;
-  width: min(100%, 700px);
+  width: min(100%, 760px);
   max-height: 100%;
   overflow: auto;
   display: grid;
@@ -2321,7 +2321,7 @@ body:has(.cinema-mode) .watch-main {
 }
 .board-team li {
   display: grid;
-  grid-template-columns: 30px 26px 46px auto auto;
+  grid-template-columns: 30px 30px 26px 46px auto auto;
   align-items: center;
   justify-content: start;
   gap: 6px;
@@ -2336,6 +2336,24 @@ body:has(.cinema-mode) .watch-main {
 }
 .board-team.red li.focused {
   box-shadow: inset 2px 0 0 var(--board-red);
+}
+/* Summoner spells over runes, two by two, left of the portrait as in game. */
+.board-loadout {
+  display: grid;
+  grid-template-columns: repeat(2, 14px);
+  gap: 2px;
+}
+.board-loadout > img,
+.board-loadout > span {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: block;
+  background: rgb(255 255 255 / 0.06);
+}
+.board-loadout > img:nth-child(n + 3) {
+  border-radius: 50%;
+  background: #0b0d0b;
 }
 .board-champion {
   position: relative;
@@ -2405,7 +2423,7 @@ body:has(.cinema-mode) .watch-main {
   font-size: 11px;
   line-height: 1.4;
 }
-@container (max-width: 640px) {
+@container (max-width: 720px) {
   .board-sides {
     grid-template-columns: 1fr;
     gap: 6px;

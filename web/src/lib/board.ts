@@ -165,6 +165,9 @@ export type BoardPlayer = {
   gold: number | null
   items: number[]
   verified: boolean | null
+  /** Summoner spells [D, F] and [keystone, secondary tree]; absent on older reviews. */
+  spells?: number[]
+  runes?: number[]
 }
 
 export type BoardTeam = {
@@ -212,6 +215,8 @@ export function boardAt(
       gold: snap ? snap.gold : null,
       items: replays.get(p.id) ? itemsAt(replays.get(p.id)!, at) : [],
       verified: replays.get(p.id)?.verified ?? null,
+      spells: p.spells,
+      runes: p.runes,
     }
   })
   const monsters = payload.monsters.filter((m) => m.t <= at)
