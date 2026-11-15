@@ -1646,8 +1646,15 @@ test('the board shows everyone’s items and score at the playhead', async ({ pa
   await expect(me.locator('.board-cs')).toHaveText('70')
   await expect(me.locator('.timeline-item img')).toHaveCount(3)
   await expect(me.locator('.timeline-item small')).toHaveText('2')
-  await expect(board.locator('.board-team.blue .board-team-head')).toContainText('4 kills')
+  // Six item slots and a trinket slot, filled or empty, like the in-game inventory.
+  await expect(me.locator('.timeline-item')).toHaveCount(7)
+  await expect(board.getByLabel(/^Kills: Blue 4, Red \d+$/)).toBeVisible()
   await expect(board.locator('.board-team.red li')).toHaveCount(5)
+  await expect(board.locator('.board-team.blue li')).toHaveCount(5)
+  // Blue on the left, red on the right, as in game.
+  const blueBox = (await board.locator('.board-team.blue').boundingBox())!
+  const redBox = (await board.locator('.board-team.red').boundingBox())!
+  expect(blueBox.x + blueBox.width).toBeLessThanOrEqual(redBox.x + 1)
   await expect(board).toContainText('as of 10:00')
   const box = (await board.boundingBox())!
   expect(box.x).toBeGreaterThanOrEqual(0)

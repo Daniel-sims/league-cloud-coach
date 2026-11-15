@@ -2150,10 +2150,16 @@ body:has(.cinema-mode) .watch-main {
   padding: 10px;
   pointer-events: none;
   z-index: 3;
+  container-type: inline-size;
 }
 .review-board {
+  --board-blue: #6f9cec;
+  --board-red: #e2705f;
+  --board-muted: #9aa293;
+  --board-line: #3a4038;
   pointer-events: auto;
-  width: min(100%, 720px);
+  position: relative;
+  width: min(100%, 700px);
   max-height: 100%;
   overflow: auto;
   display: grid;
@@ -2164,6 +2170,14 @@ body:has(.cinema-mode) .watch-main {
   color: #e9ece4;
   font-size: 12px;
   box-shadow: 0 6px 24px rgb(0 0 0 / 0.35);
+}
+.review-board .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 .review-board header {
   display: flex;
@@ -2176,48 +2190,139 @@ body:has(.cinema-mode) .watch-main {
 .review-board .icon-button {
   color: inherit;
 }
-.board-team-head {
+.board-score .blue {
+  color: var(--board-blue);
+}
+.board-score .red {
+  color: var(--board-red);
+}
+
+/* Top bar: blue objectives, kills, dragons and gold lead, red objectives. */
+.board-score {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--board-line);
+}
+.board-objectives {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
-  align-items: baseline;
-  padding: 0 2px 4px;
-  border-bottom: 2px solid #4a7ac8;
-  color: #9aa293;
+  justify-content: space-evenly;
+  gap: 4px 10px;
 }
-.board-team.red .board-team-head {
-  border-bottom-color: #c85a4a;
+.board-objectives li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
-.board-team-head strong {
-  color: #e9ece4;
+.board-objectives li svg {
+  color: var(--board-muted);
 }
-.review-board ul {
+.board-centre {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 112px;
+}
+.board-kills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.board-kills svg {
+  color: var(--board-muted);
+}
+.board-dragons {
+  display: flex;
+  gap: 10px;
+}
+.board-dragons span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.board-dragons i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0.45;
+}
+.board-dragons i.taken {
+  background: currentColor;
+  opacity: 1;
+}
+.board-dragons small {
+  font-size: 9px;
+  font-weight: 700;
+}
+.board-gold {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--board-muted);
+  white-space: nowrap;
+}
+
+/* Blue on the left, red on the right, each row: champion, CS, K/D/A, items, trinket. */
+.board-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.board-team {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
+  align-content: start;
+  gap: 2px;
 }
-.review-board li {
+.board-team.blue {
+  padding-right: 6px;
+}
+.board-team.red {
+  padding-left: 6px;
+  border-left: 1px solid var(--board-line);
+}
+.board-team li {
   display: grid;
-  grid-template-columns: 26px minmax(70px, 1fr) 58px 34px auto;
+  grid-template-columns: 30px 26px 46px auto auto;
   align-items: center;
-  gap: 8px;
-  padding: 1px 4px;
+  justify-content: start;
+  gap: 6px;
+  padding: 2px 4px;
   border-radius: 5px;
 }
-.review-board li.focused {
-  background: rgb(255 255 255 / 0.08);
+.board-team li.focused {
+  background: rgb(255 255 255 / 0.1);
+}
+.board-team.blue li.focused {
+  box-shadow: inset 2px 0 0 var(--board-blue);
+}
+.board-team.red li.focused {
+  box-shadow: inset 2px 0 0 var(--board-red);
 }
 .board-champion {
   position: relative;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
 }
 .board-champion img {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: block;
+  border: 1px solid var(--board-line);
 }
 .board-champion small {
   position: absolute;
@@ -2227,54 +2332,71 @@ body:has(.cinema-mode) .watch-main {
   padding: 0 2px;
   border-radius: 7px;
   background: #121512;
-  border: 1px solid #3a4038;
+  border: 1px solid var(--board-line);
   font-size: 9px;
   font-weight: 600;
   text-align: center;
   line-height: 13px;
 }
-.board-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.board-name abbr {
-  margin-left: 4px;
+.board-champion abbr {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  font-size: 11px;
+  font-weight: 700;
   color: #e0b85a;
   text-decoration: none;
   cursor: help;
+  text-shadow: 0 0 2px #000;
 }
 .board-kda,
 .board-cs {
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: center;
+}
+.board-kda {
+  font-weight: 600;
 }
 .board-cs {
-  color: #9aa293;
+  color: #e0c766;
 }
 .review-board .timeline-items {
   flex-wrap: nowrap;
+  gap: 2px;
 }
 .review-board .timeline-item {
-  width: 22px;
-  height: 22px;
-  border-color: #3a4038;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border-color: var(--board-line);
   background: #0b0d0b;
 }
+.review-board .timeline-item.empty {
+  background: rgb(255 255 255 / 0.04);
+  border-color: rgb(255 255 255 / 0.06);
+}
 .review-board footer {
-  color: #9aa293;
+  color: var(--board-muted);
   font-size: 11px;
   line-height: 1.4;
 }
-@media (max-width: 640px) {
-  .review-board li {
-    grid-template-columns: 26px minmax(0, 1fr) 50px auto;
+@container (max-width: 640px) {
+  .board-sides {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
-  .board-cs {
-    display: none;
+  .board-team.blue {
+    padding-right: 0;
   }
-  .review-board .timeline-item {
-    width: 18px;
-    height: 18px;
+  .board-team.red {
+    padding: 6px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--board-line);
+  }
+  .board-objectives {
+    gap: 2px 6px;
+  }
+  .board-centre {
+    min-width: 0;
   }
 }

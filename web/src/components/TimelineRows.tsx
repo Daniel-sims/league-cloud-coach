@@ -57,7 +57,16 @@ function rowClick(action: () => void) {
 }
 export const patchOf = (gameVersion: string) => gameVersion.split('.').slice(0, 2).join('.') + '.1'
 
-export function Items({ stacks, patch }: { stacks: ItemStack[]; patch: string }) {
+export function Items({
+  stacks,
+  patch,
+  empty = 0,
+}: {
+  stacks: ItemStack[]
+  patch: string
+  /** Blank slots to draw after the items, like an inventory's empty spaces. */
+  empty?: number
+}) {
   const names = useItemNames(patch)
   return (
     <span className="timeline-items">
@@ -74,6 +83,9 @@ export function Items({ stacks, patch }: { stacks: ItemStack[]; patch: string })
           </span>
         )
       })}
+      {Array.from({ length: empty }, (_, i) => (
+        <span key={`empty-${i}`} className="timeline-item empty" />
+      ))}
     </span>
   )
 }
