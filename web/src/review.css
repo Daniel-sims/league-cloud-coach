@@ -428,6 +428,31 @@
 .timeline-row.current .timeline-label {
   font-weight: 600;
 }
+.item-card > small {
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+}
+.item-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+.item-card li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.item-card li b {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .timeline-detail {
   font-size: 11px;
   color: var(--muted);

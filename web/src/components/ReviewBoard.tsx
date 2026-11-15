@@ -120,11 +120,10 @@ function GoldLead({ blue, red }: { blue: number | null; red: number | null }) {
   const lead = blue - red
   const leader = lead > 0 ? 'blue' : lead < 0 ? 'red' : ''
   return (
-    <div
-      className={`board-gold ${leader}`}
-      title={`Blue ${k(blue)} gold · Red ${k(red)} gold`}
-    >
-      {lead === 0 ? 'Gold even' : `${lead > 0 ? '◀ ' : ''}+${k(Math.abs(lead))} gold${lead < 0 ? ' ▶' : ''}`}
+    <div className={`board-gold ${leader}`} title={`Blue ${k(blue)} gold · Red ${k(red)} gold`}>
+      {lead === 0
+        ? 'Gold even'
+        : `${lead > 0 ? '◀ ' : ''}+${k(Math.abs(lead))} gold${lead < 0 ? ' ▶' : ''}`}
     </div>
   )
 }
@@ -139,7 +138,10 @@ function TeamBoard({
   patch: string
 }) {
   return (
-    <ul className={`board-team ${side(team.teamId).toLowerCase()}`} aria-label={`${side(team.teamId)} team`}>
+    <ul
+      className={`board-team ${side(team.teamId).toLowerCase()}`}
+      aria-label={`${side(team.teamId)} team`}
+    >
       {team.players.map((p) => (
         <PlayerRow key={p.id} player={p} focused={p.id === playerId} patch={patch} />
       ))}

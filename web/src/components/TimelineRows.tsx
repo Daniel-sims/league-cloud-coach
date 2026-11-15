@@ -90,6 +90,31 @@ export function Items({
   )
 }
 
+/// Items bought, named beside their icons so nothing depends on hovering.
+function ItemCard({ stacks, patch }: { stacks: ItemStack[]; patch: string }) {
+  const names = useItemNames(patch)
+  return (
+    <div className="timeline-card item-card">
+      <small>Bought</small>
+      <ul>
+        {stacks.map(({ item, count }) => (
+          <li key={item}>
+            <span className="timeline-item">
+              <img
+                src={`https://ddragon.leagueoflegends.com/cdn/${patch}/img/item/${item}.png`}
+                alt=""
+                loading="lazy"
+              />
+            </span>
+            <span>{names[item] ?? `Item ${item}`}</span>
+            {count > 1 && <b>×{count}</b>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function EventRow({
   entry,
   patch,
@@ -220,7 +245,9 @@ export function EventRow({
           <Objective card={entry.objective} />
         ) : (
           <>
-            {entry.items && entry.items.length > 0 && <Items stacks={entry.items} patch={patch} />}
+            {entry.items && entry.items.length > 0 && (
+              <ItemCard stacks={entry.items} patch={patch} />
+            )}
             {entry.detail && entry.kind !== 'recall' && (
               <p className="timeline-detail">{entry.detail}</p>
             )}
@@ -349,7 +376,7 @@ function Fight({
                 <span
                   key={x.id}
                   className={`fight-champion ${x.died ? 'died' : ''} ${x.isPlayer ? 'player' : ''}`}
-                  title={`${x.championName}${x.isPlayer ? ' (you)' : ''} · ${x.kills} kills, ${x.assists} assists${x.died ? ', died' : ''}`}
+                  title={`${x.isPlayer ? `You (${x.championName})` : x.championName} · ${x.kills} kills, ${x.assists} assists${x.died ? ', died' : ''}`}
                 >
                   {x.championId ? (
                     <img src={championIcon(x.championId)} alt={x.championName} loading="lazy" />
@@ -398,7 +425,7 @@ function Objective({ card }: { card: ObjectiveCard }) {
     <span
       key={`${p.name}-${p.isPlayer}`}
       className={`fight-champion ${p.isPlayer ? 'player' : ''}`}
-      title={p.name + (p.isPlayer ? ' (you)' : '')}
+      title={p.isPlayer ? `You (${p.name})` : p.name}
     >
       {p.championId ? <img src={championIcon(p.championId)} alt={p.name} loading="lazy" /> : p.name}
     </span>
@@ -450,7 +477,7 @@ function Matchup({ card }: { card: MatchupCard }) {
     <div className={`vs-side ${mirrored ? 'mirrored' : ''}`}>
       {who.championId && <img src={championIcon(who.championId)} alt="" loading="lazy" />}
       <span>
-        <strong>{who.name}</strong>
+        <strong>{mirrored ? who.name : 'You'}</strong>
         <small>
           {who.kda.join(' / ')}
           {who.level ? ` · Lv ${who.level}` : ''}
