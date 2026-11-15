@@ -243,6 +243,19 @@
   background-color: var(--surface);
   border-color: var(--line);
 }
+[data-theme='dark'] .objectives-input {
+  color: var(--ink);
+  background-color: var(--surface);
+  border-color: var(--line);
+}
+[data-theme='dark'] :is(.objectives-doc, .objectives-hint) code,
+[data-theme='dark'] .objectives-doc pre {
+  background: var(--surface);
+}
+[data-theme='dark'] .objectives-doc {
+  background: var(--paper);
+  border-color: var(--line);
+}
 [data-theme='dark'] .block-card {
   background: var(--paper);
   border-color: var(--line);

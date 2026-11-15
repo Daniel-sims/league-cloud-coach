@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
   ArrowDownUp,
@@ -26,6 +26,7 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Target,
   Unlink,
   UserPlus,
   X,
@@ -58,6 +59,23 @@ import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
 import type { Guest, LibraryRepository, Recording, WatchVideo, UploadSync } from './lib/types'
+
+// The markdown renderer is only needed on this page, so keep it out of the main bundle.
+// A tab opened before a deploy can't fetch the old chunk, so ask for a reload instead of crashing.
+const LearningObjectives = lazy(() =>
+  import('./components/LearningObjectives')
+    .then((m) => ({ default: m.LearningObjectives }))
+    .catch(() => ({
+      default: () => (
+        <div className="notice error">
+          The app was updated since this tab opened.{' '}
+          <button className="text-link" onClick={() => window.location.reload()}>
+            Reload to open your objectives
+          </button>
+        </div>
+      ),
+    })),
+)
 
 const isDev = import.meta.env.DEV
 function useRoute() {
@@ -177,6 +195,7 @@ export function App({ authError = null }: { authError?: string | null }) {
   const home = route === '/home'
   const summoners = route === '/summoners' || route.startsWith('/summoners/')
   const blocks = route === '/blocks' || route.startsWith('/blocks/')
+  const objectives = route === '/objectives'
   const blockId = route.match(/^\/blocks\/([a-f0-9-]{36})$/)?.[1]
   const summonerRoute = route.match(/^\/summoners\/([a-z0-9]+)\/([A-Za-z0-9_-]{20,100})$/)
 
@@ -302,6 +321,13 @@ export function App({ authError = null }: { authError?: string | null }) {
             {home && <ChevronRight size={14} className="nav-chevron" />}
           </a>
           {!local && (
+            <a className={`nav-item ${objectives ? 'active' : ''}`} href="#/objectives">
+              <Target size={18} />
+              Learning objectives
+              {objectives && <ChevronRight size={14} className="nav-chevron" />}
+            </a>
+          )}
+          {!local && (
             <a className={`nav-item ${summoners ? 'active' : ''}`} href="#/summoners">
               <Search size={18} />
               Summoners
@@ -316,7 +342,7 @@ export function App({ authError = null }: { authError?: string | null }) {
             </a>
           )}
           <a
-            className={`nav-item ${!home && !summoners && !blocks ? 'active' : ''}`}
+            className={`nav-item ${!home && !summoners && !blocks && !objectives ? 'active' : ''}`}
             href={local ? '#/preview' : '#/library'}
           >
             <FileVideo size={18} />
@@ -383,9 +409,11 @@ export function App({ authError = null }: { authError?: string | null }) {
                     ? 'Summoners'
                     : blocks
                       ? 'Blocks'
-                      : route.startsWith('/connect')
-                        ? 'Connected apps'
-                        : 'Video library'}
+                      : objectives
+                        ? 'Learning objectives'
+                        : route.startsWith('/connect')
+                          ? 'Connected apps'
+                          : 'Video library'}
               </strong>
             </div>
             <div className="topbar-actions">
@@ -453,6 +481,17 @@ export function App({ authError = null }: { authError?: string | null }) {
               />
             ) : home && session ? (
               <Home key={`${session.user.id}:${settingsVersion}`} ownerId={session.user.id} />
+            ) : objectives && session ? (
+              <Suspense
+                fallback={
+                  <div className="loading-state" role="status">
+                    <LoaderCircle className="spin" />
+                    Loading objectives…
+                  </div>
+                }
+              >
+                <LearningObjectives key={session.user.id} />
+              </Suspense>
             ) : blocks && session && blockId ? (
               <BlockView key={`${session.user.id}:${blockId}`} id={blockId} />
             ) : blocks && session ? (

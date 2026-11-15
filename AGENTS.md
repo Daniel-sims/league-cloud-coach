@@ -29,6 +29,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/components/Home.tsx`, `Loadout.tsx`, `web/src/league.css` | Owner Home, profile/champion selection, stats, history and scoreboard UI |
 | `web/src/components/Summoners.tsx`, `LeagueParts.tsx` | Summoners lookup page and profile (any player, nothing saved server-side); shared stats/scoreboard pieces used by Home too |
 | `web/src/components/Blocks.tsx`, `web/src/lib/blocks.ts` | Blocks (`#/blocks`, `#/blocks/<id>`): owner-only runs of games with free-text notes per game; a new block opens with the previous block's carry-forward points (copied server-side by `create_block`), and autosave is revision-checked (`play_blocks`, migration `202611130001`) |
+| `web/src/components/LearningObjectives.tsx`, `web/src/lib/objectives.ts` | Learning objectives (`#/objectives`): one owner-only markdown page (coach objectives to read before games), rendered read view plus revision-checked autosaving editor (`learning_objectives`, migration `202611150001`). Rendered with `react-markdown` + GFM (raw HTML is not rendered); lazy-loaded so the main bundle stays small |
 | `web/src/lib/league.ts`, `league-repository.ts` | Native-matched stats/filter rules and private profile/match repository |
 | `supabase/functions/riot/` | Verified owner-only Riot requests, encrypted per-owner tokens, request budget and persisted match cache |
 | `web/src/main.tsx` | Completes the OAuth callback before rendering the app |

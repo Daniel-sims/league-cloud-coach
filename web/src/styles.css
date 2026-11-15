@@ -2450,6 +2450,132 @@ strong {
   color: #a14336;
 }
 
+/* Learning objectives */
+.objectives-input {
+  width: 100%;
+  min-height: 60vh;
+  resize: vertical;
+  font:
+    14px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: inherit;
+  background: var(--paper);
+  border: 1px solid var(--line, #dddfd4);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.objectives-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.objectives-hint code,
+.objectives-doc code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface, #efefe8);
+}
+.objectives-empty {
+  align-items: flex-start;
+}
+.objectives-doc {
+  padding: 24px 28px;
+  background: var(--paper);
+  border: 1px solid var(--line, #dddfd4);
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.objectives-doc > :first-child {
+  margin-top: 0;
+}
+.objectives-doc > :last-child {
+  margin-bottom: 0;
+}
+.objectives-doc h1,
+.objectives-doc h2,
+.objectives-doc h3 {
+  line-height: 1.25;
+  margin: 1.4em 0 0.5em;
+}
+.objectives-doc h1 {
+  font-size: 24px;
+}
+.objectives-doc h2 {
+  font-size: 19px;
+}
+.objectives-doc h3 {
+  font-size: 16px;
+}
+.objectives-doc p,
+.objectives-doc ul,
+.objectives-doc ol,
+.objectives-doc blockquote,
+.objectives-doc pre,
+.objectives-doc table {
+  margin: 0 0 0.9em;
+}
+.objectives-doc ul,
+.objectives-doc ol {
+  padding-left: 1.4em;
+}
+.objectives-doc li + li {
+  margin-top: 0.3em;
+}
+.objectives-doc li > ul,
+.objectives-doc li > ol {
+  margin: 0.3em 0 0;
+}
+.objectives-doc .contains-task-list {
+  list-style: none;
+  padding-left: 0.2em;
+}
+.objectives-doc .task-list-item input {
+  margin: 0 8px 0 0;
+}
+.objectives-doc blockquote {
+  padding: 4px 0 4px 14px;
+  border-left: 3px solid var(--line, #dddfd4);
+  color: var(--muted, #6b7266);
+}
+.objectives-doc hr {
+  border: 0;
+  border-top: 1px solid var(--line, #dddfd4);
+  margin: 1.4em 0;
+}
+.objectives-doc pre {
+  overflow-x: auto;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: var(--surface, #efefe8);
+}
+.objectives-doc pre code {
+  padding: 0;
+  background: none;
+}
+.objectives-doc table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.objectives-doc th,
+.objectives-doc td {
+  border: 1px solid var(--line, #dddfd4);
+  padding: 6px 10px;
+  text-align: left;
+}
+@media (max-width: 640px) {
+  .objectives-doc {
+    padding: 18px 16px;
+  }
+}
+
 .pick-toolbar {
   display: flex;
   justify-content: space-between;
