@@ -1637,3 +1637,34 @@ test('lease renewal keeps hls.js playing from its buffer on freshly signed segme
   expect(await page.evaluate(() => (window as unknown as { emptied: number }).emptied)).toBe(0)
   expect(rejected).toEqual([])
 })
+
+test('the board shows everyone’s items and score at the playhead', async ({ page }, testInfo) => {
+  const state: State = {
+    review: reviewPayload(),
+    anchor: { gameTimeSeconds: 720, videoOffsetSeconds: 30 },
+    comments: [],
+    calls: [],
+  }
+  await mock(page.context(), state, true)
+  await signIn(page.context())
+  await page.goto(`/#/video/${recordingId}`)
+  await seekVideo(page, 'Ranked mid review', 10)
+  await page.keyboard.press('b')
+  const board = page.getByRole('region', { name: 'Scoreboard at 11:40' })
+  await expect(board).toBeVisible()
+  const me = board.locator('li.focused')
+  await expect(me).toContainText('TwistedFate')
+  await expect(me.locator('.board-kda')).toHaveText('2/1/1')
+  await expect(me.locator('.board-cs')).toHaveText('70')
+  await expect(me.locator('.timeline-item img')).toHaveCount(3)
+  await expect(me.locator('.timeline-item small')).toHaveText('2')
+  await expect(board.locator('.board-team.blue .board-team-head')).toContainText('4 kills')
+  await expect(board.locator('.board-team.red li')).toHaveCount(5)
+  await expect(board).toContainText('as of 10:00')
+  const box = (await board.boundingBox())!
+  expect(box.x).toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+  await page.screenshot({ path: testInfo.outputPath('board.png') })
+  await page.getByRole('button', { name: 'Board', exact: true }).click()
+  await expect(board).toHaveCount(0)
+})

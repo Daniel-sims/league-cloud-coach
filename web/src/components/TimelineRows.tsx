@@ -56,7 +56,7 @@ function rowClick(action: () => void) {
 }
 export const patchOf = (gameVersion: string) => gameVersion.split('.').slice(0, 2).join('.') + '.1'
 
-function Items({ stacks, patch }: { stacks: ItemStack[]; patch: string }) {
+export function Items({ stacks, patch }: { stacks: ItemStack[]; patch: string }) {
   const names = useItemNames(patch)
   return (
     <span className="timeline-items">

@@ -168,8 +168,33 @@ describe("companion authorization and publish", () => {
   });
   it("strictly validates bounded review payloads", () => {
     expect(validReview(payload())).toBe(true);
-    expect(validReview({ ...payload(), monsters: [{ t: 1, killer: 1, team: 300, assists: [], type: 'HORDE', subType: null }] })).toBe(true);
+    expect(
+      validReview({
+        ...payload(),
+        monsters: [
+          {
+            t: 1,
+            killer: 1,
+            team: 300,
+            assists: [],
+            type: "HORDE",
+            subType: null,
+          },
+        ],
+      }),
+    ).toBe(true);
     expect(validReview({ ...payload(), puuid: "secret" })).toBe(false);
+    const withFinals = payload();
+    Object.assign(withFinals.participants[0], {
+      finalItems: [3157, 0, 0, 0, 0, 0, 3364],
+    });
+    expect(validReview(withFinals)).toBe(true);
+    Object.assign(withFinals.participants[0], {
+      finalItems: [1, 2, 3, 4, 5, 6, 7, 8],
+    });
+    expect(validReview(withFinals)).toBe(false);
+    Object.assign(withFinals.participants[0], { finalItems: ["3157"] });
+    expect(validReview(withFinals)).toBe(false);
     expect(validReview({ ...payload(), playerId: 2 })).toBe(false);
     expect(
       validReview({

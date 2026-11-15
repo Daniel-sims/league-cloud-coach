@@ -2103,3 +2103,144 @@ body:has(.cinema-mode) .watch-main {
   z-index: 1;
   cursor: pointer;
 }
+
+/* Board: the scoreboard at the playhead, laid over the video like the in-game Tab view. */
+.review-board-layer {
+  position: absolute;
+  inset: 0 0 auto 0;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10px;
+  pointer-events: none;
+  z-index: 3;
+}
+.review-board {
+  pointer-events: auto;
+  width: min(100%, 720px);
+  max-height: 100%;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgb(18 21 18 / 0.92);
+  color: #e9ece4;
+  font-size: 12px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.35);
+}
+.review-board header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.review-board header strong {
+  font-size: 13px;
+}
+.review-board .icon-button {
+  color: inherit;
+}
+.board-team-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 0 2px 4px;
+  border-bottom: 2px solid #4a7ac8;
+  color: #9aa293;
+}
+.board-team.red .board-team-head {
+  border-bottom-color: #c85a4a;
+}
+.board-team-head strong {
+  color: #e9ece4;
+}
+.review-board ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.review-board li {
+  display: grid;
+  grid-template-columns: 26px minmax(70px, 1fr) 58px 34px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 4px;
+  border-radius: 5px;
+}
+.review-board li.focused {
+  background: rgb(255 255 255 / 0.08);
+}
+.board-champion {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+.board-champion img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: block;
+}
+.board-champion small {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  min-width: 15px;
+  padding: 0 2px;
+  border-radius: 7px;
+  background: #121512;
+  border: 1px solid #3a4038;
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 13px;
+}
+.board-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-name abbr {
+  margin-left: 4px;
+  color: #e0b85a;
+  text-decoration: none;
+  cursor: help;
+}
+.board-kda,
+.board-cs {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.board-cs {
+  color: #9aa293;
+}
+.review-board .timeline-items {
+  flex-wrap: nowrap;
+}
+.review-board .timeline-item {
+  width: 22px;
+  height: 22px;
+  border-color: #3a4038;
+  background: #0b0d0b;
+}
+.review-board footer {
+  color: #9aa293;
+  font-size: 11px;
+  line-height: 1.4;
+}
+@media (max-width: 640px) {
+  .review-board li {
+    grid-template-columns: 26px minmax(0, 1fr) 50px auto;
+  }
+  .board-cs {
+    display: none;
+  }
+  .review-board .timeline-item {
+    width: 18px;
+    height: 18px;
+  }
+}

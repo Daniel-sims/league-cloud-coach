@@ -39,6 +39,7 @@ Help a League player share full game recordings with a coach and eventually revi
 | `web/src/lib/local.ts` | Development-only localStorage preview, never a cloud/auth substitute |
 | `web/src/components/Player.tsx`, `SeekControls.tsx` | YouTube playback and shared 1/10/30-second seek controls |
 | `web/src/components/VideoReview.tsx`, `TimelineRows.tsx`, `web/src/review.css` | Review timeline beside the player: events, comments, clock sync, game attachment |
+| `web/src/lib/board.ts`, `web/src/components/ReviewBoard.tsx` | Review Board (`B` / Board button): scoreboard at the playhead over the video. Replays each player's items from Riot's item log with rules for changes Riot never logs (tier-3 boots, tear/Armguard/Circlet transforms, support quest chain, Viego possession, Bot Lane Quest boot slot), then checks the end state against `participants[].finalItems`. Keep the rule tables in step with Riot item changes and re-validate (see `docs/PROJECT_STATE.md`) |
 | `web/src/lib/review-timeline.ts`, `review.ts` | Port of native `ReviewTimeline.swift` detectors and clock anchor; owner/watch-link review repositories |
 | `supabase/functions/riot/timeline.ts` | Reduces a Riot match timeline to the stored review payload (no puuids/Riot IDs) |
 | `web/src/lib/theme.ts`, `web/src/theme.css` | Browser-local light/dark preference and appearance overrides; bottom Settings navigation |

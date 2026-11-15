@@ -67,13 +67,17 @@ const review = object({
   gameDuration: integer(1, 14400),
   playerId: id,
   participants: array(
-    object({
-      id,
-      championId: integer(1, 10000),
-      championName: text(80),
-      teamId: one(100, 200),
-      position: text(20),
-    }),
+    object(
+      {
+        id,
+        championId: integer(1, 10000),
+        championName: text(80),
+        teamId: one(100, 200),
+        position: text(20),
+        finalItems: array(integer(0, 10_000_000), 7),
+      },
+      ["finalItems"],
+    ),
     10,
   ),
   frames: array(object({ t, snapshots }), 300),

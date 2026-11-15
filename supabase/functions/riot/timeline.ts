@@ -26,6 +26,8 @@ export type ReviewPayload = {
     championName: string;
     teamId: number;
     position: string;
+    /** End-of-game item0–item6 from the match summary (0 = empty slot). */
+    finalItems?: number[];
   }[];
   frames: { t: number; snapshots: Record<string, ReviewSnapshot> }[];
   kills: {
@@ -77,6 +79,13 @@ type MatchSummary = {
     championId: number;
     championName: string;
     teamPosition?: string;
+    item0?: number;
+    item1?: number;
+    item2?: number;
+    item3?: number;
+    item4?: number;
+    item5?: number;
+    item6?: number;
   }[];
 };
 
@@ -95,6 +104,14 @@ const lanes: Record<string, Lane> = {
 };
 
 export class TimelineError extends Error {}
+
+// Lets the review replay check (and name) item changes Riot never logs.
+function finalItems(p: MatchSummary["participants"][number]) {
+  const items = [p.item0, p.item1, p.item2, p.item3, p.item4, p.item5, p.item6];
+  return items.every((i) => Number.isInteger(i) && i! >= 0)
+    ? { finalItems: items as number[] }
+    : {};
+}
 
 export function reduceTimeline(
   raw: unknown,
@@ -127,6 +144,7 @@ export function reduceTimeline(
             championName: p.championName,
             teamId: p.teamId,
             position: p.teamPosition ?? "",
+            ...finalItems(p),
           },
         ]
       : [];
@@ -237,15 +255,16 @@ function consume(event: Json, payload: ReviewPayload) {
       return;
     }
     case "ITEM_UNDO": {
-      // The reverted purchase lives in beforeId; 0 means an undone sale.
+      // The reverted purchase lives in beforeId (0 for an undone sale); an
+      // undone sale gives back afterId.
       const participant = int(event.participantId),
-        before = int(event.beforeId),
-        after = int(event.afterId);
-      if (participant === null || !before || before <= 0) return;
+        before = int(event.beforeId) ?? 0,
+        after = int(event.afterId) ?? 0;
+      if (participant === null || (before <= 0 && after <= 0)) return;
       payload.items.push({
         t,
         participant,
-        item: before,
+        item: Math.max(0, before),
         kind: "undone",
         ...(after && after > 0 ? { restored: after } : {}),
       });

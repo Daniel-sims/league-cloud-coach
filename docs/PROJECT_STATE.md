@@ -729,3 +729,16 @@ Settings → Sync full season lists a calendar-year season in two-week `startTim
 ## Learning objectives (2026-11-15)
 
 New owner-only page at `#/objectives` (sidebar: Learning objectives) for the coach's current objectives, written in markdown and read before games. It opens in a rendered reading view (GitHub-flavoured markdown: headings, lists, checklists, quotes, tables; raw HTML is not rendered, links open in a new tab) with an Edit toggle; an empty page opens straight into the editor. One document per owner in `learning_objectives` (migration `202611150001_learning_objectives.sql`), bounded to 50,000 characters, read/written only via `get_learning_objectives`/`save_learning_objectives` with revision checks so a stale tab stops saving rather than overwriting. `supabase/tests/learning-objectives-security.sql` covers grants, cross-owner isolation, stale saves and non-members.
+
+## Review board (2026-11-15)
+
+The review player has a **Board** button (shortcut `B`) once a game is attached and the clock is synced. It lays the in-game Tab view over the video for the playhead: each player's items, K/D/A, level, CS, team kills and gold, and objectives. Items come from replaying Riot's item log (`web/src/lib/board.ts`), so they are exact to the second; level/CS/gold come from Riot's once-a-minute snapshots, and the board says which minute.
+
+Riot's log leaves several changes unrecorded. Each one shows up as a lone `ITEM_DESTROYED` with no purchase alongside, and the rules in `board.ts` handle them: tier-2 boots becoming tier 3, Manamune/Archangel's/Winter's Approach/Seeker's Armguard/Whispering Circlet transforming, the free World Atlas → Runic Compass → Bounty of Worlds chain, the free Stealth Ward, Magical Footwear, Viego possession (which logs fake inventory swaps), and quest/recall pseudo-items. Bot Lane Quest moves boots to a slot that the match summary's `item0–6` doesn't report. Which Bounty of Worlds upgrade a support picked is never logged, so reviews now carry `participants[].finalItems`:
+- the `riot` reducer adds them for new timelines;
+- migration `202611150002_review_final_items.sql` backfills stored `league_matches.review` and `recording_timelines` (only when all champions line up by participant ID);
+- a trigger on `recording_timelines` enriches later saves, including League Helper pushes, from the owner's own synced copy of the match.
+
+The companion schema accepts `finalItems` as optional. The reducer now also keeps undone sales, which it used to drop.
+
+Validation, 2026-11-15: the real `reduceTimeline` + `replayItems` code was run over 925 locally cached ranked games (9,250 inventories, patch 16.22). 99.0% end exactly on Riot's final items, excluding consumables, trinkets, and Bot Lane Quest boots; the old naive replay managed 25.8%. Without final items, the fixed rules alone reach 80.9%; nearly all of the gap is the support's upgrade choice. Players whose replay doesn't match are marked `≈` on the board. Mid-game accuracy can't be checked directly, only through these end-state checks. When Riot changes items, rerun this kind of end-state check before trusting new transforms.

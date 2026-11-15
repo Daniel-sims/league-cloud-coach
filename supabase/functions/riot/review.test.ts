@@ -19,6 +19,13 @@ const match = {
       championName: "TwistedFate",
       teamPosition: "MIDDLE",
       riotIdGameName: "Private Name",
+      item0: 3157,
+      item1: 0,
+      item2: 0,
+      item3: 0,
+      item4: 0,
+      item5: 0,
+      item6: 3364,
     },
     {
       puuid: "them",
@@ -68,6 +75,19 @@ const raw = {
             participantId: 3,
             beforeId: 1056,
             afterId: 0,
+          },
+          {
+            type: "ITEM_SOLD",
+            timestamp: 12000,
+            participantId: 3,
+            itemId: 1055,
+          },
+          {
+            type: "ITEM_UNDO",
+            timestamp: 12500,
+            participantId: 3,
+            beforeId: 0,
+            afterId: 1055,
           },
         ],
       },
@@ -127,6 +147,7 @@ it("reduces a Riot timeline to the review payload without account identities", (
       championName: "TwistedFate",
       teamId: 100,
       position: "MIDDLE",
+      finalItems: [3157, 0, 0, 0, 0, 0, 3364],
     },
     {
       id: 8,
@@ -153,6 +174,8 @@ it("reduces a Riot timeline to the review payload without account identities", (
   expect(payload.items).toEqual([
     { t: 10000, participant: 3, item: 1056, kind: "purchased" },
     { t: 11000, participant: 3, item: 1056, kind: "undone" },
+    { t: 12000, participant: 3, item: 1055, kind: "sold" },
+    { t: 12500, participant: 3, item: 0, kind: "undone", restored: 1055 },
   ]);
   expect(payload.monsters[0]).toMatchObject({
     type: "DRAGON",
@@ -343,7 +366,10 @@ it("curates stored games' timelines in small batches and reports what is left", 
   expect(await response.json()).toEqual({ done: 2, remaining: 4 });
   expect(provider.mock.calls[0][0]).toContain("/matches/EUW1_9/timeline");
   // The usable one is stored; the expired one is marked checked so the pull ends.
-  expect(updates[0]).toMatchObject({ review_checked: true, review: { playerId: 3 } });
+  expect(updates[0]).toMatchObject({
+    review_checked: true,
+    review: { playerId: 3 },
+  });
   expect(updates[1]).toEqual({ review: null, review_checked: true });
   expect(JSON.stringify(updates[0])).not.toContain('"me"');
 });
@@ -363,10 +389,22 @@ it("heals a puuid saved under an older Riot key by re-resolving the Riot ID, the
     new Response(JSON.stringify(o), { status });
   provider
     .mockResolvedValueOnce(
-      json({ status: { message: "Bad Request - Exception decrypting AAA", status_code: 400 } }, 400),
+      json(
+        {
+          status: {
+            message: "Bad Request - Exception decrypting AAA",
+            status_code: 400,
+          },
+        },
+        400,
+      ),
     )
-    .mockResolvedValueOnce(json({ puuid: "fresh", gameName: "Me", tagLine: "EUW" }))
-    .mockResolvedValueOnce(json({ puuid: "fresh", gameName: "Me", tagLine: "EUW" }))
+    .mockResolvedValueOnce(
+      json({ puuid: "fresh", gameName: "Me", tagLine: "EUW" }),
+    )
+    .mockResolvedValueOnce(
+      json({ puuid: "fresh", gameName: "Me", tagLine: "EUW" }),
+    )
     .mockResolvedValueOnce(json({ profileIconId: 1, summonerLevel: 9 }))
     .mockResolvedValueOnce(json([]));
   const response = await request({ action: "refresh-profile" });

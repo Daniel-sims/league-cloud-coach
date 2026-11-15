@@ -43,6 +43,8 @@ export type ReviewPayload = {
     championName: string
     teamId: number
     position: string
+    /** End-of-game item0–item6 (0 = empty); absent on older reviews. */
+    finalItems?: number[]
   }[]
   frames: { t: number; snapshots: Record<string, Snapshot> }[]
   kills: Kill[]

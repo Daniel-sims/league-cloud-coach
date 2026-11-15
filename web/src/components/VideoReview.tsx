@@ -13,6 +13,7 @@ import {
 } from 'react'
 import {
   ArrowDownToLine,
+  LayoutList,
   Brain,
   CircleHelp,
   Clock3,
@@ -47,6 +48,7 @@ import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
 import { CaptureRow, CommentRow, EventRow, MomentRow, patchOf } from './TimelineRows'
 import { PlayerBar, type BarMarker } from './PlayerBar'
+import { ReviewBoard } from './ReviewBoard'
 import type { PlayerController } from '../lib/player'
 import {
   buildTimeline,
@@ -224,6 +226,7 @@ export function VideoReview({
   const [pendingSeek, setPendingSeek] = useState<{ ms: number; leadMs: number } | null>(null)
   const [attaching, setAttaching] = useState(false)
   const [drawingFrame, setDrawingFrame] = useState<{ image: string; videoMs: number } | null>(null)
+  const [boardOpen, setBoardOpen] = useState(false)
   const [preparingDrawing, setPreparingDrawing] = useState(false)
   const [viewingCapture, setViewingCapture] = useState<ReviewCapture | null>(null)
   const captureBusy = useRef(false)
@@ -679,6 +682,30 @@ export function VideoReview({
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
   }, [controller, repository, drawingFrame, startDrawing])
+  const boardReady = Boolean(review && anchor)
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== 'b' ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.defaultPrevented
+      )
+        return
+      if (
+        (event.target as HTMLElement | null)?.closest(
+          'input, textarea, select, [contenteditable], dialog[open]',
+        )
+      )
+        return
+      if (!boardReady) return
+      event.preventDefault()
+      setBoardOpen((open) => !open)
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [boardReady])
 
   async function act(work: () => Promise<unknown>) {
     setActionError('')
@@ -881,6 +908,13 @@ export function VideoReview({
         <div className="review-video">
           <div className="review-player">
             {renderPlayer(setController)}
+            {boardOpen && review && anchor && playheadMs !== null && (
+              <ReviewBoard
+                review={review}
+                gameMs={gameTimeMs(anchor, playheadMs)}
+                onClose={() => setBoardOpen(false)}
+              />
+            )}
             <PlayerBar
               controller={controller}
               timeLabel={commentTime}
@@ -892,6 +926,26 @@ export function VideoReview({
               }}
               actions={
                 <>
+                  {review && (
+                    <button
+                      className={`button secondary button-small ${boardOpen ? 'active' : ''}`}
+                      disabled={!anchor}
+                      aria-pressed={boardOpen}
+                      onClick={() => {
+                        closeSettings()
+                        setBoardOpen(!boardOpen)
+                      }}
+                      aria-label="Board"
+                      title={
+                        anchor
+                          ? 'Everyone’s items, score and objectives at this moment (B)'
+                          : 'Sync the game clock to see the board'
+                      }
+                    >
+                      <LayoutList size={15} />
+                      <span className="bar-label">Board</span>
+                    </button>
+                  )}
                   {data && repository.addCapture && (
                     <button
                       className="button secondary button-small"
