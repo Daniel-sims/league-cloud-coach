@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent, type ReactNode, type KeyboardEvent } from 'react'
-import { MapPin, Pencil, Shield, Skull, Trash2, UserX, Zap } from 'lucide-react'
+import { MapPin, Pencil, Shield, Trash2, UserX } from 'lucide-react'
 import { championIcon } from '../lib/league'
 import {
   clock,
@@ -83,7 +83,6 @@ export function EventRow({
   current,
   seekable,
   dim,
-  compact,
   onSeek,
   onSeekTime,
   onOpenMenu,
@@ -94,7 +93,6 @@ export function EventRow({
   current: boolean
   seekable: boolean
   dim: boolean
-  compact?: boolean
   onSeek(): void
   onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
   onOpenMenu?(target: EventMenuTarget): void
@@ -128,48 +126,6 @@ export function EventRow({
       const box = origin?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect()
       onOpenMenu({ x: box.left, y: box.bottom, origin })
     },
-  }
-  if (compact) {
-    const Icon = entry.kind === 'death' ? Skull : Zap
-    return (
-      <li
-        {...contextHandlers}
-        className={`timeline-row timeline-compact kind-${entry.kind} ${current ? 'current' : ''} ${dim ? 'dim' : ''} ${seekable ? 'clickable' : ''}`}
-        data-item={entry.id}
-        onClick={seekable ? rowClick(onSeek) : undefined}
-      >
-        <span className="timeline-time">{clock(entry.gameTimeMs)}</span>
-        <span className="timeline-spine" aria-hidden="true">
-          <i />
-        </span>
-        <div className="timeline-body">
-          <button
-            className="timeline-compact-play"
-            onClick={onSeek}
-            disabled={!seekable}
-            aria-label={`${entry.label} at ${clock(entry.gameTimeMs)}`}
-            title={entry.detail ? `${entry.label} · ${entry.detail}` : entry.label}
-            aria-keyshortcuts="Shift+F10"
-            aria-description="Right-click or press Shift+F10 to add a comment."
-          >
-            <span
-              className={`timeline-icon ${entry.objective ? (entry.objective.mine ? 'objective-ours' : 'objective-theirs') : ''}`}
-            >
-              {entry.objective ? (
-                <img
-                  src={`${import.meta.env.BASE_URL}objectives/${entry.objective.icon}.png`}
-                  alt=""
-                />
-              ) : (
-                <Icon size={15} aria-hidden="true" />
-              )}
-            </span>
-            <span className="timeline-play-name">{entry.objective?.name ?? entry.label}</span>
-          </button>
-          {children}
-        </div>
-      </li>
-    )
   }
   return (
     <li

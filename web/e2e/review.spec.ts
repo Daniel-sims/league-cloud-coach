@@ -514,7 +514,6 @@ test('owner attaches the game, syncs the clock and comments; a signed-out coach 
   await expect(question.getByText('Player')).toBeVisible()
   await expect(question.getByRole('button', { name: 'Edit comment' })).toHaveCount(0)
   await guest.getByLabel(/Video settings/).click()
-  await expect(guest.getByRole('radiogroup', { name: 'Timeline detail' })).toBeVisible()
   await expect(guest.getByRole('button', { name: 'Change game' })).toHaveCount(0)
   await guest.getByLabel(/Video settings/).click()
   await expect(guest.getByRole('button', { name: 'Draw', exact: true })).toBeVisible()
@@ -1084,76 +1083,6 @@ for (const owner of [true, false]) {
   })
 }
 
-for (const owner of [true, false]) {
-  test(`simple objective icons seek exactly for ${owner ? 'owners' : 'shared viewers'}`, async ({
-    page,
-  }, testInfo) => {
-    const payload = reviewPayload()
-    payload.monsters.push({
-      t: 750000,
-      killer: 7,
-      team: 200,
-      assists: [],
-      type: 'BARON_NASHOR',
-      subType: null,
-    })
-    const state: State = {
-      review: payload,
-      anchor: { gameTimeSeconds: 720, videoOffsetSeconds: 30 },
-      comments: [],
-      calls: [],
-    }
-    await mock(page.context(), state, owner)
-    if (owner) await signIn(page.context())
-    await page.goto(owner ? `/#/video/${recordingId}` : `/#/watch/${token}`)
-    if (!owner) await page.getByRole('button', { name: 'Start session' }).click()
-    const video = await seekVideo(page, 'Ranked mid review', 10)
-    await page.getByLabel(/Video settings/).click()
-    await page.getByRole('radio', { name: 'Simple', exact: true }).click()
-    await page.keyboard.press('Escape')
-    const panel = page.getByRole('region', { name: 'Review timeline' })
-    await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(2)
-    await expect(panel.locator('.objective-card, .matchup-card')).toHaveCount(0)
-    const dragon = panel.getByRole('button', {
-      name: 'Infernal Drake taken by your team at 12:00',
-      exact: true,
-    })
-    const baron = panel.getByRole('button', {
-      name: 'Baron Nashor taken by the enemy team at 12:30',
-      exact: true,
-    })
-    await expect(dragon.locator('img')).toHaveAttribute('src', /dragon_infernal.png$/)
-    await expect(dragon).toHaveText('Infernal Drake')
-    await expect(baron).toHaveText('Baron Nashor')
-    await expect(panel.locator('.event-comment-button')).toHaveCount(0)
-    await expect(baron.locator('img')).toHaveAttribute('src', /baron.png$/)
-    await dragon.click()
-    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(30)
-    await baron.click()
-    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(60)
-    await baron.click({ button: 'right' })
-    const menu = page.getByRole('menu', { name: 'Event actions' })
-    await expect(menu.getByRole('menuitem', { name: 'Add comment' })).toBeVisible()
-    const menuBox = (await menu.boundingBox())!
-    expect(menuBox.x).toBeGreaterThanOrEqual(0)
-    expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(page.viewportSize()!.width)
-    await page.screenshot({ path: testInfo.outputPath('event-context-menu.png') })
-    await page.keyboard.press('Escape')
-    await expect(menu).toHaveCount(0)
-    await expect(baron).toBeFocused()
-    await baron.press('Shift+F10')
-    await expect(menu.getByRole('menuitem', { name: 'Add comment' })).toBeFocused()
-    await page.keyboard.press('Escape')
-    await page.getByLabel('Filter timeline', { exact: true }).click()
-    await panel.getByRole('checkbox', { name: /Objectives/ }).uncheck()
-    await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(0)
-    await panel.getByRole('checkbox', { name: /Objectives/ }).check()
-    await page.keyboard.press('Escape')
-    await expect(panel.locator('.timeline-compact.kind-objective')).toHaveCount(2)
-    await page.screenshot({ path: testInfo.outputPath('simple-objectives.png') })
-  })
-}
-
 test('event discussions group player and coach comments at the event timestamp', async ({
   page,
   browser,
@@ -1235,9 +1164,6 @@ test('event discussions group player and coach comments at the event timestamp',
     thread.getByText('Push mid first, then move together. Bring vision.', { exact: true }),
   ).toBeVisible()
   await expect(thread.getByRole('button', { name: 'Delete comment' })).toHaveCount(2)
-  await page.getByLabel(/Video settings/).click()
-  await page.getByRole('radio', { name: 'Simple', exact: true }).click()
-  await page.keyboard.press('Escape')
   await expect(thread.getByText('Should we contest this dragon?', { exact: true })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('event-discussion-desktop.png') })
   await guest.screenshot({
