@@ -111,6 +111,14 @@ export type FightCard = {
   absence: FightAbsence | null
   turretCallout: string | null
 }
+/// An ultimate cast and what the kill feed shows around it: where it
+/// happened, how the team's kills went, and the player's own credited moments.
+export type UltimateCard = {
+  location: string | null
+  alliedDeaths: number
+  enemyDeaths: number
+  moments: FightMoment[]
+}
 export type MatchupSide = {
   name: string
   championId?: number
@@ -129,8 +137,8 @@ export type TimelineEntry = {
   detail?: string
   sections?: { title: string; body: string }[]
   items?: ItemStack[]
-  inventoryAfter?: ItemStack[]
   fight?: FightCard
+  ultimate?: UltimateCard
   matchup?: MatchupCard
   objective?: ObjectiveCard
 }
@@ -709,10 +717,6 @@ function recallEntries(c: Context): TimelineEntry[] {
               : 'Recall — bought nothing',
       detail: detail ? detail[0].toUpperCase() + detail.slice(1) : undefined,
       items: stacks(visit.bought),
-      inventoryAfter:
-        visit.kind === 'openingBuy'
-          ? undefined
-          : stacks(inventory(c.payload, c.player, visit.end, true)),
     }
   })
 }
@@ -847,20 +851,48 @@ export function monsterName(type: string, subType: string | null) {
   )
 }
 
+/// A credited kill, assist or death this long before a cast still belongs to
+/// the same play, and this long after it is the cast's follow-up.
+const ultimateLeadMs = 3000
+const ultimateFollowUpMs = 15000
+
+function ultimateCard(castAtMs: number, c: Context): UltimateCard {
+  const mine = team(c.player)
+  const window = c.payload.kills.filter(
+    (k) => k.t >= castAtMs - ultimateLeadMs && k.t <= castAtMs + ultimateFollowUpMs,
+  )
+  const credited = window.flatMap((kill) => {
+    const moment = killMoment(kill, c)
+    return moment ? [{ kill, moment }] : []
+  })
+  const alliedDeaths = window.filter((k) => team(k.victim) === mine).length
+  return {
+    location: credited.length ? region(credited[0].kill) : null,
+    alliedDeaths,
+    enemyDeaths: window.length - alliedDeaths,
+    moments: credited.map((x) => x.moment),
+  }
+}
+
 /** Casts stay on the video clock; resyncing moves them against game events. */
 export function ultimateEntries(
   payload: ReviewPayload,
   anchor: ClockAnchor | null,
 ): TimelineEntry[] {
   if (!anchor || !payload.ultimates) return []
+  const c = context(payload)
   return [...new Set(payload.ultimates.videoTimestampsMs)]
     .filter((ms) => Number.isSafeInteger(ms) && ms >= 0 && gameTime(anchor, ms / 1000) > 0)
-    .map((ms): TimelineEntry => ({
-      id: `ultimate-${ms}`,
-      gameTimeMs: gameTimeMs(anchor, ms),
-      kind: 'ultimate',
-      label: 'Cast ultimate',
-    }))
+    .map((ms): TimelineEntry => {
+      const gameMs = gameTimeMs(anchor, ms)
+      return {
+        id: `ultimate-${ms}`,
+        gameTimeMs: gameMs,
+        kind: 'ultimate',
+        label: 'Cast ultimate',
+        ultimate: ultimateCard(gameMs, c),
+      }
+    })
 }
 
 /** Only deaths and ultimate casts seek early; every other moment uses its timestamp. */

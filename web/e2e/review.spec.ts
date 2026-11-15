@@ -670,7 +670,8 @@ test('desktop timeline fills the available window independently of the video hei
   ).toEqual({ radius: '0px', background: 'rgb(0, 0, 0)' })
   const recalls = timeline.locator('.kind-recall')
   await expect(recalls.first()).toBeVisible()
-  await expect(recalls.locator('img, .timeline-inventory, .timeline-detail')).toHaveCount(0)
+  await expect(recalls.locator('.timeline-inventory, .timeline-detail')).toHaveCount(0)
+  await expect(recalls.first().locator('.timeline-item').first()).toBeVisible()
   // The video grows to use the height; the timeline still spans the full column.
   const used = (await wrap.boundingBox())!.height
   expect(initial.height).toBeGreaterThanOrEqual(used - 1)

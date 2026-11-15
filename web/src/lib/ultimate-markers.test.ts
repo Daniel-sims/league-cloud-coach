@@ -3,8 +3,10 @@ import { ultimateEntries, type ReviewPayload } from './review-timeline'
 
 it('keeps ultimate timestamps tied to the original video when game sync changes', () => {
   const payload = {
+    participants: [],
+    kills: [],
     ultimates: { detectorVersion: 1, videoTimestampsMs: [10000, 10000, 20000, 0] },
-  } as ReviewPayload
+  } as unknown as ReviewPayload
   expect(ultimateEntries(payload, null)).toEqual([])
   const entries = ultimateEntries(payload, { gameTimeSeconds: 0, videoOffsetSeconds: 5 })
   expect(entries.map((e) => e.gameTimeMs)).toEqual([5000, 15000])

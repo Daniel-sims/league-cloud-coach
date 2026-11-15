@@ -742,3 +742,11 @@ Riot's log leaves several changes unrecorded. Each one shows up as a lone `ITEM_
 The companion schema accepts `finalItems` as optional. The reducer now also keeps undone sales, which it used to drop.
 
 Validation, 2026-11-15: the real `reduceTimeline` + `replayItems` code was run over 925 locally cached ranked games (9,250 inventories, patch 16.22). 99.0% end exactly on Riot's final items, excluding consumables, trinkets, and Bot Lane Quest boots; the old naive replay managed 25.8%. Without final items, the fixed rules alone reach 80.9%; nearly all of the gap is the support's upgrade choice. Players whose replay doesn't match are marked `≈` on the board. Mid-game accuracy can't be checked directly, only through these end-state checks. When Riot changes items, rerun this kind of end-state check before trusting new transforms.
+
+## Timeline cards refresh
+
+Opening buy and recall rows show the items bought (no "Build after" line).
+Ultimate casts carry a card like League Helper's: location, a Quiet/Won/Lost/Traded
+badge from kills in the 3 s before to 15 s after the cast, and the player's own
+credited moments. Teamfight cards add a "Your part" section; kill/assist/death
+moments no longer show timestamps (the time stays in each button's accessible name).

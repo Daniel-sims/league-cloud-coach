@@ -7,6 +7,7 @@ import {
   inventory,
   parseGameClock,
   region,
+  ultimateEntries,
   simpleEntries,
   videoOffset,
   type ReviewPayload,
@@ -67,11 +68,6 @@ it('builds the native timeline: solo kills, teamfights with the player part, obj
   const recall = entries.find((e) => e.id === 'recall-360000')!
   expect(recall.detail).toBe('Backed 20 s after a takedown')
   expect(recall.items).toEqual([
-    { item: 3070, count: 1 },
-    { item: 2003, count: 2 },
-  ])
-  expect(recall.inventoryAfter).toEqual([
-    { item: 1056, count: 1 },
     { item: 3070, count: 1 },
     { item: 2003, count: 2 },
   ])
@@ -149,4 +145,21 @@ it('keeps the simple timeline to deaths, ultimate casts and objective icons', ()
   ])
   expect(objectives[2].label).toBe('Baron Nashor taken by the enemy team')
   expect(objectives[2].objective?.mine).toBe(false)
+})
+
+it('builds an ultimate card from the kill feed around the cast', () => {
+  const payload = reviewPayload()
+  const kill = payload.kills.find((k) => k.killer === payload.playerId)!
+  const anchor = { gameTimeSeconds: 0, videoOffsetSeconds: 0 }
+  const at = (ms: number) =>
+    ultimateEntries(
+      { ...payload, ultimates: { detectorVersion: 1, videoTimestampsMs: [ms] } },
+      anchor,
+    )[0].ultimate!
+  const hit = at(kill.t - 1000)
+  expect(hit.moments.map((m) => m.label)).toContain('Killed Ahri')
+  expect(hit.location).toBeTruthy()
+  expect(hit.enemyDeaths).toBeGreaterThan(0)
+  const quiet = at(kill.t + 600_000)
+  expect(quiet).toEqual({ location: null, alliedDeaths: 0, enemyDeaths: 0, moments: [] })
 })

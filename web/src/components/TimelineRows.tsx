@@ -1,11 +1,12 @@
 import { useEffect, useState, type MouseEvent, type ReactNode, type KeyboardEvent } from 'react'
-import { MapPin, Pencil, Shield, Skull, Trash2, UserX, Zap } from 'lucide-react'
+import { Clock, MapPin, Pencil, Shield, Skull, Sparkles, Trash2, UserX, Zap } from 'lucide-react'
 import { championIcon } from '../lib/league'
 import {
   clock,
   seekLeadMs,
   type FightMoment,
   type FightCard,
+  type UltimateCard,
   type ItemStack,
   type MatchupCard,
   type ObjectiveCard,
@@ -201,22 +202,21 @@ export function EventRow({
         >
           {entry.label}
         </button>
-        {entry.kind === 'recall' ? null : entry.matchup ? (
+        {entry.matchup ? (
           <Matchup card={entry.matchup} />
         ) : entry.objective ? (
           <Objective card={entry.objective} />
         ) : (
           <>
             {entry.items && entry.items.length > 0 && <Items stacks={entry.items} patch={patch} />}
-            {entry.inventoryAfter && entry.inventoryAfter.length > 0 && (
-              <span className="timeline-inventory">
-                <small>Build after</small>
-                <Items stacks={entry.inventoryAfter} patch={patch} />
-              </span>
+            {entry.detail && entry.kind !== 'recall' && (
+              <p className="timeline-detail">{entry.detail}</p>
             )}
-            {entry.detail && <p className="timeline-detail">{entry.detail}</p>}
             {entry.fight && (
               <Fight card={entry.fight} seekable={seekable} onSeekTime={onSeekTime} />
+            )}
+            {entry.ultimate && (
+              <Ultimate card={entry.ultimate} seekable={seekable} onSeekTime={onSeekTime} />
             )}
             {entry.sections?.map((s) => (
               <div className="timeline-card" key={s.title}>
@@ -232,6 +232,79 @@ export function EventRow({
   )
 }
 
+function Outcome({ won, lost, quiet }: { won: number; lost: number; quiet?: boolean }) {
+  const kind = quiet ? 'quiet' : won > lost ? 'won' : lost > won ? 'lost' : 'traded'
+  const label = { quiet: 'Quiet', won: 'Won', lost: 'Lost', traded: 'Traded' }[kind]
+  return (
+    <span className={`fight-outcome ${kind}`}>
+      {label}
+      {!quiet && ` ${won}–${lost}`}
+    </span>
+  )
+}
+
+/// The player's own kills, assists and deaths, each seeking to its moment.
+function Moments({
+  moments,
+  seekable,
+  onSeekTime,
+}: {
+  moments: FightMoment[]
+  seekable: boolean
+  onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
+}) {
+  return (
+    <ul className="fight-moments">
+      {moments.map((m) => (
+        <li key={`${m.t}-${m.label}`} className={m.kind}>
+          <i aria-hidden="true" />
+          <button
+            disabled={!seekable}
+            aria-label={`${m.label} at ${clock(m.t)}`}
+            onClick={() => onSeekTime(m.t, m.kind)}
+          >
+            {m.label}
+          </button>
+          {m.detail && <small>{m.detail}</small>}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function Ultimate({
+  card,
+  seekable,
+  onSeekTime,
+}: {
+  card: UltimateCard
+  seekable: boolean
+  onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
+}) {
+  const quiet = card.enemyDeaths + card.alliedDeaths === 0
+  return (
+    <div className="timeline-card fight-card ultimate-card">
+      <div className="fight-heading">
+        <span>
+          <Sparkles size={13} aria-hidden="true" />
+          {card.location ?? 'Next 15 s'}
+        </span>
+        <Outcome won={card.enemyDeaths} lost={card.alliedDeaths} quiet={quiet} />
+      </div>
+      <div className="fight-part">
+        {card.moments.length ? (
+          <Moments moments={card.moments} seekable={seekable} onSeekTime={onSeekTime} />
+        ) : (
+          <p className="fight-absence">
+            <Clock size={13} aria-hidden="true" />
+            No kill, assist or death credited within 15 s
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Fight({
   card,
   seekable,
@@ -241,7 +314,6 @@ function Fight({
   seekable: boolean
   onSeekTime(gameMs: number, kind?: FightMoment['kind']): void
 }) {
-  const outcome = { won: 'Won', lost: 'Lost', traded: 'Traded' }[card.outcome]
   return (
     <div className="timeline-card fight-card">
       <div className="fight-heading">
@@ -249,9 +321,7 @@ function Fight({
           <MapPin size={13} aria-hidden="true" />
           {card.location}
         </span>
-        <span className={`fight-outcome ${card.outcome}`}>
-          {outcome} {card.enemyDeaths}–{card.alliedDeaths}
-        </span>
+        <Outcome won={card.enemyDeaths} lost={card.alliedDeaths} />
       </div>
       <div className="fight-teams">
         {(
@@ -286,33 +356,26 @@ function Fight({
           {card.turretCallout}
         </p>
       )}
-      {card.moments ? (
-        <ul className="fight-moments">
-          {card.moments.map((m) => (
-            <li key={`${m.t}-${m.label}`} className={m.kind}>
-              <button disabled={!seekable} onClick={() => onSeekTime(m.t, m.kind)}>
-                <span>{clock(m.t)}</span>
-                {m.label}
-              </button>
-              {m.detail && <small>{m.detail}</small>}
-            </li>
-          ))}
-        </ul>
-      ) : card.absence?.seekMs !== undefined ? (
-        <button
-          className="fight-absence"
-          disabled={!seekable}
-          onClick={() => onSeekTime(card.absence!.seekMs!)}
-        >
-          <UserX size={13} aria-hidden="true" />
-          {card.absence.label}
-        </button>
-      ) : (
-        <p className="fight-absence">
-          <UserX size={13} aria-hidden="true" />
-          {card.absence?.label ?? "You weren't credited in this fight"}
-        </p>
-      )}
+      <div className="fight-part">
+        <small>Your part</small>
+        {card.moments ? (
+          <Moments moments={card.moments} seekable={seekable} onSeekTime={onSeekTime} />
+        ) : card.absence?.seekMs !== undefined ? (
+          <button
+            className="fight-absence"
+            disabled={!seekable}
+            onClick={() => onSeekTime(card.absence!.seekMs!)}
+          >
+            <UserX size={13} aria-hidden="true" />
+            {card.absence.label}
+          </button>
+        ) : (
+          <p className="fight-absence">
+            <UserX size={13} aria-hidden="true" />
+            {card.absence?.label ?? "You weren't credited in this fight"}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
