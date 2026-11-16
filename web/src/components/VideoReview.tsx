@@ -756,7 +756,7 @@ export function VideoReview({
       fixedName={repository.guestName}
       timeLabel={commentTime(composing)}
       videoClock={!anchor}
-      contextLabel={commentEvent?.label}
+      onEvent={!!commentEvent}
       onCancel={cancelComment}
       onSave={saveComment}
     />
@@ -772,7 +772,7 @@ export function VideoReview({
           fixedName={repository.guestName}
           timeLabel={commentTime(comment.videoMs)}
           videoClock={!anchor}
-          contextLabel={comment.event?.label}
+          onEvent={!!comment.event}
           initial={comment}
           onCancel={() => setEditing(null)}
           onSave={async (kind, body) => {
@@ -1473,7 +1473,7 @@ function Composer({
   timeLabel,
   videoClock,
   initial,
-  contextLabel,
+  onEvent,
   onCancel,
   onSave,
 }: {
@@ -1483,7 +1483,8 @@ function Composer({
   timeLabel: string
   videoClock: boolean
   initial?: ReviewComment
-  contextLabel?: string
+  /** Attached to an event: the event row gives the context and time. */
+  onEvent?: boolean
   onCancel(): void
   onSave(kind: CommentKind, body: string, name?: string): Promise<boolean>
 }) {
@@ -1515,13 +1516,15 @@ function Composer({
         } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit()
       }}
     >
-      {contextLabel && <p className="composer-event-context">On {contextLabel}</p>}
-      <div className="composer-heading">
-        <strong>
-          {initial ? 'Edit' : 'New'} at {timeLabel}
-        </strong>
-        {videoClock && <small>video time</small>}
-      </div>
+      {/* Under an event, the event itself already says what and when. */}
+      {!onEvent && (
+        <div className="composer-heading">
+          <strong>
+            {initial ? 'Edit' : 'New'} at {timeLabel}
+          </strong>
+          {videoClock && <small>video time</small>}
+        </div>
+      )}
       <div className="composer-kinds" role="radiogroup" aria-label="Comment type">
         {kinds.map((k) => (
           <label key={k.kind} className={kind === k.kind ? 'selected' : ''}>

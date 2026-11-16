@@ -1580,8 +1580,7 @@ body:has(.cinema-mode) .watch-main {
   border-radius: 6px;
   padding: 8px;
 }
-.comment-event-context,
-.composer-event-context {
+.comment-event-context {
   color: var(--muted);
   font-size: 11px;
   margin-bottom: 6px;

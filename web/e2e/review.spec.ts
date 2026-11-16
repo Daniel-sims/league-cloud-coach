@@ -1175,7 +1175,10 @@ test('event discussions group player and coach comments at the event timestamp',
     name: 'Comments on Infernal Drake taken by your team at 12:00',
     exact: true,
   })
-  await expect(thread.getByText('On Infernal Drake taken by your team')).toBeVisible()
+  // The event above already names it and its time; the composer doesn't repeat either.
+  await expect(thread.getByLabel('Comment text')).toBeVisible()
+  await expect(thread.getByText('On Infernal Drake taken by your team')).toHaveCount(0)
+  await expect(thread.getByText(/^New at /)).toHaveCount(0)
   await thread.getByLabel('Comment text').fill('Should we contest this dragon?')
   state.failCommentSave = true
   await thread.getByRole('button', { name: 'Add', exact: true }).click()
