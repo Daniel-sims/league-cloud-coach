@@ -3,7 +3,8 @@ import { rpc } from '../lib/supabase'
 
 type Device = { code: string; created_at: string; expires_at: string }
 export function CompanionConnection({ hash }: { hash?: string }) {
-  const [devices, setDevices] = useState<Device[]>([])
+  // null until the list has loaded, so the empty state never flashes.
+  const [devices, setDevices] = useState<Device[] | null>(null)
   const [approved, setApproved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -91,7 +92,13 @@ export function CompanionConnection({ hash }: { hash?: string }) {
         </p>
       )}
       <h2>Connected companions</h2>
-      {devices.length === 0 ? (
+      {devices === null ? (
+        error ? null : (
+          <p className="blocks-empty" role="status">
+            Loading connected apps…
+          </p>
+        )
+      ) : devices.length === 0 ? (
         <p className="blocks-empty">
           No connected companions. In League Helper, choose Connect to web to add one.
         </p>
