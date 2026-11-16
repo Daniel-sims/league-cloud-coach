@@ -2220,7 +2220,7 @@ body:has(.cinema-mode) .watch-main {
   gap: 6px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgb(18 21 18 / 0.92);
+  background: rgb(18 21 18 / 0.6);
   color: #e9ece4;
   font-size: 12px;
   box-shadow: 0 6px 24px rgb(0 0 0 / 0.35);
@@ -2446,11 +2446,6 @@ body:has(.cinema-mode) .watch-main {
 .review-board .timeline-item.empty {
   background: rgb(255 255 255 / 0.04);
   border-color: rgb(255 255 255 / 0.06);
-}
-.review-board footer {
-  color: var(--board-muted);
-  font-size: 11px;
-  line-height: 1.4;
 }
 @container (max-width: 720px) {
   .board-sides {

@@ -26,8 +26,6 @@ export function ReviewBoard({
   const at = Math.max(0, Math.min(gameMs, review.gameDuration * 1000))
   const board = boardAt(review, replays, at)
   const patch = patchOf(review.gameVersion)
-  const unchecked = review.participants.every((p) => !p.finalItems)
-  const noLoadout = review.participants.every((p) => !p.runes)
   const [blue, red] = board.teams
   return (
     <div className="review-board-layer">
@@ -61,16 +59,6 @@ export function ReviewBoard({
             <TeamBoard key={team.teamId} team={team} playerId={review.playerId} patch={patch} />
           ))}
         </div>
-        <footer>
-          Items to the second from Riot’s item log.{' '}
-          {board.snapshotAt !== null
-            ? `Level, CS and gold as of ${clock(board.snapshotAt)} (Riot records them once a minute).`
-            : 'Level, CS and gold arrive with the first minute.'}
-          {unchecked &&
-            ' This review has no final items, so a support’s quest upgrade can’t be named.'}
-          {noLoadout &&
-            ' This review has no runes or summoner spells yet; Refresh timeline (cog → Change game) adds them.'}
-        </footer>
       </section>
     </div>
   )

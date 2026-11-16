@@ -1738,7 +1738,8 @@ test('the board shows everyone’s items and score at the playhead', async ({ pa
   const blueBox = (await board.locator('.board-team.blue').boundingBox())!
   const redBox = (await board.locator('.board-team.red').boundingBox())!
   expect(blueBox.x + blueBox.width).toBeLessThanOrEqual(redBox.x + 1)
-  await expect(board).toContainText('as of 10:00')
+  // No footer explaining where the data comes from.
+  await expect(board.locator('footer')).toHaveCount(0)
   const box = (await board.boundingBox())!
   expect(box.x).toBeGreaterThanOrEqual(0)
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
