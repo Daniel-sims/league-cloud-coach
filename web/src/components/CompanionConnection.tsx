@@ -45,13 +45,24 @@ export function CompanionConnection({ hash }: { hash?: string }) {
   }
   const valid = hash && /^[a-f0-9]{64}$/.test(hash)
   return (
-    <section className="companion-connect">
-      <h1>{hash ? 'Connect League Helper' : 'Connected apps'}</h1>
+    <section className="blocks-page companion-connect">
+      <div className="blocks-head">
+        <div>
+          <span className="eyebrow">LEAGUE HELPER</span>
+          <h1>{hash ? 'Connect League Helper' : 'Connected apps'}</h1>
+          <p className="blocks-lede">
+            Apps on your computer that can upload recordings and prepared review timelines to your
+            library. They can’t read or change anything else.
+          </p>
+        </div>
+      </div>
       {hash && !valid ? (
-        <p>Invalid connection link. Start Connect to web again in League Helper.</p>
+        <p className="notice error" role="alert">
+          Invalid connection link. Start Connect to web again in League Helper.
+        </p>
       ) : null}
       {valid && !approved ? (
-        <>
+        <div className="companion-approve">
           <p>
             Approve the League Helper app on your Mac to upload recordings and prepared review
             timelines to this account. Access expires after 90 days and can be disconnected here at
@@ -67,10 +78,10 @@ export function CompanionConnection({ hash }: { hash?: string }) {
           <button className="button" disabled={busy} onClick={() => void approve()}>
             Connect League Helper
           </button>
-        </>
+        </div>
       ) : null}
       {approved && (
-        <p role="status">
+        <p className="notice" role="status">
           Connected. Return to League Helper and choose Check connection, then Push to web.
         </p>
       )}
@@ -81,13 +92,21 @@ export function CompanionConnection({ hash }: { hash?: string }) {
       )}
       <h2>Connected companions</h2>
       {devices.length === 0 ? (
-        <p>No connected companions.</p>
+        <p className="blocks-empty">
+          No connected companions. In League Helper, choose Connect to web to add one.
+        </p>
       ) : (
-        <ul>
+        <ul className="companion-list">
           {devices.map((device) => (
             <li key={device.code}>
-              <code>{device.code.slice(0, 8).toUpperCase()}</code> · Expires{' '}
-              {new Date(device.expires_at).toLocaleDateString()}{' '}
+              <span>
+                <strong>
+                  League Helper · <code>{device.code.slice(0, 8).toUpperCase()}</code>
+                </strong>
+                <small>
+                  Connected {formatDay(device.created_at)} · Expires {formatDay(device.expires_at)}
+                </small>
+              </span>
               <button
                 className="button secondary"
                 disabled={busy}
@@ -99,9 +118,11 @@ export function CompanionConnection({ hash }: { hash?: string }) {
           ))}
         </ul>
       )}
-      <p>
-        <a href="#/library">Back to library</a>
-      </p>
     </section>
   )
 }
+
+const formatDay = (value: string) =>
+  new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+    new Date(value),
+  )

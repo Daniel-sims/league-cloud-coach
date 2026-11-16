@@ -20,6 +20,7 @@ import {
   type LeagueProfile,
   type Participant,
 } from '../lib/league'
+import { championLabel } from '../lib/champions'
 
 export function Home({
   ownerId,
@@ -113,6 +114,13 @@ export function Home({
     setFilter(emptyFilter)
     setLimit(20)
     setHistoryLoading(true)
+    // Show what this browser already holds while the server is asked for changes.
+    repository
+      .storedMatches?.(selected)
+      .then((rows) => {
+        if (active && rows) setMatches((current) => (current.length ? current : rows))
+      })
+      .catch(() => undefined)
     repository
       .matches(selected)
       .then((rows) => {
@@ -141,7 +149,8 @@ export function Home({
     return () => {
       active = false
     }
-  }, [repository, selected])
+    // One owner-wide map: switching profile doesn't change it.
+  }, [repository])
 
   // Another player: Summoners owns lookups, so hand off to their profile page.
   function openPlayer(player: Participant) {
@@ -205,14 +214,16 @@ export function Home({
     (key) => filter[key] !== emptyFilter[key],
   ).length
   const playedOptions = [
-    ...new Map(games.map((g) => [g.player.championId, g.player.championName])).entries(),
+    ...new Map(
+      games.map((g) => [g.player.championId, championLabel(g.player.championName)]),
+    ).entries(),
   ].sort((a, b) => a[1].localeCompare(b[1]))
   const opponentOptions = [
     ...new Map(
       games.flatMap((g) =>
         g.participants
           .filter((p) => p.teamId !== g.player.teamId)
-          .map((p) => [p.championId, p.championName] as const),
+          .map((p) => [p.championId, championLabel(p.championName)] as const),
       ),
     ).entries(),
   ].sort((a, b) => a[1].localeCompare(b[1]))
@@ -383,7 +394,7 @@ export function Home({
                 <div className="league-section-heading">
                   <h2>Recent games</h2>
                 </div>
-                {historyLoading ? (
+                {historyLoading && !matches.length ? (
                   <p role="status" className="muted">
                     Loading saved games…
                   </p>

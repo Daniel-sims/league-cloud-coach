@@ -271,7 +271,7 @@ it('seeks comments and ordinary events exactly, with lead-in only for ultimates 
   expect(player.seekTo).toHaveBeenLastCalledWith(700)
   await userEvent.click(screen.getByRole('button', { name: 'Killed Ahri at 10:00' }))
   expect(player.seekTo).toHaveBeenLastCalledWith(700)
-  await userEvent.click(screen.getByRole('button', { name: 'Assisted killing LeeSin at 10:02' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Assisted killing Lee Sin at 10:02' }))
   expect(player.seekTo).toHaveBeenLastCalledWith(702)
   await userEvent.click(screen.getByRole('button', { name: 'Died to Syndra at 10:04' }))
   expect(player.seekTo).toHaveBeenLastCalledWith(699)

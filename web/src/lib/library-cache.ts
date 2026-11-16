@@ -1,5 +1,5 @@
 import { clearMatchCache } from './match-cache'
-import type { Recording } from './types'
+import type { Recording, RecordingGame } from './types'
 
 // Only display metadata and image bytes live here. Signed URLs and auth tokens never do.
 const project = import.meta.env.VITE_SUPABASE_URL || 'unconfigured'
@@ -17,8 +17,37 @@ const images = new Map<string, { url: string; savedAt: number }>()
 const pending = new Map<string, Promise<string>>()
 let database: Promise<IDBDatabase | null> | undefined
 
+// The trailing number versions the preview itself: v2 samples a frame 20% in
+// instead of frame zero (often black). Old keys fall out of the catalogue and are pruned.
 function imageKey(owner: string, record: Recording) {
-  return JSON.stringify([owner, record.id, record.stream_video_id])
+  return JSON.stringify([owner, record.id, record.stream_video_id, 2])
+}
+// Only these display fields of a recording's game are kept in browser storage.
+function cleanGame(value: unknown): RecordingGame | null {
+  if (!value || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  const game: RecordingGame = {}
+  for (const key of ['matchId', 'championName', 'opponentChampionName'] as const) {
+    const v = row[key]
+    if (typeof v === 'string' && v.length <= 60) game[key] = v
+  }
+  for (const key of [
+    'queueId',
+    'gameDuration',
+    'championId',
+    'opponentChampionId',
+    'kills',
+    'deaths',
+    'assists',
+  ] as const) {
+    const v = row[key]
+    if (typeof v === 'number' && Number.isFinite(v)) game[key] = v
+  }
+  for (const key of ['win', 'remake'] as const) {
+    const v = row[key]
+    if (typeof v === 'boolean') game[key] = v
+  }
+  return Object.keys(game).length ? game : null
 }
 function cleanRecords(value: unknown): Recording[] | null {
   if (!Array.isArray(value) || value.length > 1000) return null
@@ -48,6 +77,7 @@ function cleanRecords(value: unknown): Recording[] | null {
       provider: row.provider,
       youtube_video_id: row.youtube_video_id,
       stream_video_id: row.stream_video_id,
+      ...(cleanGame(row.game) ? { game: cleanGame(row.game) } : {}),
     })
   }
   return result

@@ -256,7 +256,10 @@ export function createStreamHandler(deps: Dependencies) {
         throw new Failure(502, 'Unexpected video host.')
       if (body.action === 'thumbnail') {
         playback.pathname = `/${signed.token}/thumbnails/thumbnail.jpg`
-        playback.search = new URLSearchParams({ time: '0s', height: '180', fit: 'clip' }).toString()
+        // Frame zero is usually black or a loading screen; a fifth of the way
+        // in shows the game. Cloudflare reports -1 while the duration is unknown.
+        const at = Number(video.duration) > 0 ? Math.floor(Number(video.duration) * 0.2) : 0
+        playback.search = new URLSearchParams({ time: `${at}s`, height: '180', fit: 'clip' }).toString()
         return reply({ url: playback.href, expiresAt: new Date(exp * 1000).toISOString() })
       }
       playback.pathname = `/${signed.token}/manifest/video.m3u8`

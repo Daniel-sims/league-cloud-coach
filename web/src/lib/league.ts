@@ -1,3 +1,4 @@
+import { championLabel } from './champions'
 // Mirrors Domain/RecentGames.swift and Persistence/MatchHistoryFilter.swift.
 export type Participant = {
   puuid: string
@@ -273,7 +274,7 @@ export function championGroups(games: Game[]) {
       // Native champion rows use all games on that champion, including off-role games.
       return {
         id,
-        name: list[0].player.championName,
+        name: championLabel(list[0].player.championName),
         summary: {
           ...stats,
           csPerMinute: minutes ? sum(decided, (g) => cs(g.player)) / minutes : 0,

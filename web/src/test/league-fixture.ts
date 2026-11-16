@@ -58,3 +58,9 @@ export function match(
     ...info,
   }
 }
+
+/** A simulated `list_league_match_changes` reply holding every game at once. */
+export const changes = (matches: LeagueMatch[]) => ({
+  matches,
+  cursor: matches.length ? { at: '2026-11-16T00:00:00.000Z', id: matches[0].id } : null,
+})

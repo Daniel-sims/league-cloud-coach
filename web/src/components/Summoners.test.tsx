@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import { SummonerProfile, SummonerSearch } from './Summoners'
+import { loadViewed } from '../lib/viewed-cache'
 import { match } from '../test/league-fixture'
 import type { LeagueProfile } from '../lib/league'
 import type { LeagueRepository } from '../lib/league-repository'
@@ -53,7 +54,7 @@ afterEach(() => {
 it('finds a player by Riot ID, remembers them and opens their profile', async () => {
   const repo = repository()
   render(<SummonerSearch ownerId="owner" repository={repo} />)
-  expect(screen.getByText('No one looked up yet')).toBeVisible()
+  expect(await screen.findByText('No one looked up yet')).toBeVisible()
   await userEvent.type(screen.getByLabelText('Riot ID'), 'Zed#EUW')
   await userEvent.selectOptions(screen.getByLabelText('Region'), 'na1')
   await userEvent.click(screen.getByRole('button', { name: 'Look up' }))
@@ -62,7 +63,7 @@ it('finds a player by Riot ID, remembers them and opens their profile', async ()
   expect(repo.connect).not.toHaveBeenCalled()
   cleanup()
   render(<SummonerSearch ownerId="owner" repository={repo} />)
-  expect(screen.getByRole('link', { name: /Zed#EUW/ })).toHaveAttribute(
+  expect(await screen.findByRole('link', { name: /Zed#EUW/ })).toHaveAttribute(
     'href',
     '#/summoners/na1/enemy',
   )
@@ -87,7 +88,9 @@ it('loads a player’s profile and games without saving them, and caches for nex
   expect(screen.getAllByText('Zed#EUW').length).toBeGreaterThan(0)
   expect(repo.connect).not.toHaveBeenCalled()
   expect(repo.sync).not.toHaveBeenCalled()
-  expect(Object.keys(localStorage).some((k) => k.startsWith('league-viewed:'))).toBe(true)
+  await waitFor(async () =>
+    expect((await loadViewed('owner', 'euw1', 'enemy'))?.matches.length).toBeGreaterThan(0),
+  )
 })
 
 it('links a clicked player to their profile, and your own account to Home', async () => {

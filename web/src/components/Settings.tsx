@@ -232,8 +232,92 @@ export function Settings({
         if (!busy && !seasonBusy) onClose()
       }}
     >
+      <section className="settings-section riot-settings" aria-label="Riot connection">
+        <h3>Riot connection</h3>
+        <p className="dialog-intro">
+          Add your Riot API token to load your League account, match history and stats. Replace it
+          here when it expires.
+        </p>
+        <p className="muted">
+          {status
+            ? status.configured
+              ? 'A personal Riot token is saved.'
+              : status.sharedDefault
+                ? 'Using the workspace Riot connection.'
+                : 'No Riot token saved yet.'
+            : 'Checking your Riot connection…'}
+        </p>
+        <form onSubmit={save} className="league-connect-form">
+          <label>
+            Riot API token
+            <input
+              autoFocus
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="RGAPI-…"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              required
+              maxLength={120}
+              disabled={busy}
+            />
+          </label>
+          <label>
+            Region
+            <select
+              aria-label="Region"
+              value={platform}
+              onChange={(e) => setPlatform(e.target.value)}
+              disabled={busy}
+            >
+              {Object.entries(platforms).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="muted">
+            Your token is stored encrypted for your account. It won’t be displayed again.
+          </p>
+          <a
+            className="text-link"
+            href="https://developer.riotgames.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Get a token from Riot <ExternalLink size={13} />
+          </a>
+          {error && (
+            <div className="notice error" role="alert">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className={warning ? 'notice warning' : 'notice'} role="status">
+              {message}
+            </div>
+          )}
+          <div className="settings-token-actions">
+            <button className="button" disabled={busy || !token.trim()}>
+              {busy ? 'Working…' : 'Save token'}
+            </button>
+            {status?.configured && (
+              <button
+                type="button"
+                className="text-link"
+                onClick={() => void remove()}
+                disabled={busy}
+              >
+                Remove saved token
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
       {profiles.length > 0 && (
-        <section className="season-sync-settings" aria-label="Match history">
+        <section className="settings-section season-sync-settings" aria-label="Match history">
           <h3>Match history</h3>
           <p className="dialog-intro">
             Download every game for a whole season (a calendar year, so season 16 is 2026) from
@@ -309,11 +393,11 @@ export function Settings({
           </div>
         </section>
       )}
-      <section className="appearance-settings" aria-label="Appearance">
+      <section className="settings-section appearance-settings" aria-label="Appearance">
         <h3>Appearance</h3>
         <label className="theme-setting">
           <span>
-            Dark mode<small>{theme === 'dark' ? 'Dark appearance' : 'Light appearance'}</small>
+            Dark mode<small>Applies to this browser only</small>
           </span>
           <input
             className="theme-switch"
@@ -325,86 +409,6 @@ export function Settings({
           />
         </label>
       </section>
-      <h3>Riot connection</h3>
-      <p className="dialog-intro">
-        Add your Riot API token to load your League account, match history and stats. Replace it
-        here when it expires.
-      </p>
-      <p className="muted">
-        {status
-          ? status.configured
-            ? 'A personal Riot token is saved.'
-            : status.sharedDefault
-              ? 'Using the workspace Riot connection.'
-              : 'No Riot token saved yet.'
-          : 'Checking your Riot connection…'}
-      </p>
-      <form onSubmit={save} className="league-connect-form">
-        <label>
-          Riot API token
-          <input
-            autoFocus
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="RGAPI-…"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            required
-            maxLength={120}
-            disabled={busy}
-          />
-        </label>
-        <label>
-          Region
-          <select
-            aria-label="Region"
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
-            disabled={busy}
-          >
-            {Object.entries(platforms).map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="muted">
-          Your token is stored encrypted for your account. It won’t be displayed again.
-        </p>
-        <a
-          className="text-link"
-          href="https://developer.riotgames.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Get a token from Riot <ExternalLink size={13} />
-        </a>
-        {error && (
-          <div className="notice error" role="alert">
-            {error}
-          </div>
-        )}
-        {message && (
-          <div className={warning ? 'notice warning' : 'notice'} role="status">
-            {message}
-          </div>
-        )}
-        <div className="dialog-actions">
-          <button type="button" className="button secondary" onClick={onClose} disabled={busy}>
-            Done
-          </button>
-          <button className="button" disabled={busy || !token.trim()}>
-            {busy ? 'Working…' : 'Save token'}
-          </button>
-        </div>
-        {status?.configured && (
-          <button type="button" className="text-link" onClick={() => void remove()} disabled={busy}>
-            Remove saved token
-          </button>
-        )}
-      </form>
       {onSignOut && (
         <section className="settings-account" aria-label="Account">
           <span className="muted">Signed in as {userName}</span>
@@ -413,6 +417,16 @@ export function Settings({
           </button>
         </section>
       )}
+      <div className="dialog-actions settings-done">
+        <button
+          type="button"
+          className="button secondary"
+          onClick={onClose}
+          disabled={busy || Boolean(seasonBusy)}
+        >
+          Done
+        </button>
+      </div>
     </Dialog>
   )
 }

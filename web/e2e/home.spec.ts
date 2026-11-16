@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext } from '@playwright/test'
-import { match } from '../src/test/league-fixture'
+import { changes, match } from '../src/test/league-fixture'
 import type { LeagueProfile, LeagueMatch } from '../src/lib/league'
 
 const ownerId = '11111111-1111-4111-8111-111111111111'
@@ -69,12 +69,14 @@ async function setup(
     if (name === 'user') result = user
     if (name === 'is_library_owner') result = true
     if (name === 'list_league_profiles') result = profiles
-    if (name === 'list_league_matches')
-      result = games ?? [
-        match('1'),
-        match('2', { win: false }),
-        match('3', { championId: 222, championName: 'Jinx', teamPosition: 'BOTTOM' }),
-      ]
+    if (name === 'list_league_match_changes')
+      result = changes(
+        games ?? [
+          match('1'),
+          match('2', { win: false }),
+          match('3', { championId: 222, championName: 'Jinx', teamPosition: 'BOTTOM' }),
+        ],
+      )
     if (name === 'riot') {
       if (args.action === 'token-status') result = { configured: false, sharedDefault: false }
       else if (args.action === 'save-token')

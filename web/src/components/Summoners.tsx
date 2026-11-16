@@ -3,7 +3,13 @@ import { ArrowLeft, RefreshCw, Search, UserRound } from 'lucide-react'
 import '../league.css'
 import { MatchRow, RankCard, RecentSummary, SeasonChampions } from './LeagueParts'
 import { leagueRepository, type LeagueRepository } from '../lib/league-repository'
-import { listViewed, loadViewed, maxViewedGames, saveViewed } from '../lib/viewed-cache'
+import {
+  listViewed,
+  loadViewed,
+  maxViewedGames,
+  saveViewed,
+  type RecentPlayer,
+} from '../lib/viewed-cache'
 import {
   groupGamesByDay,
   gamesFor,
@@ -31,7 +37,8 @@ export function SummonerSearch({
   const [platform, setPlatform] = useState('euw1')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [recent, setRecent] = useState(() => listViewed(ownerId))
+  // null until this browser's list has been read, so the empty state never flashes.
+  const [recent, setRecent] = useState<RecentPlayer[] | null>(null)
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (busy) return
@@ -39,8 +46,8 @@ export function SummonerSearch({
     setError('')
     try {
       const { puuid, profile } = await repository.findPlayer(platform, riotId)
-      const cached = loadViewed(ownerId, platform, puuid)
-      saveViewed(ownerId, platform, puuid, {
+      const cached = await loadViewed(ownerId, platform, puuid)
+      await saveViewed(ownerId, platform, puuid, {
         profile: {
           ...profile,
           id: 'viewing',
@@ -57,9 +64,15 @@ export function SummonerSearch({
       setBusy(false)
     }
   }
-  useEffect(() => setRecent(listViewed(ownerId)), [ownerId])
+  useEffect(() => {
+    let active = true
+    void listViewed(ownerId).then((rows) => active && setRecent(rows))
+    return () => {
+      active = false
+    }
+  }, [ownerId])
   return (
-    <div className="league-home">
+    <div className="league-home league-search-page">
       <div className="page-heading">
         <div>
           <span className="eyebrow">LOOK ANYONE UP</span>
@@ -108,7 +121,7 @@ export function SummonerSearch({
         </div>
       )}
       <h2 className="league-section-heading">Recent</h2>
-      {recent.length ? (
+      {recent === null ? null : recent.length ? (
         <ul className="league-recent-players" aria-label="Recent summoners">
           {recent.map(({ platform, puuid, profile }) => (
             <li key={`${platform}:${puuid}`}>
@@ -161,27 +174,24 @@ export function SummonerProfile({
   puuid: string
   repository?: LeagueRepository
 }) {
-  const cached = loadViewed(ownerId, platform, puuid)
-  const [profile, setProfile] = useState<LeagueProfile>(
-    cached?.profile ?? {
-      id: 'viewing',
-      platform,
-      puuid,
-      gameName: '',
-      tagLine: '',
-      profileIconId: 0,
-      summonerLevel: 0,
-      ranks: [],
-      syncedAt: null,
-    },
-  )
-  const [matches, setMatches] = useState<LeagueMatch[]>(cached?.matches ?? [])
+  const [profile, setProfile] = useState<LeagueProfile>({
+    id: 'viewing',
+    platform,
+    puuid,
+    gameName: '',
+    tagLine: '',
+    profileIconId: 0,
+    summonerLevel: 0,
+    ranks: [],
+    syncedAt: null,
+  })
+  const [matches, setMatches] = useState<LeagueMatch[]>([])
   const [mine, setMine] = useState<LeagueProfile[]>([])
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [limit, setLimit] = useState(firstPage)
   const [exhausted, setExhausted] = useState(false)
-  const data = useRef({ matches: cached?.matches ?? [], cursor: 0, profile })
+  const data = useRef({ matches: [] as LeagueMatch[], cursor: 0, profile })
   const token = useRef(0)
   const mounted = useRef(true)
   useEffect(() => {
@@ -227,7 +237,7 @@ export function SummonerProfile({
       }
       setMatches(merged)
       setExhausted(!hasMore || merged.length >= maxViewedGames)
-      saveViewed(ownerId, platform, puuid, { profile: current, matches: merged })
+      void saveViewed(ownerId, platform, puuid, { profile: current, matches: merged })
     }
   }
   async function load(older: boolean, count: number) {
@@ -253,7 +263,20 @@ export function SummonerProfile({
     }
   }
   useEffect(() => {
-    void load(false, firstPage)
+    let active = true
+    // Show what this browser kept, and pass its games as known, before asking Riot.
+    void loadViewed(ownerId, platform, puuid).then((cached) => {
+      if (!active) return
+      if (cached) {
+        data.current = { ...data.current, matches: cached.matches, profile: cached.profile }
+        setProfile(cached.profile)
+        setMatches(cached.matches)
+      }
+      void load(false, firstPage)
+    })
+    return () => {
+      active = false
+    }
   }, [ownerId, platform, puuid])
 
   function openPlayer(player: Participant) {

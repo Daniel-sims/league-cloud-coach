@@ -1,4 +1,13 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type FormEvent,
+  type LazyExoticComponent,
+} from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
   ArrowDownUp,
@@ -45,11 +54,7 @@ import {
 } from './lib/library-cache'
 import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
-import { Home } from './components/Home'
-import { SummonerProfile, SummonerSearch } from './components/Summoners'
 import { Settings } from './components/Settings'
-import { BlockList, BlockView } from './components/Blocks'
-import { CompanionConnection } from './components/CompanionConnection'
 import { VideoReview } from './components/VideoReview'
 import { NotebookActions, useReviewNotebook } from './components/ReviewNotebook'
 import { ownerReview, sharedReview } from './lib/review'
@@ -58,23 +63,69 @@ import { useTheme } from './lib/theme'
 import { appURL, cloudRepository, configured, resolveShare, rpc, supabase } from './lib/supabase'
 import { localRepository } from './lib/local'
 import { parseYouTubeId, youtubeURL } from './lib/youtube'
-import type { Guest, LibraryRepository, Recording, WatchVideo, UploadSync } from './lib/types'
+import type {
+  Guest,
+  LibraryRepository,
+  Recording,
+  RecordingGame,
+  WatchVideo,
+  UploadSync,
+} from './lib/types'
+import { championLabel } from './lib/champions'
+import { championIcon, queues } from './lib/league'
+// League styles are shared by eager screens too (Settings, the review's game picker,
+// library rows), so they stay in the main stylesheet while the pages load lazily.
+import './league.css'
 
-// The markdown renderer is only needed on this page, so keep it out of the main bundle.
-// A tab opened before a deploy can't fetch the old chunk, so ask for a reload instead of crashing.
-const LearningObjectives = lazy(() =>
-  import('./components/LearningObjectives')
-    .then((m) => ({ default: m.LearningObjectives }))
-    .catch(() => ({
-      default: () => (
-        <div className="notice error">
-          The app was updated since this tab opened.{' '}
-          <button className="text-link" onClick={() => window.location.reload()}>
-            Reload to open your objectives
-          </button>
-        </div>
-      ),
-    })),
+// Owner pages load on demand, so a coach's watch link (and the review page)
+// don't download Home, Summoners, Blocks or the markdown renderer. A tab opened
+// before a deploy can't fetch the old chunk, so ask for a reload instead of crashing.
+function lazyPage<P extends object>(
+  load: () => Promise<ComponentType<P>>,
+  what: string,
+): LazyExoticComponent<ComponentType<P>> {
+  return lazy(() =>
+    load()
+      .then((component) => ({ default: component }))
+      .catch(() => ({
+        default: (() => (
+          <div className="notice error">
+            The app was updated since this tab opened.{' '}
+            <button className="text-link" onClick={() => window.location.reload()}>
+              Reload to open {what}
+            </button>
+          </div>
+        )) as ComponentType<P>,
+      })),
+  )
+}
+const LearningObjectives = lazyPage(
+  () => import('./components/LearningObjectives').then((m) => m.LearningObjectives),
+  'your objectives',
+)
+const Home = lazyPage(() => import('./components/Home').then((m) => m.Home), 'Home')
+const SummonerProfile = lazyPage(
+  () => import('./components/Summoners').then((m) => m.SummonerProfile),
+  'this player',
+)
+const SummonerSearch = lazyPage(
+  () => import('./components/Summoners').then((m) => m.SummonerSearch),
+  'Summoners',
+)
+const BlockView = lazyPage(
+  () => import('./components/Blocks').then((m) => m.BlockView),
+  'this block',
+)
+const BlockList = lazyPage(() => import('./components/Blocks').then((m) => m.BlockList), 'Blocks')
+const CompanionConnection = lazyPage(
+  () => import('./components/CompanionConnection').then((m) => m.CompanionConnection),
+  'Connected apps',
+)
+const pageLoading = (
+  <div className="loading-state" role="status">
+    <LoaderCircle className="spin" />
+    Loading…
+  </div>
 )
 
 const isDev = import.meta.env.DEV
@@ -187,6 +238,22 @@ export function App({ authError = null }: { authError?: string | null }) {
   const summoners = route === '/summoners' || route.startsWith('/summoners/')
   const blocks = route === '/blocks' || route.startsWith('/blocks/')
   const objectives = route === '/objectives'
+  const library = route === '/library' || (local && route === '/preview')
+  const connect = route === '/connect' || route.startsWith('/connect/')
+  // Anything else (an old bookmark, a typo, a bare `#/`) goes Home rather than
+  // silently showing the library under the wrong address.
+  const knownRoute =
+    home ||
+    summoners ||
+    blocks ||
+    objectives ||
+    library ||
+    connect ||
+    videoRoute ||
+    route.startsWith('/watch/')
+  useEffect(() => {
+    if (!knownRoute) window.location.replace('#/home')
+  }, [knownRoute])
   const blockId = route.match(/^\/blocks\/([a-f0-9-]{36})$/)?.[1]
   const summonerRoute = route.match(/^\/summoners\/([a-z0-9]+)\/([A-Za-z0-9_-]{20,100})$/)
 
@@ -333,12 +400,12 @@ export function App({ authError = null }: { authError?: string | null }) {
             </a>
           )}
           <a
-            className={`nav-item ${!home && !summoners && !blocks && !objectives ? 'active' : ''}`}
+            className={`nav-item ${library || videoRoute ? 'active' : ''}`}
             href={local ? '#/preview' : '#/library'}
           >
             <FileVideo size={18} />
             Video library
-            <ChevronRight size={14} className="nav-chevron" />
+            {(library || videoRoute) && <ChevronRight size={14} className="nav-chevron" />}
           </a>
           <button className="nav-item" onClick={() => setHelp(true)}>
             <CircleHelp size={18} />
@@ -348,9 +415,10 @@ export function App({ authError = null }: { authError?: string | null }) {
         {session && member && (
           <nav className="sidebar-settings" aria-label="Settings navigation">
             {member && (
-              <a className="nav-item" href="#/connect">
+              <a className={`nav-item ${connect ? 'active' : ''}`} href="#/connect">
                 <Link2 size={18} />
                 Connected apps
+                {connect && <ChevronRight size={14} className="nav-chevron" />}
               </a>
             )}
             <button className="nav-item" onClick={() => setSettings(true)}>
@@ -404,7 +472,7 @@ export function App({ authError = null }: { authError?: string | null }) {
                       ? 'Blocks'
                       : objectives
                         ? 'Learning objectives'
-                        : route.startsWith('/connect')
+                        : connect
                           ? 'Connected apps'
                           : 'Video library'}
               </strong>
@@ -460,52 +528,45 @@ export function App({ authError = null }: { authError?: string | null }) {
               Opening your workspace…
             </div>
           ) : local || (session && member) ? (
-            route.startsWith('/connect') ? (
-              <CompanionConnection
-                key={route}
-                hash={route.startsWith('/connect/') ? route.slice(9) : undefined}
-              />
-            ) : ownVideoId ? (
-              <OwnVideo
-                key={ownVideoId}
-                id={ownVideoId}
-                repository={local ? localRepository : cloudRepository}
-                local={local}
-              />
-            ) : home && session ? (
-              <Home key={`${session.user.id}:${settingsVersion}`} ownerId={session.user.id} />
-            ) : objectives && session ? (
-              <Suspense
-                fallback={
-                  <div className="loading-state" role="status">
-                    <LoaderCircle className="spin" />
-                    Loading objectives…
-                  </div>
-                }
-              >
+            <Suspense fallback={pageLoading}>
+              {connect ? (
+                <CompanionConnection
+                  key={route}
+                  hash={route.startsWith('/connect/') ? route.slice(9) : undefined}
+                />
+              ) : ownVideoId ? (
+                <OwnVideo
+                  key={ownVideoId}
+                  id={ownVideoId}
+                  repository={local ? localRepository : cloudRepository}
+                  local={local}
+                />
+              ) : home && session ? (
+                <Home key={`${session.user.id}:${settingsVersion}`} ownerId={session.user.id} />
+              ) : objectives && session ? (
                 <LearningObjectives key={session.user.id} />
-              </Suspense>
-            ) : blocks && session && blockId ? (
-              <BlockView key={`${session.user.id}:${blockId}`} id={blockId} />
-            ) : blocks && session ? (
-              <BlockList key={session.user.id} />
-            ) : summoners && session && summonerRoute ? (
-              <SummonerProfile
-                key={`${session.user.id}:${summonerRoute[1]}:${summonerRoute[2]}`}
-                ownerId={session.user.id}
-                platform={summonerRoute[1]}
-                puuid={summonerRoute[2]}
-              />
-            ) : summoners && session ? (
-              <SummonerSearch key={session.user.id} ownerId={session.user.id} />
-            ) : (
-              <Library
-                key={local ? 'local' : session!.user.id}
-                ownerId={session?.user.id}
-                repository={local ? localRepository : cloudRepository}
-                local={local}
-              />
-            )
+              ) : blocks && session && blockId ? (
+                <BlockView key={`${session.user.id}:${blockId}`} id={blockId} />
+              ) : blocks && session ? (
+                <BlockList key={session.user.id} />
+              ) : summoners && session && summonerRoute ? (
+                <SummonerProfile
+                  key={`${session.user.id}:${summonerRoute[1]}:${summonerRoute[2]}`}
+                  ownerId={session.user.id}
+                  platform={summonerRoute[1]}
+                  puuid={summonerRoute[2]}
+                />
+              ) : summoners && session ? (
+                <SummonerSearch key={session.user.id} ownerId={session.user.id} />
+              ) : (
+                <Library
+                  key={local ? 'local' : session!.user.id}
+                  ownerId={session?.user.id}
+                  repository={local ? localRepository : cloudRepository}
+                  local={local}
+                />
+              )}
+            </Suspense>
           ) : session ? (
             <div className="access-state">
               <ShieldCheck size={34} />
@@ -573,17 +634,17 @@ export function App({ authError = null }: { authError?: string | null }) {
       )}
       {help && (
         <Dialog title="From your game to your coach" onClose={() => setHelp(false)}>
-          <p className="dialog-intro">Three simple steps. Your coach doesn’t need an account.</p>
+          <p className="dialog-intro">Four steps. Your coach doesn’t need an account.</p>
           <ol className="steps">
             <li>
               <span>01</span>
               <div>
-                <h3>Upload or add a recording</h3>
+                <h3>Get your game in</h3>
                 <p>
-                  Choose Upload video to select a file from your computer. It will appear in your
-                  library when processing finishes. Already have a video on Cloudflare Stream or
-                  YouTube? Choose Add existing video instead. YouTube videos should be Unlisted with
-                  embedding allowed.
+                  In League Helper, choose Push to web: it uploads the recording with its review
+                  timeline already prepared. You can also choose Upload video for a file on your
+                  computer, or Add existing video for Cloudflare Stream or a YouTube video that is
+                  Unlisted with embedding allowed.
                 </p>
                 <a
                   className="text-link"
@@ -598,20 +659,32 @@ export function App({ authError = null }: { authError?: string | null }) {
             <li>
               <span>02</span>
               <div>
-                <h3>Create a watch link</h3>
+                <h3>Line up the timeline</h3>
                 <p>
-                  Choose Share beside a recording, then Create share link. Copy the link to send to
-                  your coach.
+                  Open the recording. If it didn’t come from League Helper, attach the game and sync
+                  the game clock from the timeline’s settings, so kills, fights, recalls and the
+                  board (B) match the video.
                 </p>
               </div>
             </li>
             <li>
               <span>03</span>
               <div>
-                <h3>Send it to your coach</h3>
+                <h3>Share it with your coach</h3>
                 <p>
-                  Your coach opens the link without signing in. For a private recording, they choose
-                  Start session when ready to watch; the two-hour timer includes pauses.
+                  Choose Share video, type who it’s for and choose Create link. Each person gets
+                  their own link, and everything they add carries their name.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span>04</span>
+              <div>
+                <h3>Review together</h3>
+                <p>
+                  Your coach opens the link without signing in and chooses Start session for a
+                  private recording. They add comments and drawings at any moment and keep running
+                  notes, which you can follow live; Complete review shares their finished notes.
                 </p>
               </div>
             </li>
@@ -860,9 +933,7 @@ function Library({
   }
   const shared = records.filter((r) => r.has_share).length
   const filtered = records
-    .filter(
-      (r) => (tab === 'all' || r.has_share) && r.title.toLowerCase().includes(query.toLowerCase()),
-    )
+    .filter((r) => (tab === 'all' || r.has_share) && searchText(r).includes(query.toLowerCase()))
     .sort((a, b) =>
       oldest ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at),
     )
@@ -1153,6 +1224,7 @@ function RecordingRow({
         <a className="recording-title" href={`#/${local ? 'preview/' : ''}video/${record.id}`}>
           {record.title}
         </a>
+        {record.game?.championId ? <RecordingGameLine game={record.game} /> : null}
         <div className="recording-meta">
           <span>{formatDate(record.recorded_on)}</span>
           <span className="meta-dot">·</span>
@@ -2051,6 +2123,54 @@ function Watch({ token }: { token: string }) {
         <span>LEAGUE CLOUD COACH</span>
         <span>A little reflection. A better next game.</span>
       </footer>
+    </div>
+  )
+}
+
+// Title plus the game's champions, so "TF vs Syndra" finds an untitled upload.
+function searchText(record: Recording) {
+  const g = record.game
+  return [record.title, championLabel(g?.championName), championLabel(g?.opponentChampionName)]
+    .join(' ')
+    .toLowerCase()
+}
+
+/** Champion, lane opponent and, when the match is synced, result and score. */
+function RecordingGameLine({ game }: { game: RecordingGame }) {
+  const champion = championLabel(game.championName)
+  const opponent = championLabel(game.opponentChampionName)
+  const outcome =
+    game.remake === true
+      ? 'Remake'
+      : game.win === true
+        ? 'Victory'
+        : game.win === false
+          ? 'Defeat'
+          : ''
+  const score =
+    game.kills !== undefined && game.deaths !== undefined && game.assists !== undefined
+      ? `${game.kills}/${game.deaths}/${game.assists}`
+      : ''
+  const queue = game.queueId !== undefined ? queues[game.queueId] : undefined
+  return (
+    <div className="recording-game">
+      <img
+        className="champion-icon"
+        src={championIcon(game.championId!)}
+        alt=""
+        width={18}
+        height={18}
+        loading="lazy"
+      />
+      <span className="recording-game-names">
+        {champion}
+        {opponent && ` vs ${opponent}`}
+      </span>
+      {outcome && (
+        <span className={`recording-game-outcome ${outcome.toLowerCase()}`}>{outcome}</span>
+      )}
+      {score && <span>{score}</span>}
+      {queue && <span className="recording-game-queue">{queue}</span>}
     </div>
   )
 }

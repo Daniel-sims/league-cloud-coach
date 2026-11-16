@@ -2165,40 +2165,55 @@ strong {
   margin-top: 0;
 }
 
-.companion-connect {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 20px;
-  max-width: 700px;
-}
-.companion-connect h1,
-.companion-connect h2,
-.companion-connect p {
-  margin: 0;
-}
-.companion-connect p {
-  line-height: 1.6;
-}
 .companion-connect h2 {
-  margin-top: 12px;
-  font-size: 18px;
+  margin: 8px 0 0;
+  font-size: 16px;
 }
 .companion-connect code {
   font-family: ui-monospace, SFMono-Regular, monospace;
   letter-spacing: 0.08em;
 }
-.companion-connect ul {
-  list-style: none;
-  padding: 0;
-  width: 100%;
+.companion-approve {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line, #dddfd4);
+  border-radius: 8px;
 }
-.companion-connect li {
+.companion-approve p {
+  margin: 0;
+  line-height: 1.6;
+}
+.companion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.companion-list li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 12px 0;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line, #dddfd4);
+  border-radius: 8px;
+}
+.companion-list li > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.companion-list small {
+  font-size: 12px;
+  color: var(--muted, #6b7266);
 }
 
 /* Keep review chrome compact so the recording gets the available height. */
@@ -2300,9 +2315,6 @@ strong {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
 }
 
 /* Blocks */
@@ -2668,4 +2680,68 @@ strong {
   justify-content: space-between;
   align-items: center;
   margin-top: 14px;
+}
+
+/* The Summoners search page is a short form: keep it to the reading column
+   used by Blocks and Objectives (profiles stay full width like Home). */
+.league-search-page {
+  max-width: 760px;
+}
+@media (min-width: 1101px) {
+  .main-content:has(.league-search-page) {
+    max-width: 1376px;
+    padding: 48px 48px 24px;
+  }
+}
+
+/* Settings: one ruled section per topic, actions set apart from their fields. */
+.settings-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.settings-section h3 {
+  margin-bottom: 8px;
+}
+.settings-section .dialog-actions {
+  margin-top: 4px;
+}
+.settings-token-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+}
+.settings-done {
+  margin-top: 20px;
+}
+
+/* Library: which game a recording shows. */
+.recording-game {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 2px 0 6px;
+  font-size: 11px;
+  color: var(--muted, #6b7266);
+}
+.recording-game .champion-icon {
+  border-radius: 4px;
+}
+.recording-game-names {
+  color: var(--ink);
+  font-weight: 500;
+}
+.recording-game-outcome.victory {
+  color: var(--green);
+}
+.recording-game-outcome.defeat {
+  color: var(--danger);
+}
+@media (max-width: 600px) {
+  .recording-game-queue {
+    display: none;
+  }
 }

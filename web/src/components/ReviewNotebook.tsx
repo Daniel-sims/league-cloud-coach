@@ -66,8 +66,11 @@ export function useReviewNotebook(repository: ReviewRepository | null) {
         setData(next)
         if (replace || (!isDirty() && session.pending === 0)) {
           session.body = session.savedBody = next.draft?.body ?? ''
-          session.author = session.savedAuthor =
-            repository.guestName ?? next.draft?.author ?? savedCoachName()
+          // A name typed while the notes were loading isn't "dirty" until there
+          // is a body to save with it, so keep it rather than wiping it.
+          const typedName = !repository.guestName && session.author !== session.savedAuthor
+          session.savedAuthor = repository.guestName ?? next.draft?.author ?? savedCoachName()
+          if (!typedName) session.author = session.savedAuthor
           session.version = next.draft?.version ?? 0
           setBody(session.body)
           setSavedBody(session.body)
@@ -237,21 +240,13 @@ export type ReviewNotebookModel = ReturnType<typeof useReviewNotebook>
 
 export function NotebookActions({ notebook }: { notebook: ReviewNotebookModel }) {
   if (!notebook.supported) return null
+  // Complete review lives at the foot of the notes panel this opens, next to
+  // the notes it publishes, so the header keeps a single entry point.
   return (
-    <>
-      <button className="button button-small secondary" onClick={notebook.open}>
-        <NotebookPen size={15} />
-        Add notes
-      </button>
-      <button
-        className="button button-small secondary"
-        onClick={notebook.finish}
-        disabled={!notebook.ready || !notebook.body.trim() || notebook.completing}
-      >
-        <CheckCircle2 size={15} />
-        Complete review
-      </button>
-    </>
+    <button className="button button-small secondary" onClick={notebook.open}>
+      <NotebookPen size={15} />
+      Add notes
+    </button>
   )
 }
 

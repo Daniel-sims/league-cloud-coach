@@ -102,6 +102,7 @@ import {
   type LeagueProfile,
 } from '../lib/league'
 import type { LeagueRepository } from '../lib/league-repository'
+import { championLabel } from '../lib/champions'
 import '../review.css'
 
 const hiddenStorage = 'league-cloud-coach-hidden-kinds'
@@ -1804,8 +1805,8 @@ function AttachMatchDialog({
                     <img src={championIcon(g.player.championId)} alt="" loading="lazy" />
                     <span>
                       <strong>
-                        {g.player.championName}
-                        {g.opponent && ` vs ${g.opponent.championName}`}
+                        {championLabel(g.player.championName)}
+                        {g.opponent && ` vs ${championLabel(g.opponent.championName)}`}
                       </strong>
                       <small>
                         {queues[g.queueId] ?? 'Game'} ·{' '}

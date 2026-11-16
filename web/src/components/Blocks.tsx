@@ -14,6 +14,7 @@ import {
   type BlockDraft,
   type BlockRepository,
 } from '../lib/blocks'
+import { championLabel } from '../lib/champions'
 
 const saveDelayMs = 800
 
@@ -412,11 +413,11 @@ function MatchSummary({ match: m }: { match: BlockMatch }) {
   const outcome = m.remake ? 'Remake' : m.win ? 'Victory' : 'Defeat'
   return (
     <div className={`block-match ${m.remake ? 'remake' : m.win ? 'win' : 'loss'}`}>
-      <Champion id={m.championId} name={m.championName} size={40} />
+      <Champion id={m.championId} name={championLabel(m.championName)} size={40} />
       <span className="pick-main">
         <strong>
-          {m.championName}
-          {m.opponentName ? ` vs ${m.opponentName}` : ''}
+          {championLabel(m.championName)}
+          {m.opponentName ? ` vs ${championLabel(m.opponentName)}` : ''}
         </strong>
         <small>
           {outcome} · {queues[m.queueId] || `Queue ${m.queueId}`} · {duration(m.gameDuration)} ·{' '}

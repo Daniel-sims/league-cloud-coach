@@ -110,3 +110,45 @@ it('keeps unsaved notes on a failed autosave and retries without clearing the te
   })
   expect(input).toHaveValue('Watch the first recall.')
 })
+
+it('keeps a coach name typed while the notes are reloading', async () => {
+  let release: (() => void) | undefined
+  const loadNotes = vi
+    .fn()
+    .mockResolvedValueOnce({ draft: null, reviews: [] })
+    .mockImplementation(
+      () =>
+        new Promise<ReviewNotes>((resolve) => {
+          release = () => resolve({ draft: null, reviews: [] })
+        }),
+    )
+  const repository = {
+    role: 'coach',
+    load: async () => null,
+    addComment: async () => {},
+    updateComment: async () => {},
+    deleteComment: async () => {},
+    loadNotes,
+    saveNotes: async (input: NotesInput) => saved(input),
+  } as ReviewRepository
+  function TestNotebook() {
+    const notebook = useReviewNotebook(repository)
+    return (
+      <>
+        <NotebookActions notebook={notebook} />
+        <ReviewNotebook notebook={notebook} />
+      </>
+    )
+  }
+  render(<TestNotebook />)
+  await waitFor(() => expect(loadNotes).toHaveBeenCalledTimes(1))
+  await userEvent.click(screen.getByRole('button', { name: 'Add notes' }))
+  const name = await screen.findByLabelText('Your name')
+  await waitFor(() => expect(name).toBeEnabled())
+  await userEvent.type(name, 'Coach Sam')
+  await waitFor(() => expect(release).toBeDefined())
+  release!()
+  await waitFor(() => expect(loadNotes).toHaveBeenCalledTimes(2))
+  await new Promise((r) => setTimeout(r, 0))
+  expect(screen.getByLabelText('Your name')).toHaveValue('Coach Sam')
+})

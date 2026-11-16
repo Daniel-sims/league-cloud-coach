@@ -12,6 +12,7 @@ import {
   type Game,
   type LeagueProfile,
 } from '../lib/league'
+import { championLabel } from '../lib/champions'
 
 const shown = 20
 
@@ -131,11 +132,15 @@ export function AddGameDialog({
                   disabled={done}
                   onClick={() => onAdd(g, profileId)}
                 >
-                  <Champion id={g.player.championId} name={g.player.championName} size={36} />
+                  <Champion
+                    id={g.player.championId}
+                    name={championLabel(g.player.championName)}
+                    size={36}
+                  />
                   <span className="pick-main">
                     <strong>
-                      {g.player.championName}
-                      {g.opponent ? ` vs ${g.opponent.championName}` : ''}
+                      {championLabel(g.player.championName)}
+                      {g.opponent ? ` vs ${championLabel(g.opponent.championName)}` : ''}
                     </strong>
                     <small>
                       {outcome} · {queues[g.queueId] || `Queue ${g.queueId}`} ·{' '}

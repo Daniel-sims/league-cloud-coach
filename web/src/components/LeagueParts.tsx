@@ -20,6 +20,7 @@ import {
   type Participant,
   type Rank,
 } from '../lib/league'
+import { championLabel } from '../lib/champions'
 
 // Presentational League pieces shared by Home (your accounts) and Summoners (anyone).
 
@@ -28,7 +29,7 @@ export function Champion({ id, name, size = 36 }: { id: number; name: string; si
     <img
       className="champion-icon"
       src={championIcon(id)}
-      alt={name}
+      alt={championLabel(name)}
       width={size}
       height={size}
       loading="lazy"
@@ -267,8 +268,11 @@ function useScoreboardRanks(game: Game, load: LoadRanks | undefined, enabled: bo
         if (!live) return
         const merged = { ...known }
         for (const puuid of missing) {
+          // Riot leaves out players it couldn't answer for: show them as
+          // unknown ("—"), not Unranked, and ask again next time.
+          if (!(puuid in got)) continue
           const entries = got[puuid] ?? []
-          if (puuid in got) rankCache.set(key(puuid), { at: Date.now(), ranks: entries })
+          rankCache.set(key(puuid), { at: Date.now(), ranks: entries })
           merged[puuid] = entries
         }
         setRanks(merged)
@@ -354,12 +358,12 @@ export function MatchRow({
         </div>
         <div className="league-match-champion">
           <span className="league-portrait">
-            <Champion id={p.championId} name={p.championName} size={52} />
+            <Champion id={p.championId} name={championLabel(p.championName)} size={52} />
             <b>{p.champLevel}</b>
           </span>
           <Loadout player={p} />
           <span className="league-match-name">
-            <strong>{p.championName}</strong>
+            <strong>{championLabel(p.championName)}</strong>
             <small>{roleNames[p.teamPosition] || 'No lane'}</small>
           </span>
         </div>
@@ -377,8 +381,12 @@ export function MatchRow({
         {g.opponent ? (
           <div className="league-opponent">
             <span className="muted">vs</span>
-            <Champion id={g.opponent.championId} name={g.opponent.championName} size={32} />
-            <small>{g.opponent.championName}</small>
+            <Champion
+              id={g.opponent.championId}
+              name={championLabel(g.opponent.championName)}
+              size={32}
+            />
+            <small>{championLabel(g.opponent.championName)}</small>
           </div>
         ) : (
           <span />
@@ -467,7 +475,7 @@ export function Scoreboard({
                 <td>
                   <div className="league-player">
                     <span className="league-portrait">
-                      <Champion id={p.championId} name={p.championName} size={36} />
+                      <Champion id={p.championId} name={championLabel(p.championName)} size={36} />
                       <b>{p.champLevel}</b>
                     </span>
                     <Loadout player={p} />
@@ -475,10 +483,10 @@ export function Scoreboard({
                       <button
                         className="league-player-link"
                         disabled={busy}
-                        title={`Open ${p.riotIdGameName || p.championName}'s profile`}
+                        title={`Open ${p.riotIdGameName || championLabel(p.championName)}'s profile`}
                         onClick={() => onOpenPlayer(p)}
                       >
-                        {p.riotIdGameName || p.summonerName || p.championName}
+                        {p.riotIdGameName || p.summonerName || championLabel(p.championName)}
                         {p.riotIdTagline ? `#${p.riotIdTagline}` : ''}
                       </button>
                       <small>
@@ -488,7 +496,7 @@ export function Scoreboard({
                             ·{' '}
                           </>
                         )}
-                        {p.championName} · {roleNames[p.teamPosition] || '—'}
+                        {championLabel(p.championName)} · {roleNames[p.teamPosition] || '—'}
                       </small>
                     </span>
                   </div>
@@ -608,7 +616,7 @@ export function RecentSummary({
           <span
             key={g.id}
             className={`league-result ${remake(g) ? 'remake' : g.player.win ? 'win' : 'loss'}`}
-            title={`${g.player.championName}: ${remake(g) ? 'Remake' : g.player.win ? 'Victory' : 'Defeat'}`}
+            title={`${championLabel(g.player.championName)}: ${remake(g) ? 'Remake' : g.player.win ? 'Victory' : 'Defeat'}`}
           >
             {remake(g) ? 'R' : g.player.win ? 'W' : 'L'}
           </span>

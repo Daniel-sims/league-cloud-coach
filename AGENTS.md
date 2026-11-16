@@ -124,6 +124,8 @@ Drawing captures: `DrawingCapture.tsx` and `lib/drawing.ts` implement frozen-fra
 
 Library browser cache: `web/src/lib/library-cache.ts` holds only explicitly allowlisted recording display metadata and bounded image blobs, scoped to project/account. Keep normal session/membership checks before reading it. Never persist signed image/playback URLs, share capabilities or credentials here. Clear on sign-out/account switch/explicit access denial; reject stale in-flight metadata writes after mutations/logout and prune removed recording previews. Library list metadata must render independently of upload reconciliation.
 
+League browser caches: `match-cache.ts` keeps each profile's games in IndexedDB with a change cursor (`list_league_match_changes`); `viewed-cache.ts` keeps looked-up players in the same database. Both are wiped on sign-out. `public/sw.js` caches only CORS `ok` responses from Data Dragon/Community Dragon; never store opaque responses there. Review polling uses the `*_since` RPCs so the stored match payload is sent only when its version changes.
+
 Running review notes: `ReviewNotebook.tsx` autosaves per-reviewer private drafts;
 only explicit completion publishes a separate snapshot. Keep guest author-key
 isolation, optimistic revisions, bounded text/reviewer counts, and existing

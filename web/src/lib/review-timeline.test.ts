@@ -61,7 +61,7 @@ it('builds the native timeline: solo kills, teamfights with the player part, obj
   })
   expect(fight.fight!.moments!.map((m) => m.label)).toEqual([
     'Killed Ahri',
-    'Assisted killing LeeSin',
+    'Assisted killing Lee Sin',
     'Died to Syndra',
   ])
   expect(filterKinds(fight)).toEqual(['fight', 'kill', 'death'])
@@ -72,7 +72,7 @@ it('builds the native timeline: solo kills, teamfights with the player part, obj
     { item: 2003, count: 2 },
   ])
   expect(entries.find((e) => e.id === 'matchup-240000')!.matchup).toMatchObject({
-    player: { name: 'TwistedFate', gold: 1500, cs: 20, xp: 1100, level: 4, kda: [1, 0, 0] },
+    player: { name: 'Twisted Fate', gold: 1500, cs: 20, xp: 1100, level: 4, kda: [1, 0, 0] },
     opponent: { name: 'Ahri', gold: 1200, cs: 14, xp: 980, level: 3, kda: [0, 1, 0] },
   })
 })

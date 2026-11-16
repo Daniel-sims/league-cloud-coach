@@ -87,7 +87,28 @@ export interface ReviewRepository {
   deleteCapture?(id: string): Promise<void>
 }
 
+// The stored match payload (~45 KB) rarely changes, but the review is polled
+// every few seconds for comments. Each repository keeps the payload it has and
+// tells the server its version; an unchanged payload is left out of the reply.
+type ReviewReply = ReviewData & { reviewVersion?: string | null; reviewUnchanged?: boolean }
+function reviewPayloadCache() {
+  let version: string | null = null
+  let payload: ReviewData['review'] = null
+  return {
+    version: () => version,
+    merge(reply: ReviewReply | null): ReviewData | null {
+      if (!reply) return null
+      const { reviewVersion, reviewUnchanged, ...data } = reply
+      if (reviewUnchanged) return { ...data, review: payload }
+      version = reviewVersion ?? null
+      payload = data.review ?? null
+      return data
+    },
+  }
+}
+
 export function ownerReview(recordingId: string): ReviewRepository {
+  const cache = reviewPayloadCache()
   return {
     role: 'owner',
     loadNotes: () => rpc<ReviewNotes>('get_recording_notes', { p_id: recordingId }),
@@ -104,10 +125,14 @@ export function ownerReview(recordingId: string): ReviewRepository {
     updateMoment: (id, note) => rpc('update_recording_moment', { p_moment: id, p_note: note }),
     deleteMoment: (id) => rpc('delete_recording_moment', { p_moment: id }),
     load: async () => {
-      const [review, captures] = await Promise.all([
-        rpc<ReviewData>('get_recording_review', { p_id: recordingId }),
+      const [reply, captures] = await Promise.all([
+        rpc<ReviewReply>('get_recording_review_since', {
+          p_id: recordingId,
+          p_review_version: cache.version(),
+        }),
         rpc<ReviewCapture[]>('list_recording_captures', { p_recording: recordingId }),
       ])
+      const review = cache.merge(reply)
       return review ? { ...review, captures: captures ?? [] } : null
     },
     addCapture: async ({ videoMs, image, body }) => {
@@ -149,6 +174,7 @@ export function sharedReview(
 ): ReviewRepository {
   // A named guest's identity belongs to the link, not the browser.
   const key = guest?.key ?? authorKey()
+  const cache = reviewPayloadCache()
   return {
     role: 'coach',
     ...(guest ? { guestName: guest.name } : {}),
@@ -163,10 +189,13 @@ export function sharedReview(
         p_complete: complete,
       }),
     load: async () => {
-      const review = await rpc<ReviewData | null>('get_shared_review', {
-        p_token: token,
-        p_author_key: key,
-      })
+      const review = cache.merge(
+        await rpc<ReviewReply | null>('get_shared_review_since', {
+          p_token: token,
+          p_author_key: key,
+          p_review_version: cache.version(),
+        }),
+      )
       if (!review) return null
       const captures = await rpc<ReviewCapture[]>('list_recording_captures', {
         p_token: token,

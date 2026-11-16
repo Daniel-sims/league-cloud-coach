@@ -1,6 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 import { reviewPayload } from '../src/test/review-fixture'
-import { match } from '../src/test/league-fixture'
+import { changes, match } from '../src/test/league-fixture'
 import { readFileSync } from 'node:fs'
 import type { ReviewCapture, CommentEvent } from '../src/lib/review'
 
@@ -267,17 +267,19 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
           syncedAt: null,
         },
       ]
-    if (name === 'list_league_matches')
-      result = [
+    if (name === 'list_league_match_changes')
+      result = changes([
         match('1', {}, { id: 'EUW1_1', gameCreation: Date.parse('2026-11-09T18:30:00Z') }),
         match('2', { win: false }, { gameCreation: Date.parse('2026-11-07T18:00:00Z') }),
-      ]
+      ])
     if (name === 'riot' && args.action === 'review-timeline') {
       state.review = reviewPayload()
       result = { ok: true }
     }
-    if (name === 'get_recording_review') result = view(null)
-    if (name === 'get_shared_review') result = view(String(args.p_author_key))
+    if (name === 'get_recording_review' || name === 'get_recording_review_since')
+      result = view(null)
+    if (name === 'get_shared_review' || name === 'get_shared_review_since')
+      result = view(String(args.p_author_key))
     if (name === 'set_recording_anchor')
       state.anchor =
         args.p_game_time === null
@@ -1641,7 +1643,7 @@ test('the board shows everyone’s items and score at the playhead', async ({ pa
   const board = page.getByRole('region', { name: 'Scoreboard at 11:40' })
   await expect(board).toBeVisible()
   const me = board.locator('li.focused')
-  await expect(me).toContainText('TwistedFate')
+  await expect(me).toContainText('Twisted Fate')
   await expect(me.locator('.board-kda')).toHaveText('2/1/1')
   await expect(me.locator('.board-cs')).toHaveText('70')
   await expect(me.locator('.timeline-item img')).toHaveCount(3)

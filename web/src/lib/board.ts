@@ -1,4 +1,5 @@
 import type { ReviewPayload } from './review-timeline'
+import { championLabel } from './champions'
 
 // Reconstructs every player's items at any moment from Riot's item log.
 //
@@ -204,7 +205,7 @@ export function boardAt(
     return {
       id: p.id,
       championId: p.championId,
-      championName: p.championName,
+      championName: championLabel(p.championName),
       teamId: p.teamId,
       position: p.position,
       kills: kills.filter((k) => k.killer === p.id).length,

@@ -1,6 +1,6 @@
 import { rpc, supabase } from './supabase'
 import type { LeagueMatch, LeagueProfile, Rank } from './league'
-import { cachedMatches } from './match-cache'
+import { cachedMatches, storedMatches, type ChangeCursor, type ChangePage } from './match-cache'
 
 export type ViewedProfile = Pick<
   LeagueProfile,
@@ -10,6 +10,8 @@ export type ViewedProfile = Pick<
 export interface LeagueRepository {
   profiles(): Promise<LeagueProfile[]>
   matches(id: string): Promise<LeagueMatch[]>
+  /** Games already kept in this browser, to show while matches() refreshes. */
+  storedMatches?(id: string): Promise<LeagueMatch[] | null>
   /** Match id -> recording id for games the owner has uploaded video for. */
   matchRecordings?(): Promise<Record<string, string>>
   connect(riotId: string, platform: string): Promise<{ id: string }>
@@ -56,12 +58,18 @@ export async function riotRequest<T>(body: object): Promise<T> {
     })
   return result as T
 }
-const fetchMatchPage = (id: string, known: string[], limit: number) =>
-  rpc<LeagueMatch[]>('list_league_matches', { p_profile: id, p_known: known, p_limit: limit })
+const fetchMatchChanges = (id: string, after: ChangeCursor | null, limit: number) =>
+  rpc<ChangePage>('list_league_match_changes', {
+    p_profile: id,
+    p_after: after?.at ?? null,
+    p_after_id: after?.id ?? null,
+    p_limit: limit,
+  })
 
 export const leagueRepository: LeagueRepository = {
   profiles: () => rpc('list_league_profiles'),
-  matches: (id) => cachedMatches(id, fetchMatchPage),
+  matches: (id) => cachedMatches(id, fetchMatchChanges),
+  storedMatches,
   matchRecordings: () => rpc<Record<string, string>>('list_match_recordings'),
   connect: (riotId, platform) => riotRequest({ action: 'connect', riotId, platform }),
   findPlayer: (platform, riotId) => riotRequest({ action: 'find-player', platform, riotId }),

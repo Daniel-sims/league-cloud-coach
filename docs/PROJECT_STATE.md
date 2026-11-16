@@ -1,6 +1,50 @@
 # League Cloud Coach: current project state
 
-Last reviewed: 14 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+Last reviewed: 16 November 2026. This is the durable session handoff, not a replacement for inspecting current source, Git, and service state.
+
+## Site review fixes: caching, polling, library games, names
+
+A walk through every page fixed these. Migrations `202611160001`–`202611160003`,
+the `stream` function and the frontend deploy together.
+
+- **Service worker** (`web/public/sw.js`, caches `league-art-v2` /
+  `league-catalogue-v2`): League art is refetched in CORS mode and only `ok`
+  responses are stored. v1 stored opaque responses, which Chrome counts at ~7 MB
+  each (2.4 GB for ~330 icons) and which cached failures for good. Images are
+  capped at 1,500 entries; activation deletes the v1 caches.
+- **Review polling**: `get_recording_review_since` / `get_shared_review_since`
+  return a `reviewVersion` (md5 of the stored payload) and leave the ~45 KB
+  payload out (`reviewUnchanged`) when the caller already holds it. Same access
+  rules as the originals, which stay for old tabs. Test: `supabase/tests/review-polling.sql`.
+- **Match history cache**: `league_matches.updated_at` (bumped by trigger when
+  `match` changes) and `list_league_match_changes(profile, after, after_id, limit)`
+  replace sending every held id and the daily full re-download. The browser
+  rewinds its cursor 60 s for late commits, shows its stored games before the
+  network answers, and shares one refresh per profile. Old entries without a
+  cursor rebuild once.
+- **Looked-up players** moved from localStorage to the match-cache IndexedDB
+  (wiped on sign-out); the old `league-viewed:*` keys are migrated once and removed.
+- **Library rows** show the game: `list_recordings` now returns `game` (champion,
+  lane opponent, queue; result and K/D/A when the owner has the match synced),
+  from the owner's own rows only. Search also matches champion names.
+- **Stream thumbnails** sample 20% into the video (frame zero is often black);
+  the browser preview cache key is versioned so old black previews are pruned.
+- **Names**: `lib/champions.ts` turns Riot keys into display names
+  ("TwistedFate" → "Twisted Fate", "MonkeyKing" → "Wukong") everywhere they show.
+- **Scoreboard ranks** Riot couldn't answer show "—", not "Unranked".
+- **UI**: unknown routes (including `#/`) go Home; Connected apps highlights in
+  the sidebar and uses the standard page layout; How it works describes Push to
+  web, timeline sync, named links and live notes; Settings puts Riot connection
+  first, rules each section and has one Done; the review header no longer
+  repeats Complete review (it stays in the notes panel); the Summoners search
+  page uses the reading column.
+- **Coach notes**: a name typed while notes were (re)loading is no longer wiped
+  (this was the long-failing `running notes` browser test).
+- Home, Summoners, Blocks and Connected apps load lazily; `league.css` stays eager.
+
+Not code-fixable: the Supabase session sits in localStorage on
+`daniel-sims.github.io`, which every Pages site under that account shares. A
+custom domain would isolate it.
 
 ## Reviews always open without the sidebar
 
@@ -108,7 +152,7 @@ page (sidebar, `#/summoners`) takes a Riot ID and region and opens that player a
 summary and match history with full scoreboards, plus Load older games. Clicking a
 player in any scoreboard (Home or a profile) opens them on Summoners; your own saved
 accounts go to Home. Nothing about looked-up players is saved server-side; the
-browser keeps the last six (existing `viewed-cache`) and lists them as Recent.
+browser keeps the last six (`viewed-cache`, IndexedDB) and lists them as Recent.
 The shared presentational pieces moved to `LeagueParts.tsx`; the old per-player
 filters are not on Summoners. Native League Helper got the same split.
 

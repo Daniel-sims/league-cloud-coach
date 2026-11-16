@@ -7,6 +7,24 @@ export type Recording = {
   recorded_on: string | null
   created_at: string
   has_share: boolean
+  /** The game this recording shows, when it is paired with a match. */
+  game?: RecordingGame | null
+}
+
+export type RecordingGame = {
+  matchId?: string
+  queueId?: number
+  gameDuration?: number
+  championId?: number
+  championName?: string
+  opponentChampionId?: number
+  opponentChampionName?: string
+  /** Only known when the owner has the match synced. */
+  win?: boolean
+  remake?: boolean
+  kills?: number
+  deaths?: number
+  assists?: number
 }
 
 export type WatchVideo = Pick<

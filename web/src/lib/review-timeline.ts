@@ -1,3 +1,4 @@
+import { championLabel } from './champions'
 // Port of the native review timeline (Domain/Timeline/ReviewTimeline.swift and
 // its detectors). Every judgement is made here, so it tests without a UI.
 export type Lane = 'top' | 'mid' | 'bot'
@@ -358,7 +359,7 @@ export function context(payload: ReviewPayload): Context {
     payload,
     player: payload.playerId,
     opponent: opponent?.id ?? null,
-    name: (id) => byId.get(id)?.championName ?? `Champion ${id}`,
+    name: (id) => championLabel(byId.get(id)?.championName) || `Champion ${id}`,
     championId: (id) => byId.get(id)?.championId,
   }
 }

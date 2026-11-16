@@ -303,7 +303,7 @@ it('requires a verified enabled owner before listing uploads for reconciliation'
   expect(provider).not.toHaveBeenCalled()
 })
 
-it('returns a private first-frame thumbnail only for an owned library recording', async () => {
+it('returns a private thumbnail only for an owned library recording', async () => {
   ownerRpc.mockImplementation(async (name) => ({
     data: name === 'is_library_owner' ? true : [{ id: 'owned', provider: 'stream', stream_video_id: id }],
     error: null,
@@ -323,4 +323,33 @@ it('returns a private first-frame thumbnail only for an owned library recording'
   expect((await request({ action: 'thumbnail', recordingId: 'other-owner' }, 'valid-jwt')).status).toBe(404)
   expect(provider).not.toHaveBeenCalled()
   expect((await request({ action: 'thumbnail', recordingId: 'owned' })).status).toBe(401)
+})
+
+it('samples the thumbnail a fifth of the way in once the duration is known', async () => {
+  ownerRpc.mockImplementation(async (name) => ({
+    data: name === 'is_library_owner' ? true : [{ id: 'owned', provider: 'stream', stream_video_id: id }],
+    error: null,
+  }))
+  provider.mockImplementation(
+    async (url: string) =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          result: url.endsWith('/token')
+            ? { token: 'signed-playback' }
+            : {
+                uid: id,
+                requireSignedURLs: true,
+                readyToStream: true,
+                duration: 1801.5,
+                playback: {
+                  hls: `https://customer-example.cloudflarestream.com/${id}/manifest/video.m3u8`,
+                },
+              },
+        }),
+      ),
+  )
+  const response = await request({ action: 'thumbnail', recordingId: 'owned' }, 'valid-jwt')
+  expect(response.status).toBe(200)
+  expect(new URL((await response.json()).url).searchParams.get('time')).toBe('360s')
 })
