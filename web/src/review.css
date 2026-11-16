@@ -1559,24 +1559,22 @@ body:has(.cinema-mode) .watch-main {
 .event-discussion {
   margin-top: 8px;
   border-left: 2px solid var(--line);
-  padding: 8px 0 0 8px;
+  padding-left: 8px;
 }
+/* The thread line hugs its cards: spacing only between them, none at the ends. */
 .event-discussion ol {
   list-style: none;
   padding: 0;
-  margin: 6px 0;
+  margin: 0;
 }
-/* No heading: the first thing in the thread sits at its top edge. */
 .event-discussion ol:empty {
   display: none;
 }
-.event-discussion > ol:first-child,
-.event-discussion > ol:empty + .review-composer {
-  margin-top: 0;
-}
 .event-comment {
-  margin: 6px 0;
   min-width: 0;
+}
+.event-comment + .event-comment {
+  margin-top: 6px;
 }
 .comment-body {
   background: var(--paper);
@@ -1591,8 +1589,11 @@ body:has(.cinema-mode) .watch-main {
   overflow-wrap: anywhere;
 }
 .event-discussion .review-composer {
-  margin: 8px 0 0;
+  margin: 0;
   padding: 8px;
+}
+.event-discussion ol:not(:empty) + .review-composer {
+  margin-top: 6px;
 }
 .event-discussion .comment-actions {
   flex-shrink: 0;
