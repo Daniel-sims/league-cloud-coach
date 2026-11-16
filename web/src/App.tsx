@@ -56,7 +56,7 @@ import { StreamPlayer } from './components/StreamPlayer'
 import { UploadDialog } from './components/UploadDialog'
 import { Settings } from './components/Settings'
 import { VideoReview } from './components/VideoReview'
-import { NotebookActions, useReviewNotebook } from './components/ReviewNotebook'
+import { useReviewNotebook } from './components/ReviewNotebook'
 import { LearningObjectives, ObjectivesBriefing } from './components/LearningObjectives'
 import { ownerReview, sharedReview } from './lib/review'
 import { leagueRepository } from './lib/league-repository'
@@ -1923,12 +1923,8 @@ function OwnVideo({
         <>
           <div className="video-bar">
             {back}
-            <h1>{record.title}</h1>
-            {record.recorded_on && (
-              <span className="video-date">{formatDate(record.recorded_on)}</span>
-            )}
+            <h1 className="sr-only">{record.title}</h1>
             <div className="video-actions">
-              <NotebookActions notebook={notebook} />
               <button className="button button-small" onClick={() => setShare(true)}>
                 <Link2 size={15} />
                 Share video
@@ -2065,12 +2061,8 @@ function Watch({ token }: { token: string }) {
         ) : video && review ? (
           <>
             <div className="video-bar">
-              <h1>{video.title}</h1>
-              {video.recorded_on && (
-                <span className="video-date">{formatDate(video.recorded_on)}</span>
-              )}
+              <h1 className="sr-only">{video.title}</h1>
               <div className="video-actions">
-                <NotebookActions notebook={notebook} />
                 <span className="watch-badge">
                   <Link2 size={13} />
                   {video.guest_name ? `Reviewing as ${video.guest_name}` : 'Shared with you'}

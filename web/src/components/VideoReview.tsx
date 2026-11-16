@@ -26,7 +26,6 @@ import {
   MessageSquare,
   MessageSquarePlus,
   Maximize2,
-  NotebookPen,
   Minimize2,
   Pencil,
   PanelRightClose,
@@ -44,7 +43,12 @@ import {
 } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { EventContextMenu, type EventMenuTarget } from './EventContextMenu'
-import { CompleteReview, ReviewNotebook, type ReviewNotebookModel } from './ReviewNotebook'
+import {
+  CompleteReview,
+  NotebookActions,
+  ReviewNotebook,
+  type ReviewNotebookModel,
+} from './ReviewNotebook'
 import { ObjectivesDialog } from './LearningObjectives'
 import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
@@ -1075,17 +1079,8 @@ export function VideoReview({
                     <h2>Timeline</h2>
                   </div>
                   <div className="review-tools">
+                    {notebook && <NotebookActions notebook={notebook} />}
                     {notebook?.view !== 'notes' && cinemaToggle}
-                    {notebook?.supported && cinema && (
-                      <button
-                        className="icon-button"
-                        aria-label="Add review notes"
-                        title="Add notes"
-                        onClick={notebook.open}
-                      >
-                        <NotebookPen size={15} />
-                      </button>
-                    )}
                     {videoSettings}
                     {(presentKinds.length > 0 || comments.length > 0 || captures.length > 0) && (
                       <div className="review-filter review-menu">

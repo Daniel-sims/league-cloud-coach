@@ -243,13 +243,29 @@ export type ReviewNotebookModel = ReturnType<typeof useReviewNotebook>
 
 export function NotebookActions({ notebook }: { notebook: ReviewNotebookModel }) {
   if (!notebook.supported) return null
-  // Complete review lives at the foot of the notes panel this opens, next to
-  // the notes it publishes, so the header keeps a single entry point.
+  // Icon buttons for the timeline card's header: open the notes, and complete
+  // the review (which opens the notes and its confirm dialog).
+  const empty = !notebook.body.trim()
   return (
-    <button className="button button-small secondary" onClick={notebook.open}>
-      <NotebookPen size={15} />
-      Add notes
-    </button>
+    <>
+      <button
+        className="icon-button"
+        onClick={notebook.open}
+        aria-label="Add notes"
+        title="Add notes: private while you watch"
+      >
+        <NotebookPen size={15} />
+      </button>
+      <button
+        className="icon-button"
+        onClick={notebook.finish}
+        disabled={!notebook.ready || empty || notebook.completing}
+        aria-label="Complete review"
+        title={empty ? 'Write some notes to complete your review' : 'Complete review'}
+      >
+        <CheckCircle2 size={15} />
+      </button>
+    </>
   )
 }
 
