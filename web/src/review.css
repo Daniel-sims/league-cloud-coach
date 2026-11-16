@@ -2008,7 +2008,7 @@ body:has(.cinema-mode) .watch-main {
   gap: 2px;
 }
 .bar-tools {
-  gap: 6px;
+  gap: 4px;
   justify-self: end;
 }
 .bar-step,
@@ -2089,15 +2089,28 @@ body:has(.cinema-mode) .watch-main {
 .bar-zoom-level:hover {
   background: #ffffff1a;
 }
+/* Speed reads as plain text ("1×") until hovered, like the step buttons. */
 .bar-speed {
-  height: 30px;
+  appearance: none;
+  height: 32px;
+  min-width: 34px;
   padding: 0 6px;
-  border: 1px solid #ffffff2e;
+  border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--bar-ink);
   font: inherit;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: pointer;
+}
+.bar-speed:hover:not(:disabled) {
+  background: #ffffff1a;
+}
+.bar-speed:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .bar-speed option {
   color: initial;
@@ -2128,9 +2141,22 @@ body:has(.cinema-mode) .watch-main {
 [data-theme='dark'] .player-bar .icon-button {
   color: var(--bar-ink);
 }
-/* Narrower bars keep one row: action labels and the volume slider go first. */
-@container player-bar (max-width: 940px) {
-  .bar-label,
+.player-bar .icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.player-bar .icon-button[aria-pressed='true'],
+[data-theme] .player-bar .icon-button[aria-pressed='true'] {
+  background: #ffffff24;
+  color: var(--gold, #c9a45c);
+}
+/* Comment is the bar's main action: gold, so it stands out among the icons. */
+.player-bar .icon-button.bar-primary,
+[data-theme] .player-bar .icon-button.bar-primary {
+  color: var(--gold, #c9a45c);
+}
+/* Narrower bars keep one row: the volume slider goes first. */
+@container player-bar (max-width: 760px) {
   .bar-volume input {
     display: none;
   }

@@ -956,7 +956,7 @@ export function VideoReview({
                 <>
                   {review && (
                     <button
-                      className={`button secondary button-small ${boardOpen ? 'active' : ''}`}
+                      className="icon-button"
                       disabled={!anchor}
                       aria-pressed={boardOpen}
                       onClick={() => {
@@ -970,30 +970,35 @@ export function VideoReview({
                           : 'Sync the game clock to see the board'
                       }
                     >
-                      <LayoutList size={15} />
-                      <span className="bar-label">Board</span>
+                      <LayoutList size={17} />
                     </button>
                   )}
                   {data && repository.addCapture && (
                     <button
-                      className="button secondary button-small"
+                      className="icon-button"
                       disabled={!controller?.pause || preparingDrawing}
                       onClick={() => {
                         closeSettings()
                         void startDrawing()
                       }}
                       aria-label="Draw"
-                      title="Pause and draw on this frame (D); YouTube prompts you to share this tab"
+                      aria-busy={preparingDrawing}
+                      title={
+                        preparingDrawing
+                          ? 'Freezing frame…'
+                          : 'Pause and draw on this frame (D); YouTube prompts you to share this tab'
+                      }
                     >
-                      <Pencil size={15} />
-                      <span className="bar-label">
-                        {preparingDrawing ? 'Freezing frame…' : 'Draw'}
-                      </span>
+                      {preparingDrawing ? (
+                        <LoaderCircle className="spin" size={17} />
+                      ) : (
+                        <Pencil size={17} />
+                      )}
                     </button>
                   )}
                   {data && (
                     <button
-                      className="button button-small"
+                      className="icon-button bar-primary"
                       onClick={startComment}
                       disabled={!controller || composing !== null || editing !== null}
                       aria-label="Comment"
@@ -1001,8 +1006,7 @@ export function VideoReview({
                         controller ? 'Comment at the playhead (N)' : 'Wait for the video to load'
                       }
                     >
-                      <MessageSquarePlus size={15} />
-                      <span className="bar-label">Comment</span>
+                      <MessageSquarePlus size={17} />
                     </button>
                   )}
                 </>
