@@ -135,13 +135,9 @@ function useRoute() {
   }, [])
   return route
 }
-function Brand({ small = false }: { small?: boolean }) {
+function Brand() {
   return (
-    <a
-      href="#/home"
-      className={`brand ${small ? 'brand-small' : ''}`}
-      aria-label="League Cloud Coach home"
-    >
+    <a href="#/home" className="brand" aria-label="League Cloud Coach home">
       <span className="brand-symbol">
         <span>L</span>
         <i />
@@ -2049,12 +2045,6 @@ function Watch({ token }: { token: string }) {
   }, [video])
   return (
     <div className="watch-shell">
-      <header className="watch-header">
-        <Brand small />
-        <span className="watch-header-note">
-          <Link2 size={14} />A shared perspective
-        </span>
-      </header>
       <main className="watch-main">
         {loading ? (
           <div className="loading-state" role="status">

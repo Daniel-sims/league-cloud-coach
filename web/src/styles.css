@@ -1299,36 +1299,6 @@ strong {
   display: flex;
   flex-direction: column;
 }
-.watch-header {
-  height: 89px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 48px;
-  gap: 24px;
-}
-.brand-small {
-  font-size: 13px;
-}
-.brand-small .brand-symbol {
-  height: 36px;
-  width: 32px;
-}
-.brand-small .brand-symbol > span {
-  font-size: 23px;
-  left: 6px;
-}
-.brand-small .brand-symbol i {
-  right: 5px;
-}
-.watch-header-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  color: #929d81;
-}
 .watch-main {
   padding: 43px 48px 32px;
   margin: 0 auto;
@@ -1535,9 +1505,6 @@ strong {
   }
   .hero-assurance {
     font-size: 9px;
-  }
-  .watch-header {
-    padding: 0 28px;
   }
   .watch-main {
     padding: 32px 28px;
@@ -1918,17 +1885,6 @@ strong {
   }
   .share-illustration {
     padding-bottom: 22px;
-  }
-  .watch-header {
-    height: 73px;
-    padding: 0 20px;
-  }
-  .watch-header-note {
-    font-size: 8px;
-    gap: 5px;
-  }
-  .watch-header-note svg {
-    width: 12px;
   }
   .watch-main {
     padding: 27px 16px;

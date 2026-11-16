@@ -1321,7 +1321,6 @@ body:has(.cinema-mode) .app-shell .sidebar,
 body:has(.cinema-mode) .topbar,
 body:has(.cinema-mode) .video-bar,
 body:has(.cinema-mode) .main-footer,
-body:has(.cinema-mode) .watch-header,
 body:has(.cinema-mode) .watch-footer {
   display: none;
 }

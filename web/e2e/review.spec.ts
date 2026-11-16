@@ -1054,11 +1054,11 @@ for (const owner of [true, false]) {
     if (!owner) await page.getByRole('button', { name: 'Start session' }).click()
     const video = await seekVideo(page, 'Ranked mid review', 30)
     const originalVideo = await video.elementHandle()
+    // The watch page opens straight onto the recording, with no site bar above it.
+    if (!owner) await expect(page.getByRole('banner')).toHaveCount(0)
     await page.getByRole('button', { name: 'Enter cinema mode' }).click()
     await expect(
-      page
-        .locator('.topbar, .sidebar, .watch-header, .video-bar, .watch-footer')
-        .filter({ visible: true }),
+      page.locator('.topbar, .sidebar, .video-bar, .watch-footer').filter({ visible: true }),
     ).toHaveCount(0)
     const timeline = page.getByRole('region', { name: 'Review timeline' })
     await expect(timeline).toBeVisible()
@@ -1101,16 +1101,14 @@ for (const owner of [true, false]) {
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.getByRole('button', { name: 'Exit cinema mode' })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    await expect(
-      page.locator('.sidebar, .topbar, .watch-header').filter({ visible: true }),
-    ).toHaveCount(0)
+    await expect(page.locator('.sidebar, .topbar').filter({ visible: true })).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('cinema-mobile.png'), fullPage: true })
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: 'Enter cinema mode' })).toBeFocused()
-    await expect(page.locator(owner ? '.video-bar' : '.watch-header')).toBeVisible()
+    await expect(page.locator('.video-bar')).toBeVisible()
     await page.getByRole('button', { name: 'Enter cinema mode' }).click()
     await page.getByRole('button', { name: 'Exit cinema mode' }).click()
-    await expect(page.locator(owner ? '.video-bar' : '.watch-header')).toBeVisible()
+    await expect(page.locator('.video-bar')).toBeVisible()
   })
 }
 
