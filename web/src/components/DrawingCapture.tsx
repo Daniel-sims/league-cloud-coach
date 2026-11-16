@@ -79,6 +79,8 @@ export function DrawingCapture({
   const textBox = useRef<HTMLTextAreaElement>(null)
   const active = useRef<Stroke | null>(null)
   const drag = useRef<TextDrag | null>(null)
+  /** The press being tracked, and whether it has received pointer capture yet. */
+  const pointer = useRef<{ id: number; captured: boolean } | null>(null)
   const [size, setSize] = useState({ width: 1280, height: 720 })
   const [ready, setReady] = useState(false)
   const [tool, setTool] = useState<DrawingTool>('pen')
@@ -165,36 +167,61 @@ export function DrawingCapture({
       return
     }
     const context = event.currentTarget.getContext('2d')
-    const over = context && textAt(context, strokes, point(event)) !== -1
+    const at = point(event, event.currentTarget.getBoundingClientRect())
+    const over = context && textAt(context, strokes, at) !== -1
     event.currentTarget.style.cursor = over ? 'move' : 'text'
   }
-  function point(event: PointerEvent<HTMLCanvasElement>) {
-    const rect = event.currentTarget.getBoundingClientRect()
+  function point(event: { clientX: number; clientY: number }, rect: DOMRect) {
     return {
       x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
       y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
     }
   }
-  function finish(event: PointerEvent<HTMLCanvasElement>, cancel = false) {
+  /** Begins tracking a press. Capture keeps the moves coming when the pointer leaves the frame. */
+  function press(event: PointerEvent<HTMLCanvasElement>) {
+    pointer.current = { id: event.pointerId, captured: false }
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      /* The press is still tracked by pointer id. */
+    }
+  }
+  /**
+   * Ends the press: 'up' keeps the work, 'cancel' discards it, and 'lost' keeps
+   * it. Chrome can drop pointer capture mid-stroke or just before the release,
+   * so losing capture must never throw away a line the user drew.
+   */
+  function finish(event: PointerEvent<HTMLCanvasElement>, end: 'up' | 'cancel' | 'lost') {
+    if (pointer.current?.id !== event.pointerId) return
+    // A capture lost before this press captured belongs to the previous press.
+    if (end === 'lost' && !pointer.current.captured) return
+    pointer.current = null
+    const target = event.currentTarget
+    if (end !== 'lost' && target.hasPointerCapture?.(event.pointerId))
+      target.releasePointerCapture(event.pointerId)
     const moving = drag.current
-    if (moving && event.currentTarget.hasPointerCapture(event.pointerId)) {
+    if (moving) {
       drag.current = null
       setDrawing(false)
-      event.currentTarget.releasePointerCapture(event.pointerId)
-      if (cancel) repaint()
+      if (end === 'cancel' || (end === 'lost' && !moving.moved)) repaint()
       else if (moving.moved)
         commit(strokes.map((stroke, index) => (index === moving.index ? moving.stroke : stroke)))
       // A click without a drag edits the text.
       else setEditing({ index: moving.index, stroke: strokes[moving.index], key: Date.now() })
       return
     }
-    if (!active.current || !event.currentTarget.hasPointerCapture(event.pointerId)) return
     const stroke = active.current
+    if (!stroke) return
     active.current = null
     setDrawing(false)
-    if (!cancel) commit([...strokes, stroke])
-    event.currentTarget.releasePointerCapture(event.pointerId)
-    repaint(cancel ? strokes : [...strokes, stroke])
+    if (end === 'up' && stroke.points.length < 10000) {
+      // The release point finishes a fast line; a click keeps its single point.
+      const last = stroke.points.at(-1)!
+      const at = point(event, target.getBoundingClientRect())
+      if (at.x !== last.x || at.y !== last.y) stroke.points.push(at)
+    }
+    if (end !== 'cancel') commit([...strokes, stroke])
+    repaint(end === 'cancel' ? strokes : [...strokes, stroke])
   }
   async function save() {
     if (!ready || saving || drawing) return
@@ -258,16 +285,16 @@ export function DrawingCapture({
               onPointerDown={(event) => {
                 if (!ready || saving || event.button !== 0 || active.current || drag.current) return
                 event.preventDefault()
+                const at = point(event, event.currentTarget.getBoundingClientRect())
                 if (tool === 'text') {
                   // A click away from the text being typed finishes it.
                   if (editing) {
                     commitText()
                     return
                   }
-                  const at = point(event)
                   const hit = textAt(event.currentTarget.getContext('2d')!, strokes, at)
                   if (hit !== -1) {
-                    event.currentTarget.setPointerCapture(event.pointerId)
+                    press(event)
                     drag.current = { index: hit, start: at, stroke: strokes[hit], moved: false }
                     setDrawing(true)
                     return
@@ -289,21 +316,25 @@ export function DrawingCapture({
                   return
                 }
                 commitText()
-                event.currentTarget.setPointerCapture(event.pointerId)
+                press(event)
                 active.current = {
                   tool,
                   color,
                   opacity: opacity / 100,
                   width: (width / 1280) * (tool === 'highlighter' ? 5 : tool === 'eraser' ? 6 : 1),
-                  points: [point(event)],
+                  points: [at],
                 }
                 setDrawing(true)
                 repaint()
               }}
+              onGotPointerCapture={(event) => {
+                if (pointer.current?.id === event.pointerId) pointer.current.captured = true
+              }}
               onPointerMove={(event) => {
+                const pressed = pointer.current?.id === event.pointerId
                 const moving = drag.current
-                if (moving && event.currentTarget.hasPointerCapture(event.pointerId)) {
-                  const at = point(event)
+                if (moving && pressed) {
+                  const at = point(event, event.currentTarget.getBoundingClientRect())
                   const dx = at.x - moving.start.x
                   const dy = at.y - moving.start.y
                   if (!moving.moved && Math.hypot(dx, dy) < 0.004) return
@@ -322,25 +353,24 @@ export function DrawingCapture({
                   return
                 }
                 hoverCursor(event)
-                if (!active.current || !event.currentTarget.hasPointerCapture(event.pointerId))
+                const stroke = active.current
+                if (!stroke || !pressed) return
+                // A press whose release never arrived here ends where it stopped.
+                if (!(event.buttons & 1)) {
+                  finish(event, 'lost')
                   return
-                if (active.current.points.length < 10000) active.current.points.push(point(event))
+                }
+                // Fast moves arrive as one event per frame; the coalesced events
+                // hold the positions in between, so quick lines keep their shape.
+                const rect = event.currentTarget.getBoundingClientRect()
+                const coalesced = event.nativeEvent.getCoalescedEvents?.() ?? []
+                for (const sample of coalesced.length ? coalesced : [event])
+                  if (stroke.points.length < 10000) stroke.points.push(point(sample, rect))
                 repaint()
               }}
-              onPointerUp={(event) => finish(event)}
-              onPointerCancel={(event) => finish(event, true)}
-              onLostPointerCapture={() => {
-                if (drag.current) {
-                  drag.current = null
-                  setDrawing(false)
-                  repaint()
-                }
-                if (active.current) {
-                  active.current = null
-                  setDrawing(false)
-                  repaint()
-                }
-              }}
+              onPointerUp={(event) => finish(event, 'up')}
+              onPointerCancel={(event) => finish(event, 'cancel')}
+              onLostPointerCapture={(event) => finish(event, 'lost')}
             />
             {editing && canvas.current && stageWidth > 0 && (
               <TextEditor

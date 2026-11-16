@@ -132,8 +132,10 @@ export function paintStrokes(context: CanvasRenderingContext2D, strokes: Stroke[
     context.moveTo(first.x * width, first.y * height)
     const points = stroke.tool === 'arrow' ? [last] : stroke.points
     for (const point of points) context.lineTo(point.x * width, point.y * height)
-    // A click should leave a dot as well as a drag leaving a line.
-    if (stroke.points.length === 1) context.lineTo(first.x * width + 0.01, first.y * height)
+    // A click should leave a dot as well as a drag leaving a line; a path
+    // with no length draws nothing, so nudge it.
+    if (stroke.points.every((point) => point.x === first.x && point.y === first.y))
+      context.lineTo(first.x * width + 0.01, first.y * height)
     context.stroke()
     if (stroke.tool === 'arrow') {
       const angle = Math.atan2((last.y - first.y) * height, (last.x - first.x) * width)
