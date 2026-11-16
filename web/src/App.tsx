@@ -57,6 +57,7 @@ import { UploadDialog } from './components/UploadDialog'
 import { Settings } from './components/Settings'
 import { VideoReview } from './components/VideoReview'
 import { NotebookActions, useReviewNotebook } from './components/ReviewNotebook'
+import { LearningObjectives, ObjectivesBriefing } from './components/LearningObjectives'
 import { ownerReview, sharedReview } from './lib/review'
 import { leagueRepository } from './lib/league-repository'
 import { useTheme } from './lib/theme'
@@ -99,10 +100,6 @@ function lazyPage<P extends object>(
       })),
   )
 }
-const LearningObjectives = lazyPage(
-  () => import('./components/LearningObjectives').then((m) => m.LearningObjectives),
-  'your objectives',
-)
 const Home = lazyPage(() => import('./components/Home').then((m) => m.Home), 'Home')
 const SummonerProfile = lazyPage(
   () => import('./components/Summoners').then((m) => m.SummonerProfile),
@@ -2090,6 +2087,7 @@ function Watch({ token }: { token: string }) {
                 </span>
               </div>
             </div>
+            {review.objectives && <ObjectivesBriefing repository={review.objectives} />}
             <VideoReview
               repository={review}
               notebook={notebook}

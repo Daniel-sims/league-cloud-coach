@@ -38,8 +38,16 @@ type NotesRecord = {
   published: string | null
   completedAt: string | null
 }
+type ObjectiveRecord = {
+  id: string
+  phase: string
+  title: string
+  details: string
+  by: string | null
+}
 type State = {
   notes?: NotesRecord[]
+  objectives?: ObjectiveRecord[]
   failNotesSave?: boolean
   review: ReturnType<typeof reviewPayload> | null
   anchor: { gameTimeSeconds: number; videoOffsetSeconds: number } | null
@@ -327,6 +335,38 @@ async function mock(context: BrowserContext, state: State, owner: boolean) {
     }
     if (name === 'delete_recording_comment' || name === 'delete_shared_comment')
       state.comments = state.comments.filter((c) => c.id !== args.p_comment)
+    // Learning objectives: one shared list; creating is enough for these flows.
+    if (name === 'change_learning_objective' || name === 'change_shared_objective') {
+      state.objectives ??= []
+      if (args.p_action === 'create')
+        state.objectives.push({
+          id: `o${state.objectives.length + 1}`,
+          phase: String(args.p_phase),
+          title: String(args.p_title),
+          details: String(args.p_details ?? ''),
+          by: name === 'change_shared_objective' ? String(args.p_author_name ?? 'Coach') : null,
+        })
+    }
+    if (
+      [
+        'get_learning_objectives',
+        'get_shared_objectives',
+        'change_learning_objective',
+        'change_shared_objective',
+      ].includes(name)
+    )
+      result = {
+        playerName: 'Daniel',
+        objectives: (state.objectives ?? []).map(({ by, ...o }, i) => ({
+          ...o,
+          revision: 1,
+          archivedAt: null,
+          editedRole: by ? 'coach' : 'owner',
+          editedBy: by,
+          createdAt: `2026-11-1${i}T10:00:00Z`,
+          updatedAt: `2026-11-1${i}T10:00:00Z`,
+        })),
+      }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -1286,10 +1326,36 @@ test('running notes autosave privately, survive reload, and publish the polished
   await page.screenshot({ path: testInfo.outputPath('complete-review-desktop.png') })
   await finish.getByRole('button', { name: 'Complete review', exact: true }).click()
   await expect(finish).toHaveCount(0)
+  // Completing moves on to the learning objectives.
+  const ownerObjectives = page.getByRole('dialog', { name: 'Your learning objectives' })
+  await expect(ownerObjectives).toContainText('Review complete')
+  await ownerObjectives.getByRole('button', { name: 'Add post game objective' }).click()
+  await ownerObjectives.getByLabel('Objective', { exact: true }).fill('R usage: build patience')
+  await ownerObjectives
+    .getByLabel('Details', { exact: true })
+    .fill('In hindsight, was the R necessary?')
+  await ownerObjectives.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(ownerObjectives.getByText('R usage: build patience')).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('objectives-after-review-desktop.png') })
+  await ownerObjectives.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(ownerObjectives).toHaveCount(0)
   await expect(notes.getByRole('region', { name: 'Completed reviews' })).toContainText(
     'Track the jungler',
   )
+  // A coach arriving on the link is briefed on the objectives first.
   await guest.reload()
+  const briefing = guest.getByRole('dialog', { name: 'Daniel’s learning objectives' })
+  await expect(briefing).toContainText('R usage: build patience')
+  await expect(briefing).toContainText('In hindsight, was the R necessary?')
+  await guest.screenshot({ path: testInfo.outputPath('objectives-briefing-mobile.png') })
+  await briefing.getByRole('button', { name: 'Start reviewing', exact: true }).click()
+  await expect(briefing).toHaveCount(0)
+  // And can open them again from the review settings.
+  await guest.getByRole('button', { name: 'Video settings' }).first().click()
+  await guest.getByRole('button', { name: 'Learning objectives', exact: true }).click()
+  const guestObjectives = guest.getByRole('dialog', { name: 'Daniel’s learning objectives' })
+  await expect(guestObjectives.getByRole('button', { name: 'Add in game objective' })).toBeVisible()
+  await guestObjectives.getByRole('button', { name: 'Done', exact: true }).click()
   await guest.getByRole('button', { name: 'Add notes', exact: true }).click()
   await expect(guestNotes.getByRole('region', { name: 'Completed reviews' })).toContainText(
     'Track the jungler',
@@ -1305,6 +1371,17 @@ test('running notes autosave privately, survive reload, and publish the polished
   await guestFinish.getByLabel('Review notes').fill('Focus on wave control before river fights.')
   await guestFinish.getByRole('button', { name: 'Complete review', exact: true }).click()
   await expect(guestFinish).toHaveCount(0)
+  const nextObjectives = guest.getByRole('dialog', { name: 'Daniel’s learning objectives' })
+  await expect(nextObjectives).toContainText('Review complete and shared')
+  await nextObjectives.getByRole('button', { name: 'Add in game objective' }).click()
+  await nextObjectives.getByLabel('Objective', { exact: true }).fill('Track the enemy jungler')
+  await nextObjectives.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(nextObjectives.getByText('Added by Coach', { exact: false }).first()).toBeVisible()
+  await nextObjectives.getByRole('button', { name: 'Done', exact: true }).click()
+  expect(state.objectives?.map((o) => o.title)).toEqual([
+    'R usage: build patience',
+    'Track the enemy jungler',
+  ])
   await guestNotes.getByLabel('Running notes').fill('A private revision, not ready to share.')
   await expect(guestNotes.getByText('Private draft saved', { exact: true })).toBeVisible()
   await page.reload()

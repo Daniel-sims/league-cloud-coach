@@ -770,9 +770,16 @@ After meaningful work, update the date, implemented behaviour, verification, rem
 
 Settings → Sync full season lists a calendar-year season in two-week `startTime`/`endTime` windows, then `sync-timelines` stores each game's reduced review timeline in `league_matches.review` (migration `202611120004_match_timelines.sql`; service-role only, never returned by `list_league_matches`). `review-timeline` reuses a stored review before calling Riot. Unusable/expired timelines are marked `review_checked` so a pull terminates. **Not yet deployed:** apply the migration and deploy the `riot` function before the frontend. Disposable-database tests passed on PostgreSQL 14 locally; CI uses 17. Saved profiles hold puuids encrypted under the previous Riot key, so reconnect each account after switching keys.
 
-## Learning objectives (2026-11-15)
+## Learning objectives (2026-11-16)
 
-New owner-only page at `#/objectives` (sidebar: Learning objectives) for the coach's current objectives, written in markdown and read before games. It opens in a rendered reading view (GitHub-flavoured markdown: headings, lists, checklists, quotes, tables; raw HTML is not rendered, links open in a new tab) with an Edit toggle; an empty page opens straight into the editor. One document per owner in `learning_objectives` (migration `202611150001_learning_objectives.sql`), bounded to 50,000 characters, read/written only via `get_learning_objectives`/`save_learning_objectives` with revision checks so a stale tab stops saving rather than overwriting. `supabase/tests/learning-objectives-security.sql` covers grants, cross-owner isolation, stale saves and non-members.
+Objectives are a list the player and coach maintain together (review → objectives → review). Each one is **In game** (focus while playing) or **Post game** (work through when reviewing), with a title, optional plain-text details, an order within its phase, and an archived state ("Past objectives"). Each objective records who last changed it: the owner, or a coach (a named guest's owner-set name, otherwise the coach's typed name, otherwise "Coach").
+
+- `#/objectives` (owner): add, edit, change phase, reorder, archive/restore, delete, and set the name coaches see ("Daniel’s learning objectives"; stored per owner in `objective_players`).
+- Watch link: a coach arriving is briefed with a read-only dialog of the current objectives (only when there are any).
+- Review cog → **Learning objectives** opens the editable list in a modal for both owner and coach.
+- **Complete review**: once the notes are published, the dialog moves to the objectives so whoever completed the review sets the next ones.
+
+Migration `202611160004_objective_lists.sql` replaces the markdown page: it drops the old RPCs and keeps the old table unreadable as `learning_objectives_legacy`. Reads/writes only via `get_learning_objectives`/`change_learning_objective`/`set_objectives_player_name` (enabled owner) and `get_shared_objectives`/`change_shared_objective` (any valid, unrevoked, unexpired watch link for one of the owner's recordings; the author key resolves named-guest attribution). Every change returns the whole list; edits are revision-checked, changes to one owner's list are serialised, and an owner holds at most 100 objectives. `supabase/tests/learning-objectives-security.sql` covers grants, cross-owner isolation, link scoping, revocation, attribution, ordering and validation. `react-markdown`/`remark-gfm` were removed with the old page.
 
 ## Review board (2026-11-15)
 

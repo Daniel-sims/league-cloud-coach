@@ -1,6 +1,7 @@
 import { rpc } from './supabase'
 import { riotRequest } from './league-repository'
 import type { ClockAnchor, ReviewPayload } from './review-timeline'
+import { ownerObjectives, sharedObjectives, type ObjectivesRepository } from './objectives'
 
 export type CommentKind = 'comment' | 'question' | 'mindset'
 export const commentKinds: { kind: CommentKind; name: string; prompt: string }[] = [
@@ -70,6 +71,8 @@ export interface ReviewRepository {
   role: 'owner' | 'coach'
   /** Set when the link belongs to a named guest; the owner chose this name. */
   guestName?: string
+  /** The player's learning objectives, read and set during the review. */
+  objectives?: ObjectivesRepository
   addMoment?(videoMs: number, note: string): Promise<void>
   updateMoment?(id: string, note: string): Promise<void>
   deleteMoment?(id: string): Promise<void>
@@ -111,6 +114,7 @@ export function ownerReview(recordingId: string): ReviewRepository {
   const cache = reviewPayloadCache()
   return {
     role: 'owner',
+    objectives: ownerObjectives,
     loadNotes: () => rpc<ReviewNotes>('get_recording_notes', { p_id: recordingId }),
     saveNotes: ({ body, version, complete }) =>
       rpc<ReviewNotes>('save_recording_notes', {
@@ -178,6 +182,7 @@ export function sharedReview(
   return {
     role: 'coach',
     ...(guest ? { guestName: guest.name } : {}),
+    objectives: sharedObjectives(token, key, () => guest?.name ?? savedCoachName()),
     loadNotes: () => rpc<ReviewNotes>('get_shared_notes', { p_token: token, p_author_key: key }),
     saveNotes: ({ body, version, complete, author }) =>
       rpc<ReviewNotes>('save_shared_notes', {

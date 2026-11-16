@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, CheckCircle2, Copy, NotebookPen, Clock3 } from 'lucide-react'
 import { Dialog } from './Dialog'
+import { ObjectivesDialog } from './LearningObjectives'
+import type { ObjectivesRepository } from '../lib/objectives'
 import {
   savedCoachName,
   saveCoachName,
@@ -200,13 +202,14 @@ export function useReviewNotebook(repository: ReviewRepository | null) {
     setView('notes')
     setFinishing(true)
   }
+  /** Publishes the notes; false keeps the review and its draft open. */
   const complete = async () => {
     setCompleting(true)
     try {
       await persist(true)
-      setFinishing(false)
+      return true
     } catch {
-      /* Keep the review and its draft open. */
+      return false
     } finally {
       setCompleting(false)
     }
@@ -434,8 +437,31 @@ export function ReviewNotebook({
   )
 }
 
-export function CompleteReview({ notebook }: { notebook: ReviewNotebookModel }) {
+export function CompleteReview({
+  notebook,
+  objectives,
+}: {
+  notebook: ReviewNotebookModel
+  /** Completing a review moves on to the player's learning objectives. */
+  objectives?: ObjectivesRepository
+}) {
+  const [step, setStep] = useState<'notes' | 'objectives'>('notes')
+  useEffect(() => {
+    if (!notebook.finishing) setStep('notes')
+  }, [notebook.finishing])
   if (!notebook.finishing) return null
+  if (step === 'objectives' && objectives)
+    return (
+      <ObjectivesDialog
+        repository={objectives}
+        intro={
+          objectives.role === 'owner'
+            ? 'Review complete. Now update your learning objectives for the next games: keep, edit, reorder or archive them, and add new ones.'
+            : 'Review complete and shared. Now set what to work on next: keep, edit, reorder or archive these objectives, and add new ones.'
+        }
+        onClose={() => notebook.setFinishing(false)}
+      />
+    )
   return (
     <Dialog
       title="Complete review"
@@ -448,6 +474,7 @@ export function CompleteReview({ notebook }: { notebook: ReviewNotebookModel }) 
       <p className="dialog-intro">
         Polish your running notes below. Completing shares this finished review with the player and
         anyone with a watch link to this video.
+        {objectives && ' Next, you’ll update the learning objectives.'}
       </p>
       {notebook.role === 'coach' && !notebook.named && (
         <label className="notebook-field">
@@ -481,7 +508,11 @@ export function CompleteReview({ notebook }: { notebook: ReviewNotebookModel }) 
         </button>
         <button
           className="button"
-          onClick={() => void notebook.complete()}
+          onClick={async () => {
+            if (!(await notebook.complete())) return
+            if (objectives) setStep('objectives')
+            else notebook.setFinishing(false)
+          }}
           disabled={
             !notebook.ready ||
             !notebook.body.trim() ||

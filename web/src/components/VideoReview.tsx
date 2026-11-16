@@ -33,6 +33,7 @@ import {
   PanelRightOpen,
   RefreshCw,
   Settings,
+  Target,
   Skull,
   Star,
   Swords,
@@ -44,6 +45,7 @@ import {
 import { Dialog } from './Dialog'
 import { EventContextMenu, type EventMenuTarget } from './EventContextMenu'
 import { CompleteReview, ReviewNotebook, type ReviewNotebookModel } from './ReviewNotebook'
+import { ObjectivesDialog } from './LearningObjectives'
 import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
 import { CaptureRow, CommentRow, EventRow, MomentRow, patchOf } from './TimelineRows'
@@ -164,6 +166,7 @@ export function VideoReview({
     null,
   )
   const [openMenu, setOpenMenu] = useState<'settings' | 'filter' | null>(null)
+  const [objectivesOpen, setObjectivesOpen] = useState(false)
   const cinemaButton = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => {
     if (!cinema) return
@@ -840,6 +843,24 @@ export function VideoReview({
       </button>
       {openMenu === 'settings' && (
         <div className="review-filter-menu review-settings-menu review-menu-panel">
+          {repository.objectives && (
+            <div className="review-detail-setting">
+              <small>Coaching</small>
+              <div>
+                <button
+                  type="button"
+                  className="button secondary button-small"
+                  onClick={() => {
+                    closeSettings()
+                    setObjectivesOpen(true)
+                  }}
+                >
+                  <Target size={14} />
+                  Learning objectives
+                </button>
+              </div>
+            </div>
+          )}
           <div className="review-detail-setting" role="radiogroup" aria-label="Timeline detail">
             <small>Timeline</small>
             <div>
@@ -882,7 +903,13 @@ export function VideoReview({
   )
   return (
     <div className={`review-container ${cinema ? 'cinema-mode' : ''}`} ref={container}>
-      {notebook && <CompleteReview notebook={notebook} />}
+      {notebook && <CompleteReview notebook={notebook} objectives={repository.objectives} />}
+      {objectivesOpen && repository.objectives && (
+        <ObjectivesDialog
+          repository={repository.objectives}
+          onClose={() => setObjectivesOpen(false)}
+        />
+      )}
       {eventMenu && (
         <EventContextMenu
           target={eventMenu}
