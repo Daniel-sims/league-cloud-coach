@@ -2060,15 +2060,7 @@ function Watch({ token }: { token: string }) {
           </div>
         ) : video && review ? (
           <>
-            <div className="video-bar">
-              <h1 className="sr-only">{video.title}</h1>
-              <div className="video-actions">
-                <span className="watch-badge">
-                  <Link2 size={13} />
-                  {video.guest_name ? `Reviewing as ${video.guest_name}` : 'Shared with you'}
-                </span>
-              </div>
-            </div>
+            <h1 className="sr-only">{video.title}</h1>
             {review.objectives && <ObjectivesBriefing repository={review.objectives} />}
             <VideoReview
               repository={review}

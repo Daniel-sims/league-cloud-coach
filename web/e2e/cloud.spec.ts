@@ -205,7 +205,6 @@ test('owner adds a recording, shares to a signed-out visitor, and revokes its ap
     'href',
     'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
   )
-  await expect(guest.getByText('Reviewing as Coach')).toBeVisible()
   await page.getByRole('button', { name: 'Stop', exact: true }).click()
   await guest.reload()
   await expect(guest.getByRole('heading', { name: 'This game isn’t shared here.' })).toBeVisible()

@@ -1105,10 +1105,10 @@ for (const owner of [true, false]) {
     await page.screenshot({ path: testInfo.outputPath('cinema-mobile.png'), fullPage: true })
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: 'Enter cinema mode' })).toBeFocused()
-    await expect(page.locator('.video-bar')).toBeVisible()
+    await expect(page.locator('.video-bar, .watch-footer').first()).toBeVisible()
     await page.getByRole('button', { name: 'Enter cinema mode' }).click()
     await page.getByRole('button', { name: 'Exit cinema mode' }).click()
-    await expect(page.locator('.video-bar')).toBeVisible()
+    await expect(page.locator('.video-bar, .watch-footer').first()).toBeVisible()
   })
 }
 
