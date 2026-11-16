@@ -1561,14 +1561,18 @@ body:has(.cinema-mode) .watch-main {
   border-left: 2px solid var(--line);
   padding: 8px 0 0 8px;
 }
-.event-discussion > strong {
-  font-size: 10px;
-  color: var(--muted);
-}
 .event-discussion ol {
   list-style: none;
   padding: 0;
   margin: 6px 0;
+}
+/* No heading: the first thing in the thread sits at its top edge. */
+.event-discussion ol:empty {
+  display: none;
+}
+.event-discussion > ol:first-child,
+.event-discussion > ol:empty + .review-composer {
+  margin-top: 0;
 }
 .event-comment {
   margin: 6px 0;

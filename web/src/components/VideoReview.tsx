@@ -1245,7 +1245,6 @@ export function VideoReview({
                                 className="event-discussion"
                                 aria-label={`Comments on ${item.entry.label} at ${clock(item.entry.gameTimeMs)}`}
                               >
-                                <strong>Discussion</strong>
                                 <ol>
                                   {eventComments
                                     .get(item.id)
