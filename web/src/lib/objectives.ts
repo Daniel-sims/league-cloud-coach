@@ -2,8 +2,8 @@ import { rpc } from './supabase'
 
 export type ObjectivePhase = 'in_game' | 'post_game'
 export const objectivePhases: { phase: ObjectivePhase; name: string; hint: string }[] = [
-  { phase: 'in_game', name: 'In game', hint: 'Focus on these while playing.' },
-  { phase: 'post_game', name: 'Post game', hint: 'Work through these when reviewing the game.' },
+  { phase: 'in_game', name: 'In-game', hint: 'Focus on these while playing.' },
+  { phase: 'post_game', name: 'Post-game', hint: 'Work through these when reviewing the game.' },
 ]
 export const objectiveTitleMax = 200
 export const objectiveDetailsMax = 4000

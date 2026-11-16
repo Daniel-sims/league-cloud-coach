@@ -30,6 +30,37 @@ const lookedUp = {
   summonerLevel: 210,
   ranks: [],
 }
+const objective = (id: string, phase: string, title: string, details = '', archived = false) => ({
+  id,
+  phase,
+  title,
+  details,
+  revision: 1,
+  archivedAt: archived ? '2026-11-14T10:00:00Z' : null,
+  editedRole: 'coach',
+  editedBy: 'Coach Sam',
+  createdAt: '2026-11-12T10:00:00Z',
+  updatedAt: '2026-11-12T10:00:00Z',
+})
+const objectives = {
+  playerName: 'Test',
+  objectives: [
+    objective('a', 'in_game', 'Track the enemy jungler', 'Ping their first clear side by 1:30.'),
+    objective(
+      'b',
+      'post_game',
+      'Uncomfortable scenarios: find the root cause and the fix',
+      'Wave state, a bad trade, a reset window.\nSolve these case by case.',
+    ),
+    objective(
+      'c',
+      'post_game',
+      'R usage (building patience)',
+      'In hindsight, was the R necessary? If not, what were the signs not to R?\n\nCAVEAT: windows WILL present themselves.',
+    ),
+    objective('d', 'post_game', 'Old focus', '', true),
+  ],
+}
 async function setup(
   context: BrowserContext,
   empty = false,
@@ -105,6 +136,7 @@ async function setup(
       else result = { nextStart: 3, hasMore: false }
     }
     if (name === 'list_recordings') result = []
+    if (name === 'get_learning_objectives') result = objectives
     if (name === 'list_match_recordings') result = { '1': '00000000-0000-4000-8000-000000000001' }
     if (name === 'stream') result = { imported: 0, pending: [] }
     await route.fulfill({
@@ -306,4 +338,29 @@ test('summoners looks anyone up, opens scoreboard players there, and keeps Home 
   await expect(page).toHaveURL(/#\/summoners\/euw1\/enemy/)
   await page.getByRole('link', { name: 'Summoners', exact: true }).first().click()
   await expect(page.getByRole('link', { name: /Zed Main#EUW/ })).toBeVisible()
+})
+
+test('learning objectives group in-game and post-game panels in both themes and on phones', async ({
+  page,
+}, testInfo) => {
+  await setup(page.context())
+  await page.goto('/#/objectives')
+  const inGame = page.getByRole('region', { name: 'In-game objectives' })
+  const postGame = page.getByRole('region', { name: 'Post-game objectives' })
+  await expect(inGame).toContainText('Track the enemy jungler')
+  await expect(postGame.getByRole('listitem')).toHaveCount(2)
+  await expect(postGame).toContainText('CAVEAT: windows WILL present themselves.')
+  await expect(page.getByText('Past objectives (1)')).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('objectives-light.png'), fullPage: true })
+  await page.evaluate(() => localStorage.setItem('league-cloud-coach-theme', 'dark'))
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await postGame.getByRole('button', { name: 'Add post-game objective' }).click()
+  await expect(postGame.getByLabel('Objective', { exact: true })).toBeFocused()
+  await page.screenshot({ path: testInfo.outputPath('objectives-dark.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('objectives-mobile.png'), fullPage: true })
 })

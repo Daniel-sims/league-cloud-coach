@@ -238,7 +238,7 @@
   background-color: var(--surface);
   border-color: var(--line);
 }
-[data-theme='dark'] .objective-number {
+[data-theme='dark'] :is(.objective-number, .objective-phase-icon) {
   color: var(--ink);
   background: var(--surface);
 }

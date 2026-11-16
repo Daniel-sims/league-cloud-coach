@@ -94,9 +94,9 @@ const sample = (): ObjectiveList => ({
 
 it('groups current objectives into in game and post game, with past ones apart', async () => {
   render(<LearningObjectives repository={repo(sample())} />)
-  const inGame = await screen.findByRole('region', { name: 'In game objectives' })
+  const inGame = await screen.findByRole('region', { name: 'In-game objectives' })
   expect(within(inGame).getByText('Track the jungler')).toBeInTheDocument()
-  const postGame = screen.getByRole('region', { name: 'Post game objectives' })
+  const postGame = screen.getByRole('region', { name: 'Post-game objectives' })
   expect(
     within(postGame)
       .getAllByRole('listitem')
@@ -111,7 +111,7 @@ it('groups current objectives into in game and post game, with past ones apart',
 it('adds, edits, reorders, archives and deletes objectives', async () => {
   const repository = repo(sample())
   render(<LearningObjectives repository={repository} />)
-  await userEvent.click(await screen.findByRole('button', { name: 'Add in game objective' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Add in-game objective' }))
   await userEvent.type(screen.getByLabelText('Objective'), 'Ward river at 3:00')
   await userEvent.type(screen.getByLabelText('Details'), 'Before first scuttle')
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -125,7 +125,7 @@ it('adds, edits, reorders, archives and deletes objectives', async () => {
 
   // Moving an objective to the other phase.
   await userEvent.click(screen.getByRole('button', { name: 'Edit “Review transitions”' }))
-  await userEvent.click(screen.getByRole('radio', { name: 'In game' }))
+  await userEvent.click(screen.getByRole('radio', { name: 'In-game' }))
   await userEvent.clear(screen.getByLabelText('Objective'))
   await userEvent.type(screen.getByLabelText('Objective'), 'Play transitions')
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -203,7 +203,7 @@ it('lets a coach edit in the dialog, attributing the player’s own objectives t
   render(<ObjectivesDialog repository={repository} onClose={() => {}} />)
   const dialog = await screen.findByRole('dialog', { name: 'Daniel’s learning objectives' })
   expect(within(dialog).getAllByText(/Added by Daniel/).length).toBeGreaterThan(0)
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Add post game objective' }))
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Add post-game objective' }))
   await userEvent.type(within(dialog).getByLabelText('Objective'), 'Reset timings')
   await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
   expect(await within(dialog).findByText('Reset timings')).toBeInTheDocument()

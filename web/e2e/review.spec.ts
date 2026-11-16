@@ -1329,7 +1329,7 @@ test('running notes autosave privately, survive reload, and publish the polished
   // Completing moves on to the learning objectives.
   const ownerObjectives = page.getByRole('dialog', { name: 'Your learning objectives' })
   await expect(ownerObjectives).toContainText('Review complete')
-  await ownerObjectives.getByRole('button', { name: 'Add post game objective' }).click()
+  await ownerObjectives.getByRole('button', { name: 'Add post-game objective' }).click()
   await ownerObjectives.getByLabel('Objective', { exact: true }).fill('R usage: build patience')
   await ownerObjectives
     .getByLabel('Details', { exact: true })
@@ -1354,7 +1354,7 @@ test('running notes autosave privately, survive reload, and publish the polished
   await guest.getByRole('button', { name: 'Video settings' }).first().click()
   await guest.getByRole('button', { name: 'Learning objectives', exact: true }).click()
   const guestObjectives = guest.getByRole('dialog', { name: 'Daniel’s learning objectives' })
-  await expect(guestObjectives.getByRole('button', { name: 'Add in game objective' })).toBeVisible()
+  await expect(guestObjectives.getByRole('button', { name: 'Add in-game objective' })).toBeVisible()
   await guestObjectives.getByRole('button', { name: 'Done', exact: true }).click()
   await guest.getByRole('button', { name: 'Add notes', exact: true }).click()
   await expect(guestNotes.getByRole('region', { name: 'Completed reviews' })).toContainText(
@@ -1373,7 +1373,7 @@ test('running notes autosave privately, survive reload, and publish the polished
   await expect(guestFinish).toHaveCount(0)
   const nextObjectives = guest.getByRole('dialog', { name: 'Daniel’s learning objectives' })
   await expect(nextObjectives).toContainText('Review complete and shared')
-  await nextObjectives.getByRole('button', { name: 'Add in game objective' }).click()
+  await nextObjectives.getByRole('button', { name: 'Add in-game objective' }).click()
   await nextObjectives.getByLabel('Objective', { exact: true }).fill('Track the enemy jungler')
   await nextObjectives.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(nextObjectives.getByText('Added by Coach', { exact: false }).first()).toBeVisible()

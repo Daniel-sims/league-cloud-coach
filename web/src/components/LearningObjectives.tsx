@@ -5,8 +5,10 @@ import {
   ChevronDown,
   ChevronUp,
   LoaderCircle,
+  NotebookPen,
   Pencil,
   Plus,
+  Swords,
   Trash2,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
@@ -139,8 +141,24 @@ export function ObjectiveBoard({ model, editable }: { model: ObjectivesModel; ed
         return (
           <section className="objective-phase" key={phase} aria-label={`${name} objectives`}>
             <header>
-              <h3>{name}</h3>
-              <small>{hint}</small>
+              <span className="objective-phase-icon" aria-hidden="true">
+                {phase === 'in_game' ? <Swords size={16} /> : <NotebookPen size={16} />}
+              </span>
+              <div>
+                <h3>{name}</h3>
+                <small>{hint}</small>
+              </div>
+              {editable && (
+                <button
+                  className="button secondary button-small objective-add"
+                  aria-label={`Add ${name.toLowerCase()} objective`}
+                  disabled={model.busy || editing !== null}
+                  onClick={() => setEditing(`new:${phase}`)}
+                >
+                  <Plus size={14} />
+                  Add
+                </button>
+              )}
             </header>
             {items.length > 0 && (
               <ol className="objective-list">
@@ -219,33 +237,20 @@ export function ObjectiveBoard({ model, editable }: { model: ObjectivesModel; ed
                 )}
               </ol>
             )}
-            {editable &&
-              (editing === `new:${phase}` ? (
-                <div className="objective editing">
-                  <ObjectiveForm
-                    initial={{ phase, title: '', details: '' }}
-                    busy={model.busy}
-                    onCancel={() => setEditing(null)}
-                    onSave={(draft) => save(draft)}
-                  />
-                </div>
-              ) : (
-                <>
-                  {items.length === 0 && (
-                    <p className="blocks-empty objective-empty">
-                      No {name.toLowerCase()} objectives.
-                    </p>
-                  )}
-                  <button
-                    className="text-link objective-add"
-                    disabled={model.busy || editing !== null}
-                    onClick={() => setEditing(`new:${phase}`)}
-                  >
-                    <Plus size={13} />
-                    Add {name.toLowerCase()} objective
-                  </button>
-                </>
-              ))}
+            {editable && editing === `new:${phase}` ? (
+              <div className="objective editing">
+                <ObjectiveForm
+                  initial={{ phase, title: '', details: '' }}
+                  busy={model.busy}
+                  onCancel={() => setEditing(null)}
+                  onSave={(draft) => save(draft)}
+                />
+              </div>
+            ) : (
+              items.length === 0 && (
+                <p className="objective-empty">No {name.toLowerCase()} objectives yet.</p>
+              )
+            )}
           </section>
         )
       })}
