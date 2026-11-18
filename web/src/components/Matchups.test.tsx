@@ -110,6 +110,7 @@ it('shows your record in the matchup above the notes', async () => {
           tips: [],
           build: '',
           notes: '',
+          runes: null,
         },
       ])}
     />,
@@ -183,6 +184,7 @@ it('shows a live game with the likely lane opponent picked', async () => {
           tips: [],
           build: '',
           notes: '',
+          runes: null,
         },
       ])}
     />,

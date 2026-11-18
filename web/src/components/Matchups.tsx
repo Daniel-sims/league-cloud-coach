@@ -25,6 +25,7 @@ import {
 import { Champion } from './LeagueParts'
 import '../matchups.css'
 import { Dialog } from './Dialog'
+import { RunePageEditor } from './RunePageEditor'
 import { leagueRepository, type LeagueRepository, type LiveGame } from '../lib/league-repository'
 import {
   gamesFor,
@@ -577,6 +578,7 @@ export function MatchupView({
               repository={repository}
               opponentName={name(opponentId)}
               onSaved={remember}
+              games={history}
               onCleared={() => forget(championId, opponentId)}
             />
             {others.length > 0 && (
@@ -780,7 +782,9 @@ function MatchupEditor({
   opponentName,
   onSaved,
   onCleared,
+  games,
 }: {
+  games: Game[]
   note: MatchupNote
   repository: MatchupRepository
   opponentName: string
@@ -794,6 +798,7 @@ function MatchupEditor({
     tips: note.tips,
     build: note.build,
     notes: note.notes,
+    runes: note.runes ?? null,
   }))
   const [state, setState] = useState<SaveState>('saved')
   const [message, setMessage] = useState('')
@@ -950,13 +955,17 @@ function MatchupEditor({
         />
       </div>
 
+      <div className="matchup-runes">
+        <h2>Runes</h2>
+        <RunePageEditor value={draft.runes} onChange={(runes) => edit({ runes })} games={games} />
+      </div>
       <label className="matchup-section matchup-text">
-        <h2>Build &amp; runes</h2>
+        <h2>Items &amp; spells</h2>
         <textarea
           value={draft.build}
           maxLength={1000}
           rows={2}
-          placeholder="Runes, starting items, spells, first back"
+          placeholder="Starting items, core build, summoner spells, first back"
           onChange={(e) => edit({ build: e.target.value })}
           onBlur={() => void flush()}
         />

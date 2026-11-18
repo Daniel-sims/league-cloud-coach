@@ -24,6 +24,20 @@ frontend only; no edge function change.
 - Tests: `supabase/tests/matchups-security.sql`, `lib/matchups.test.ts`,
   `components/Matchups.test.tsx`, `e2e/matchups.spec.ts`.
 
+- **Rune page** (`RunePageEditor.tsx`, `lib/runes.ts`, `runes.css`, migration
+  `202611180002`): an interactive page in the client's style per matchup note,
+  stored in Riot's shape (`primaryStyleId`, `subStyleId`, 9 `selectedPerkIds`,
+  0 = empty). Trees, rows, stat shards, descriptions and the client backdrop art
+  (`p{primary}_s{secondary}_k{keystone}.jpg`) come from Community Dragon's
+  `perkstyles.json`/`perks.json`, so they follow the live patch. Client rules:
+  one keystone and one rune per primary row; two secondary runes from different
+  rows (a pick in a used row swaps it, a third row drops the older pick);
+  changing primary clears its runes and a clashing secondary. Tooltips show the
+  short description, Shift (or the checkbox) the full one; client markup is
+  parsed to an allow-list of nodes, never injected as HTML. "Copy from a game"
+  fills it from a synced match's `perks`. `save_matchup` keeps the stored page
+  when an older tab sends no `runes` key. The browser test uses trimmed real
+  data in `web/e2e/fixtures/perk*.json`.
 - **Live game**: the page checks every saved account with the `riot` function's
   `live-game` action (spectator-v5) on opening, every minute while visible and
   on returning to the tab. It returns only champions, teams, spells, queue and

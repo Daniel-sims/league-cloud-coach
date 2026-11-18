@@ -1,6 +1,10 @@
 import { expect, test, type BrowserContext } from '@playwright/test'
 import { changes, match } from '../src/test/league-fixture'
 import type { LeagueMatch, LeagueProfile } from '../src/lib/league'
+import { readFileSync } from 'node:fs'
+
+const fixture = (name: string) =>
+  JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'))
 
 const ownerId = '11111111-1111-4111-8111-111111111111'
 const profile: LeagueProfile = {
@@ -30,6 +34,13 @@ const games: LeagueMatch[] = [
     return m
   }),
 ]
+games[0].participants[0].perks = {
+  statPerks: { offense: 5008, flex: 5008, defense: 5011 },
+  styles: [
+    { style: 8100, selections: [{ perk: 8112 }, { perk: 8126 }, { perk: 8138 }, { perk: 8135 }] },
+    { style: 8200, selections: [{ perk: 8226 }, { perk: 8237 }] },
+  ],
+} as never
 // Deterministic lane curves: wins pull ahead, losses fall behind. Game 12 has no timeline.
 const lanes = Object.fromEntries(
   results.slice(0, 11).map((win, i) => [
@@ -71,6 +82,15 @@ async function setup(context: BrowserContext) {
         }),
       ),
     { user, expires },
+  )
+  await context.route(
+    'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/perk*.json',
+    (route) =>
+      route.fulfill({
+        json: fixture(
+          route.request().url().endsWith('perks.json') ? 'perks.json' : 'perkstyles.json',
+        ),
+      }),
   )
   await context.route('https://ddragon.leagueoflegends.com/api/versions.json', (route) =>
     route.fulfill({ json: ['16.22.1'] }),
@@ -168,9 +188,64 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
   await page.keyboard.type('Shadow swap after you Flash')
   await page.getByRole('button', { name: 'Add point' }).nth(1).click()
   await page.keyboard.type('Push waves under tower pre-6')
+  // Rune page: primary path, keystone with its tooltip, then a secondary path.
+  await page.getByRole('button', { name: 'Primary path: Precision' }).click()
+  const keystone = page.getByRole('button', { name: 'Conqueror' })
+  // Tooltips close on scroll, so scroll first and hover once the page is still.
+  await page.locator('.rune-page').scrollIntoViewIfNeeded()
+  await keystone.hover()
+  await expect(page.getByRole('tooltip')).toContainText('Conqueror')
+  await expect(page.getByRole('tooltip')).toContainText('Hold Shift for details')
+  await page.keyboard.down('Shift')
+  await expect(page.getByRole('tooltip')).not.toContainText('Hold Shift for details')
+  await page.keyboard.up('Shift')
+  await keystone.click()
+  await expect(keystone).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Triumph' }).click()
+  await page.getByRole('button', { name: 'Legend: Alacrity' }).click()
+  await page.getByRole('button', { name: 'Last Stand' }).click()
+  await page.getByRole('button', { name: 'Secondary path: Resolve' }).click()
+  await page.getByRole('button', { name: 'Second Wind' }).click()
+  await page.getByRole('button', { name: 'Overgrowth' }).click()
   await page
-    .getByRole('textbox', { name: 'Build & runes' })
-    .fill('Electrocute · Zhonya rush · Flash/Barrier')
+    .getByRole('group', { name: 'Offense shard' })
+    .getByRole('button', { name: 'Attack Speed' })
+    .click()
+  await page
+    .getByRole('group', { name: 'Flex shard' })
+    .getByRole('button', { name: 'Adaptive Force' })
+    .click()
+  await page
+    .getByRole('group', { name: 'Defense shard' })
+    .getByRole('button', { name: 'Health', exact: true })
+    .click()
+  await page.mouse.move(0, 0)
+  if (shots) {
+    await page.locator('.rune-page').scrollIntoViewIfNeeded()
+    await page.locator('.rune-page').screenshot({ path: `${shots}/rune-page.png` })
+    await page.getByRole('button', { name: 'Fleet Footwork' }).hover()
+    await page.screenshot({ path: `${shots}/rune-tooltip.png` })
+    await page.mouse.move(0, 0)
+    await page.getByRole('button', { name: 'Names and descriptions' }).click()
+    await page.locator('.rune-page').screenshot({ path: `${shots}/rune-detailed.png` })
+    await page.getByRole('button', { name: 'Icons only' }).click()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.locator('.rune-page').screenshot({ path: `${shots}/rune-mobile.png` })
+    await page.setViewportSize({ width: 1280, height: 720 })
+  }
+  // Copy the page from a game in this matchup.
+  await page.getByRole('combobox', { name: 'Copy runes from a game' }).selectOption({ index: 1 })
+  await expect(page.getByRole('button', { name: 'Electrocute' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: 'Primary path: Domination' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await page
+    .getByRole('textbox', { name: 'Items & spells' })
+    .fill('Doran’s Ring · Zhonya rush · Flash/Barrier')
   await expect(page.getByText('Saved', { exact: true })).toBeVisible()
   if (shots) await page.screenshot({ path: `${shots}/matchup-notes.png`, fullPage: true })
 

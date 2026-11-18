@@ -2,6 +2,7 @@ import { rpc } from './supabase'
 import { championLabel } from './champions'
 import { cs, remake, type Game } from './league'
 import type { LiveSeat } from './league-repository'
+import { isEmpty, type RunePage } from './runes'
 
 // Matchups: notes for one champion into one lane opponent, plus history stats.
 
@@ -15,9 +16,11 @@ export interface MatchupDraft {
   threats: string[]
   /** How you win the lane. */
   tips: string[]
-  /** Runes, items, spells. */
+  /** Items, spells, first back. */
   build: string
   notes: string
+  /** Riot's rune page shape; null when none is set. */
+  runes: RunePage | null
 }
 
 export interface MatchupNote extends MatchupDraft {
@@ -35,6 +38,7 @@ export const emptyDraft: MatchupDraft = {
   tips: [],
   build: '',
   notes: '',
+  runes: null,
 }
 
 export const cleanDraft = (draft: MatchupDraft): MatchupDraft => ({
@@ -44,11 +48,14 @@ export const cleanDraft = (draft: MatchupDraft): MatchupDraft => ({
   tips: draft.tips.map((p) => p.trim()).filter(Boolean),
   build: draft.build.trim(),
   notes: draft.notes.trim(),
+  runes: isEmpty(draft.runes) ? null : draft.runes,
 })
 
 export const hasContent = (note: MatchupDraft) => {
   const c = cleanDraft(note)
-  return Boolean(c.difficulty || c.plan || c.threats.length || c.tips.length || c.build || c.notes)
+  return Boolean(
+    c.difficulty || c.plan || c.threats.length || c.tips.length || c.build || c.notes || c.runes,
+  )
 }
 
 /** Per-minute lane differences, you minus your lane opponent: [seconds, gold, cs, xp]. */
