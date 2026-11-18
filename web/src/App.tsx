@@ -35,6 +35,7 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Swords,
   Target,
   Unlink,
   UserPlus,
@@ -114,6 +115,14 @@ const BlockView = lazyPage(
   'this block',
 )
 const BlockList = lazyPage(() => import('./components/Blocks').then((m) => m.BlockList), 'Blocks')
+const MatchupsHome = lazyPage(
+  () => import('./components/Matchups').then((m) => m.MatchupsHome),
+  'Matchups',
+)
+const MatchupView = lazyPage(
+  () => import('./components/Matchups').then((m) => m.MatchupView),
+  'this matchup',
+)
 const CompanionConnection = lazyPage(
   () => import('./components/CompanionConnection').then((m) => m.CompanionConnection),
   'Connected apps',
@@ -231,6 +240,7 @@ export function App({ authError = null }: { authError?: string | null }) {
   const summoners = route === '/summoners' || route.startsWith('/summoners/')
   const blocks = route === '/blocks' || route.startsWith('/blocks/')
   const objectives = route === '/objectives'
+  const matchups = route === '/matchups' || route.startsWith('/matchups/')
   const library = route === '/library' || (local && route === '/preview')
   const connect = route === '/connect' || route.startsWith('/connect/')
   // Anything else (an old bookmark, a typo, a bare `#/`) goes Home rather than
@@ -240,6 +250,7 @@ export function App({ authError = null }: { authError?: string | null }) {
     summoners ||
     blocks ||
     objectives ||
+    matchups ||
     library ||
     connect ||
     videoRoute ||
@@ -248,6 +259,7 @@ export function App({ authError = null }: { authError?: string | null }) {
     if (!knownRoute) window.location.replace('#/home')
   }, [knownRoute])
   const blockId = route.match(/^\/blocks\/([a-f0-9-]{36})$/)?.[1]
+  const matchupRoute = route.match(/^\/matchups\/(\d{1,6})\/(\d{1,6})(\/stats)?$/)
   const summonerRoute = route.match(/^\/summoners\/([a-z0-9]+)\/([A-Za-z0-9_-]{20,100})$/)
 
   useEffect(() => {
@@ -379,6 +391,13 @@ export function App({ authError = null }: { authError?: string | null }) {
             </a>
           )}
           {!local && (
+            <a className={`nav-item ${matchups ? 'active' : ''}`} href="#/matchups">
+              <Swords size={18} />
+              Matchups
+              {matchups && <ChevronRight size={14} className="nav-chevron" />}
+            </a>
+          )}
+          {!local && (
             <a className={`nav-item ${summoners ? 'active' : ''}`} href="#/summoners">
               <Search size={18} />
               Summoners
@@ -465,9 +484,11 @@ export function App({ authError = null }: { authError?: string | null }) {
                       ? 'Blocks'
                       : objectives
                         ? 'Learning objectives'
-                        : connect
-                          ? 'Connected apps'
-                          : 'Video library'}
+                        : matchups
+                          ? 'Matchups'
+                          : connect
+                            ? 'Connected apps'
+                            : 'Video library'}
               </strong>
             </div>
             <div className="topbar-actions">
@@ -538,6 +559,15 @@ export function App({ authError = null }: { authError?: string | null }) {
                 <Home key={`${session.user.id}:${settingsVersion}`} ownerId={session.user.id} />
               ) : objectives && session ? (
                 <LearningObjectives key={session.user.id} />
+              ) : matchups && session && matchupRoute ? (
+                <MatchupView
+                  key={`${session.user.id}:${matchupRoute[1]}:${matchupRoute[2]}`}
+                  championId={Number(matchupRoute[1])}
+                  opponentId={Number(matchupRoute[2])}
+                  tab={matchupRoute[3] ? 'stats' : 'notes'}
+                />
+              ) : matchups && session ? (
+                <MatchupsHome key={session.user.id} />
               ) : blocks && session && blockId ? (
                 <BlockView key={`${session.user.id}:${blockId}`} id={blockId} />
               ) : blocks && session ? (

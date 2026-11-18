@@ -12,6 +12,8 @@ League Helper already provides a local Mac workflow for recording games and revi
 
 League Helper remains the recorder and local preparation companion. Its Push to web action uploads completed recordings, an attached match timeline, clock sync and ultimate-cast markers to this web application. Watching, sharing and commenting work entirely in the browser. A separate companion application is not required.
 
+Matchups (`#/matchups`) are for champion select: pick your champion and lane opponent to read your own notes for that lane (difficulty, a one-line game plan, what to watch out for, how to win, build and free notes), with your record in the matchup above them. The Stats tab charts how the lane goes from your synced games and stored timelines: gold/CS/XP difference by minute split by wins and losses, the difference at 15 minutes game by game, and your averages against your lane opponent's. Games missing a timeline can be fetched from the page.
+
 Library rows show the title, date and provider, with a Shared indicator only when a link exists. Private Cloudflare videos use a signed thumbnail sampled at `0s`; previews load near the viewport and renew once if the image URL expires. YouTube entries retain YouTube's supplied thumbnail, since its embed API does not expose arbitrary frames. Thumbnail failures keep the play placeholder without blocking the library.
 
 The library keeps an account/project-scoped browser cache of display metadata for up to seven days. Returning to the list or reloading shows that snapshot immediately after the normal sign-in/membership checks, then refreshes from the server in the background. Upload reconciliation no longer blocks the first list render. Private thumbnail image bytes are kept in IndexedDB (up to 96 images, 256 KiB each); signed image URLs, share tokens and credentials are not persisted by this cache. Unchanged images can display without another thumbnail authorization request or video playback. Sign-out/account switching clears the cache, successful mutations invalidate metadata, and removing a recording prunes its preview. Storage-disabled browsers continue to work using memory/direct image requests.
@@ -346,6 +348,7 @@ psql -v ON_ERROR_STOP=1 -f supabase/tests/event-comment-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/review-notes-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/companion-security.sql
 psql -v ON_ERROR_STOP=1 -f supabase/tests/capture-security.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/matchups-security.sql
 ```
 
 Run those paths from the repository root. The tests check validation, private listings, unauthorized accounts, direct mutation denial, cross-owner operations, anonymous capability lookup, share rotation/revocation, disabled owners, and deletion. The fixture transaction rolls back. The CI workflow runs the same tests.
