@@ -576,10 +576,7 @@ export function MatchupView({
               repository={repository}
               championName={name(championId)}
               opponentName={name(opponentId)}
-              cooldowns={[
-                { id: opponentId, name: name(opponentId), alias: alias(opponentId), side: 'them' },
-                { id: championId, name: name(championId), alias: alias(championId), side: 'you' },
-              ]}
+              cooldowns={{ id: opponentId, name: name(opponentId), alias: alias(opponentId) }}
               onSaved={remember}
               games={history}
               onCleared={() => forget(championId, opponentId)}
@@ -727,8 +724,8 @@ type NotesProps = {
   games: Game[]
   onSaved: (note: MatchupNote) => void
   onCleared: () => void
-  /** Lane opponent first. */
-  cooldowns: CooldownChampion[]
+  /** The lane opponent. */
+  cooldowns: CooldownChampion
 }
 
 // Notes read like a briefing; Edit opens the form, Save brings you back.
@@ -742,9 +739,7 @@ function MatchupNotes(props: NotesProps) {
       championName={props.championName}
       opponentName={props.opponentName}
       onEdit={() => setEditing(true)}
-      cooldowns={
-        <Cooldowns key={props.cooldowns.map((c) => c.id).join(':')} champions={props.cooldowns} />
-      }
+      cooldowns={<Cooldowns key={props.cooldowns.id} champion={props.cooldowns} />}
     />
   )
 }

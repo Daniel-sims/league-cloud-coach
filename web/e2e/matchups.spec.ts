@@ -264,19 +264,15 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
   await page.mouse.move(0, 0)
   if (shots) await page.screenshot({ path: `${shots}/matchup-notes.png`, fullPage: true })
 
-  // Their cooldowns, by rank and ability haste; yours one click away.
+  // Their cooldowns as a table: one row per ability, one column per rank.
   const cooldowns = page.getByRole('region', { name: 'Cooldowns' })
   await expect(cooldowns.getByRole('heading', { name: 'Zed’s cooldowns' })).toBeVisible()
-  await expect(cooldowns.getByLabel(/^W, Living Shadow: 20 seconds at rank 1\./)).toBeVisible()
-  await expect(cooldowns.getByLabel(/^R, Death Mark: 120 seconds at rank 1\./)).toBeVisible()
-  await cooldowns
-    .getByRole('group', { name: 'Ability rank' })
-    .getByRole('button', { name: '5' })
-    .click()
-  await cooldowns.getByRole('slider', { name: /Ability haste/ }).fill('100')
-  await expect(cooldowns.getByLabel(/^W, Living Shadow: 8 seconds at rank 5\./)).toBeVisible()
-  await cooldowns.getByLabel(/^W, Living Shadow/).hover()
-  await expect(cooldowns.getByRole('tooltip')).toContainText('Living Shadow')
+  await expect(cooldowns.getByRole('row', { name: /W Living Shadow/ })).toHaveText(
+    /20s\s*19s\s*18s\s*17s\s*16s/,
+  )
+  await expect(cooldowns.getByRole('row', { name: /R Death Mark/ })).toHaveText(
+    /120s\s*110s\s*100s/,
+  )
   if (shots) {
     await cooldowns.scrollIntoViewIfNeeded()
     await page.waitForFunction(() =>
@@ -284,17 +280,8 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
         (i) => (i as HTMLImageElement).complete,
       ),
     )
-    await page.screenshot({ path: `${shots}/cooldowns-hover.png` })
-    await page.mouse.move(0, 0)
     await cooldowns.screenshot({ path: `${shots}/cooldowns.png` })
-  }
-  await cooldowns.getByRole('button', { name: 'Ahri', exact: true }).click()
-  await expect(cooldowns.getByRole('heading', { name: 'Your cooldowns' })).toBeVisible()
-  await expect(cooldowns.getByLabel(/^E, Charm: 6 seconds at rank 5\./)).toBeVisible()
-  if (shots) {
     await page.setViewportSize({ width: 390, height: 844 })
-    await cooldowns.scrollIntoViewIfNeeded()
-    await page.waitForTimeout(300)
     await cooldowns.screenshot({ path: `${shots}/cooldowns-mobile.png` })
     await page.setViewportSize({ width: 1280, height: 720 })
   }

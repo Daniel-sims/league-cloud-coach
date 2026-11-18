@@ -69,22 +69,6 @@ export function parseAbilities(
   }
 }
 
-/** Cooldown after ability haste: base × 100 / (100 + haste). */
-export const withHaste = (seconds: number, haste: number) =>
-  (seconds * 100) / (100 + Math.max(0, haste))
-
-/** The cooldown at a rank, clamped to the ability's ranks (1-based). */
-export const atRank = (ability: Ability, rank: number) =>
-  ability.cooldowns[Math.min(Math.max(rank, 1), ability.cooldowns.length) - 1] ?? 0
-
-export const hasCooldown = (ability: Ability) => ability.cooldowns.some((s) => s > 0)
-
-/** "20 · 19 · 18 · 17 · 16", or one number when every rank is the same. */
-export const ladder = (cooldowns: number[]) =>
-  cooldowns.every((s) => s === cooldowns[0])
-    ? formatSeconds(cooldowns[0])
-    : cooldowns.map(formatSeconds).join(' · ')
-
 export const formatSeconds = (seconds: number) =>
   new Intl.NumberFormat('en-GB', { maximumFractionDigits: seconds < 10 ? 2 : 1 }).format(seconds)
 
