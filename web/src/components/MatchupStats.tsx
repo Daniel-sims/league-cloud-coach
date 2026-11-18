@@ -216,7 +216,22 @@ export function MatchupStats({
           value={percent(decided.length ? wins / decided.length : null)}
           detail={`${wins}W ${decided.length - wins}L · ${decided.length} ${decided.length === 1 ? 'game' : 'games'}`}
           hero
-        />
+        >
+          <span
+            className="matchup-form"
+            role="img"
+            aria-label={`Last ${Math.min(5, decided.length)} results, newest first: ${decided
+              .slice(0, 5)
+              .map((g) => (g.player.win ? 'win' : 'loss'))
+              .join(', ')}`}
+          >
+            {decided.slice(0, 5).map((g) => (
+              <span key={g.id} className={`league-result ${g.player.win ? 'win' : 'loss'}`}>
+                {g.player.win ? 'W' : 'L'}
+              </span>
+            ))}
+          </span>
+        </Tile>
         <Tile
           label="Gold difference at 15"
           value={signed(mean(gold15))}
@@ -443,17 +458,20 @@ function Tile({
   value,
   detail,
   hero = false,
+  children,
 }: {
   label: string
   value: ReactNode
   detail: ReactNode
   hero?: boolean
+  children?: ReactNode
 }) {
   return (
     <div className={`matchup-tile ${hero ? 'hero' : ''}`}>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{detail}</small>
+      {children}
     </div>
   )
 }

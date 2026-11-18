@@ -328,53 +328,6 @@ button.difficulty-chip:hover {
   color: var(--ink);
 }
 
-/* History glance */
-.matchup-glance {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface, #f5f3eb);
-  color: inherit;
-  text-decoration: none;
-  font-size: 13px;
-}
-a.matchup-glance:hover {
-  border-color: var(--ink);
-}
-.matchup-glance .matchup-record {
-  justify-items: start;
-}
-.matchup-glance .matchup-record strong {
-  font-size: 18px;
-}
-.matchup-glance-form {
-  display: flex;
-  gap: 3px;
-}
-.matchup-glance-stat {
-  display: grid;
-  gap: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.matchup-glance-stat strong {
-  font-size: 15px;
-}
-.matchup-glance-stat small {
-  font-size: 10px;
-  color: var(--muted);
-}
-.matchup-glance-link {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 600;
-}
-
 /* Notes editor */
 .matchup-editor {
   display: flex;
@@ -594,6 +547,11 @@ a.matchup-glance:hover {
   font-size: 48px;
   line-height: 1;
   margin: 4px 0;
+}
+.matchup-form {
+  display: flex;
+  gap: 3px;
+  margin-top: 8px;
 }
 .matchup-tile > small {
   font-size: 11px;
@@ -913,9 +871,6 @@ rect.chart-hit:focus-visible {
   .matchup-side img {
     width: 44px;
     height: 44px;
-  }
-  .matchup-glance-link {
-    margin-left: 0;
   }
 }
 

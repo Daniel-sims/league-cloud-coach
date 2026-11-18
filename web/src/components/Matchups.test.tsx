@@ -92,7 +92,7 @@ it('autosaves new notes, creating then updating the revision', async () => {
   expect(await screen.findByText('Saved')).toBeInTheDocument()
 })
 
-it('shows your record in the matchup above the notes', async () => {
+it('keeps the notes tab to notes; history lives on the stats tab', async () => {
   render(
     <MatchupView
       championId={103}
@@ -116,10 +116,8 @@ it('shows your record in the matchup above the notes', async () => {
     />,
   )
   expect(await screen.findByDisplayValue('Push and roam')).toBeInTheDocument()
-  expect(await screen.findByText('67%')).toBeInTheDocument()
-  expect(screen.getByText('2W 1L')).toBeInTheDocument()
-  // Average of +900 and −500 gold at 15, over the games with timelines.
-  expect(await screen.findByText('+200')).toBeInTheDocument()
+  expect(screen.queryByText('2W 1L')).not.toBeInTheDocument()
+  expect(screen.queryByText(/gold at 15/)).not.toBeInTheDocument()
 })
 
 it('summarises the lane on the stats tab and fetches missing timelines', async () => {
@@ -135,6 +133,10 @@ it('summarises the lane on the stats tab and fetches missing timelines', async (
     />,
   )
   expect(await screen.findByText('Gold difference at 15')).toBeInTheDocument()
+  expect(screen.getByText('2W 1L · 3 games')).toBeInTheDocument()
+  expect(
+    screen.getByRole('img', { name: 'Last 3 results, newest first: win, loss, win' }),
+  ).toBeInTheDocument()
   // Gold at 15 and CS at 10 are each ahead in one of the two games with timelines.
   expect(await screen.findAllByText('Ahead in 1 of 2')).toHaveLength(2)
   expect(screen.getByText('+1')).toBeInTheDocument() // CS at 10: (6 − 4) / 2

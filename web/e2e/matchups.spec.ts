@@ -176,7 +176,7 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
   await page.keyboard.press('Enter')
   await page.getByRole('button', { name: /Open matchup/ }).click()
   await expect(page).toHaveURL(/#\/matchups\/103\/238$/)
-  await expect(page.getByText('8W 4L')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Game plan' })).toBeVisible()
 
   await page
     .getByRole('textbox', { name: 'Game plan' })
@@ -255,6 +255,8 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
     .click()
   await expect(page).toHaveURL(/\/stats$/)
   await expect(page.getByText('Win rate')).toBeVisible()
+  await expect(page.getByText('8W 4L · 12 games')).toBeVisible()
+  await expect(page.getByRole('img', { name: /^Last 5 results, newest first/ })).toBeVisible()
   await expect(page.getByRole('img', { name: /Gold difference by minute/ })).toBeVisible()
   await expect(page.getByText(/Lane charts use 11 of 12 games/)).toBeVisible()
   const chart = page.getByRole('img', { name: /Gold difference by minute/ })

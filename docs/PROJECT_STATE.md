@@ -10,12 +10,11 @@ frontend only; no edge function change.
 - **Finder**: type-ahead champion pickers (Data Dragon catalogue, falling back
   to champions seen in synced games). "You" starts on the champion you played
   last, and opponents you've faced on it are one click away.
-- **Matchup tab**: a one-line history glance (win rate, last five, games, gold
-  at 15) above the notes: difficulty, game plan, "Watch out for", "How to win",
-  build and free notes. Autosaves with optimistic revisions like Blocks; your
+- **Matchup tab**: notes only (history lives on the Stats tab): difficulty,
+  game plan, "Watch out for", "How to win", runes, items and free notes. Autosaves with optimistic revisions like Blocks; your
   notes for other champions against the same opponent are listed below.
 - **Stats tab**: filters (as this champion / any champion, queue); tiles for
-  win rate, gold at 15, CS at 10 and KDA; gold/CS/XP difference by minute
+  win rate (with the last five results), gold at 15, CS at 10 and KDA; gold/CS/XP difference by minute
   (wins, losses, all, and each game faintly) and per-game difference at 15;
   head-to-head averages; a table view; the matchup's games as normal match rows.
   "Fetch timelines" asks the Riot function for missing games one at a time.

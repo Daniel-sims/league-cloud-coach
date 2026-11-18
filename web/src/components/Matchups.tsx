@@ -18,7 +18,6 @@ import {
   RefreshCw,
   LoaderCircle,
   Plus,
-  Swords,
   Trash2,
   X,
 } from 'lucide-react'
@@ -44,7 +43,6 @@ import {
   emptyDraft,
   guessLaneOpponent,
   hasContent,
-  laneAt,
   matchupGames,
   matchupPath,
   matchupRepository,
@@ -566,12 +564,6 @@ export function MatchupView({
           )
         ) : (
           <>
-            <HistoryGlance
-              games={history}
-              loading={own.loading}
-              statsHref={matchupPath(championId, opponentId, true)}
-              repository={repository}
-            />
             <MatchupEditor
               key={`${championId}:${opponentId}`}
               note={note ?? { ...emptyDraft, championId, opponentId, revision: 0 }}
@@ -623,74 +615,6 @@ export function MatchupView({
         </Suspense>
       )}
     </section>
-  )
-}
-
-// One line of history above the notes: enough to set expectations in champ select.
-function HistoryGlance({
-  games,
-  loading,
-  statsHref,
-  repository,
-}: {
-  games: Game[]
-  loading: boolean
-  statsHref: string
-  repository: MatchupRepository
-}) {
-  const decided = games.filter((g) => !remake(g))
-  const [gold15, setGold15] = useState<number[] | null>(null)
-  const ids = decided.map((g) => g.id).join(',')
-  useEffect(() => {
-    let active = true
-    if (!decided.length) return
-    repository
-      .lanes(decided.map((g) => g.id))
-      .then((lanes) => {
-        if (!active) return
-        setGold15(decided.flatMap((g) => laneAt(lanes[g.id], 15, 'gold') ?? []))
-      })
-      .catch(() => undefined)
-    return () => {
-      active = false
-    }
-  }, [ids, repository])
-  if (loading && !games.length) return <div className="matchup-glance muted">Loading history…</div>
-  if (!decided.length)
-    return (
-      <div className="matchup-glance">
-        <Swords size={16} />
-        <span className="muted">No games in this matchup yet. Your notes are a good start.</span>
-      </div>
-    )
-  const avg15 = gold15?.length ? gold15.reduce((a, b) => a + b, 0) / gold15.length : null
-  return (
-    <a className="matchup-glance" href={statsHref}>
-      <Record games={decided} />
-      <span className="matchup-glance-form" aria-label="Last five results, newest first">
-        {decided.slice(0, 5).map((g) => (
-          <span key={g.id} className={`league-result ${g.player.win ? 'win' : 'loss'}`}>
-            {g.player.win ? 'W' : 'L'}
-          </span>
-        ))}
-      </span>
-      <span className="matchup-glance-stat">
-        <strong>{decided.length}</strong>
-        <small>{decided.length === 1 ? 'game' : 'games'}</small>
-      </span>
-      {avg15 !== null && (
-        <span className="matchup-glance-stat">
-          <strong>
-            {avg15 >= 0 ? '+' : '−'}
-            {Math.abs(Math.round(avg15)).toLocaleString('en-GB')}
-          </strong>
-          <small>gold at 15</small>
-        </span>
-      )}
-      <span className="matchup-glance-link">
-        Stats <ArrowRight size={14} />
-      </span>
-    </a>
   )
 }
 
