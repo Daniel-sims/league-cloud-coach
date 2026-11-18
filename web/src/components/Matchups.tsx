@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from 'react'
 import {
   ArrowLeft,
@@ -27,6 +28,7 @@ import { Champion } from './LeagueParts'
 import '../matchups.css'
 import { Dialog } from './Dialog'
 import { RunePageEditor } from './RunePageEditor'
+import { Cooldowns, type CooldownChampion } from './Cooldowns'
 import { isEmpty } from '../lib/runes'
 import { leagueRepository, type LeagueRepository, type LiveGame } from '../lib/league-repository'
 import {
@@ -152,7 +154,8 @@ function useChampions(games: Game[]) {
     (id: number) => options.find((c) => c.id === id)?.name ?? `Champion ${id}`,
     [options],
   )
-  return { options, name }
+  const alias = useCallback((id: number) => options.find((c) => c.id === id)?.alias, [options])
+  return { options, name, alias }
 }
 
 const difficulties: { value: Difficulty; label: string }[] = [
@@ -504,7 +507,7 @@ export function MatchupView({
 }) {
   const own = useOwnGames(league)
   const { notes, error, remember, forget } = useMatchups(repository)
-  const { name } = useChampions(own.games)
+  const { name, alias } = useChampions(own.games)
   const note = notes?.find((n) => n.championId === championId && n.opponentId === opponentId)
   const history = useMemo(
     () => matchupGames(own.games, opponentId, championId),
@@ -573,6 +576,10 @@ export function MatchupView({
               repository={repository}
               championName={name(championId)}
               opponentName={name(opponentId)}
+              cooldowns={[
+                { id: opponentId, name: name(opponentId), alias: alias(opponentId), side: 'them' },
+                { id: championId, name: name(championId), alias: alias(championId), side: 'you' },
+              ]}
               onSaved={remember}
               games={history}
               onCleared={() => forget(championId, opponentId)}
@@ -720,6 +727,8 @@ type NotesProps = {
   games: Game[]
   onSaved: (note: MatchupNote) => void
   onCleared: () => void
+  /** Lane opponent first. */
+  cooldowns: CooldownChampion[]
 }
 
 // Notes read like a briefing; Edit opens the form, Save brings you back.
@@ -733,6 +742,9 @@ function MatchupNotes(props: NotesProps) {
       championName={props.championName}
       opponentName={props.opponentName}
       onEdit={() => setEditing(true)}
+      cooldowns={
+        <Cooldowns key={props.cooldowns.map((c) => c.id).join(':')} champions={props.cooldowns} />
+      }
     />
   )
 }
@@ -758,23 +770,28 @@ function MatchupReader({
   championName,
   opponentName,
   onEdit,
+  cooldowns,
 }: {
   note: MatchupNote
   championName: string
   opponentName: string
   onEdit: () => void
+  cooldowns: ReactNode
 }) {
   if (!hasContent(note))
     return (
-      <div className="matchup-empty">
-        <NotebookPen size={26} />
-        <h2>
-          No notes for {championName} vs {opponentName} yet
-        </h2>
-        <p>Write the plan, the threats and the runes you want in front of you next game.</p>
-        <button className="button" onClick={onEdit}>
-          <Pencil size={14} /> Write notes
-        </button>
+      <div className="matchup-reader">
+        <div className="matchup-empty">
+          <NotebookPen size={26} />
+          <h2>
+            No notes for {championName} vs {opponentName} yet
+          </h2>
+          <p>Write the plan, the threats and the runes you want in front of you next game.</p>
+          <button className="button" onClick={onEdit}>
+            <Pencil size={14} /> Write notes
+          </button>
+        </div>
+        {cooldowns}
       </div>
     )
   const text = [note.build.trim(), note.notes.trim()].filter(Boolean).join('\n\n')
@@ -807,6 +824,7 @@ function MatchupReader({
           {note.tips.length > 0 && <ReadList title="How to win" tone="tip" points={note.tips} />}
         </div>
       )}
+      {cooldowns}
       {note.runes && !isEmpty(note.runes) && (
         <section className="matchup-runes" aria-label="Runes">
           <h2>Runes</h2>

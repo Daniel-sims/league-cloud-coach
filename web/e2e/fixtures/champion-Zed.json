@@ -1,0 +1,48 @@
+{
+  "data": {
+    "Zed": {
+      "id": "Zed",
+      "key": "238",
+      "name": "Zed",
+      "passive": {
+        "name": "Contempt for the Weak",
+        "description": "Zed's basic attacks against low health targets deals bonus Magic Damage. This effect can only occur once every few seconds against the same enemy champion.",
+        "image": { "full": "ZedP.png" }
+      },
+      "spells": [
+        {
+          "name": "Razor Shuriken",
+          "description": "Zed and his shadows throw their shurikens.<br><br>Each shuriken deals damage to every enemy hit.",
+          "cooldown": [6, 6, 6, 6, 6],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "ZedQ.png" }
+        },
+        {
+          "name": "Living Shadow",
+          "description": "<font color='#FF9900'>Passive:</font> Zed gains energy whenever he and his shadows strike an enemy with the same ability. Energy can only be gained once per cast ability.<br><br><font color='#FF9900'>Active:</font> Zed's shadow dashes forward, remaining in place for a few seconds. Reactivating Living Shadow will cause Zed to switch positions with this shadow.",
+          "cooldown": [20, 19, 18, 17, 16],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "ZedW.png" }
+        },
+        {
+          "name": "Shadow Slash",
+          "description": "Zed and his Shadows slash, dealing damage to nearby enemies. Enemies hit by a Shadow's slash are slowed.",
+          "cooldown": [5, 4.5, 4, 3.5, 3],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "ZedE.png" }
+        },
+        {
+          "name": "Death Mark",
+          "description": "Zed becomes untargetable and dashes to an enemy champion, marking them. After 3 seconds the mark triggers, repeating a portion of all the damage Zed dealt to the target while they were marked.",
+          "cooldown": [120, 110, 100],
+          "maxrank": 3,
+          "maxammo": "-1",
+          "image": { "full": "ZedR.png" }
+        }
+      ]
+    }
+  }
+}

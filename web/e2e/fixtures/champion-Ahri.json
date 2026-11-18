@@ -1,0 +1,48 @@
+{
+  "data": {
+    "Ahri": {
+      "id": "Ahri",
+      "key": "103",
+      "name": "Ahri",
+      "passive": {
+        "name": "Essence Theft",
+        "description": "After killing 9 minions or monsters, Ahri heals.<br>After taking down an enemy champion, Ahri heals for a greater amount.",
+        "image": { "full": "Ahri_SoulEater2.png" }
+      },
+      "spells": [
+        {
+          "name": "Orb of Deception",
+          "description": "Ahri sends out and pulls back her orb, dealing magic damage on the way out and true damage on the way back. ",
+          "cooldown": [7, 7, 7, 7, 7],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "AhriQ.png" }
+        },
+        {
+          "name": "Fox-Fire",
+          "description": "Ahri gains a brief burst of Move Speed and releases three fox-fires, that lock onto and attack nearby enemies.",
+          "cooldown": [9, 8, 7, 6, 5],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "AhriW.png" }
+        },
+        {
+          "name": "Charm",
+          "description": "Ahri blows a kiss that damages and charms an enemy it encounters, instantly stopping movement abilities and causing them to walk harmlessly towards her.",
+          "cooldown": [12, 12, 12, 12, 12],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "AhriE.png" }
+        },
+        {
+          "name": "Spirit Rush",
+          "description": "Ahri dashes forward and fires essence bolts, damaging nearby enemies. Spirit Rush can be cast up to three times before going on cooldown, and gains additional recasts when taking down enemy champions.",
+          "cooldown": [140, 120, 100],
+          "maxrank": 3,
+          "maxammo": "-1",
+          "image": { "full": "AhriR.png" }
+        }
+      ]
+    }
+  }
+}

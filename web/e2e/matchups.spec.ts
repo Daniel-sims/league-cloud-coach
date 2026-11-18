@@ -92,6 +92,13 @@ async function setup(context: BrowserContext) {
         ),
       }),
   )
+  await context.route(
+    'https://ddragon.leagueoflegends.com/cdn/*/data/en_US/champion/*.json',
+    (route) =>
+      route.fulfill({
+        json: fixture(`champion-${route.request().url().split('/').at(-1)}`),
+      }),
+  )
   await context.route('https://ddragon.leagueoflegends.com/api/versions.json', (route) =>
     route.fulfill({ json: ['16.22.1'] }),
   )
@@ -256,6 +263,41 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
   await expect(page.getByRole('tooltip')).toContainText('Electrocute')
   await page.mouse.move(0, 0)
   if (shots) await page.screenshot({ path: `${shots}/matchup-notes.png`, fullPage: true })
+
+  // Their cooldowns, by rank and ability haste; yours one click away.
+  const cooldowns = page.getByRole('region', { name: 'Cooldowns' })
+  await expect(cooldowns.getByRole('heading', { name: 'Zed’s cooldowns' })).toBeVisible()
+  await expect(cooldowns.getByLabel(/^W, Living Shadow: 20 seconds at rank 1\./)).toBeVisible()
+  await expect(cooldowns.getByLabel(/^R, Death Mark: 120 seconds at rank 1\./)).toBeVisible()
+  await cooldowns
+    .getByRole('group', { name: 'Ability rank' })
+    .getByRole('button', { name: '5' })
+    .click()
+  await cooldowns.getByRole('slider', { name: /Ability haste/ }).fill('100')
+  await expect(cooldowns.getByLabel(/^W, Living Shadow: 8 seconds at rank 5\./)).toBeVisible()
+  await cooldowns.getByLabel(/^W, Living Shadow/).hover()
+  await expect(cooldowns.getByRole('tooltip')).toContainText('Living Shadow')
+  if (shots) {
+    await cooldowns.scrollIntoViewIfNeeded()
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.cooldowns img')].every(
+        (i) => (i as HTMLImageElement).complete,
+      ),
+    )
+    await page.screenshot({ path: `${shots}/cooldowns-hover.png` })
+    await page.mouse.move(0, 0)
+    await cooldowns.screenshot({ path: `${shots}/cooldowns.png` })
+  }
+  await cooldowns.getByRole('button', { name: 'Ahri', exact: true }).click()
+  await expect(cooldowns.getByRole('heading', { name: 'Your cooldowns' })).toBeVisible()
+  await expect(cooldowns.getByLabel(/^E, Charm: 6 seconds at rank 5\./)).toBeVisible()
+  if (shots) {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await cooldowns.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(300)
+    await cooldowns.screenshot({ path: `${shots}/cooldowns-mobile.png` })
+    await page.setViewportSize({ width: 1280, height: 720 })
+  }
 
   await page
     .getByRole('navigation', { name: 'Matchup sections' })

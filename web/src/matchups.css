@@ -1134,3 +1134,230 @@ rect.chart-hit:focus-visible {
   align-items: center;
   gap: 6px;
 }
+
+/* Cooldowns: theirs in the threat colour, yours in the "how to win" colour. */
+.cooldowns {
+  --cd: var(--threat);
+  gap: 14px;
+}
+.cooldowns.you {
+  --cd: var(--tip);
+}
+.cooldowns-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cooldown-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.cooldown-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.cooldown-haste input {
+  width: 140px;
+  padding: 0;
+  border: 0;
+  accent-color: var(--cd);
+}
+.cooldown-haste b {
+  display: inline-block;
+  min-width: 2ch;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.cooldowns-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+}
+.cooldown-group {
+  display: grid;
+  gap: 4px;
+}
+/* Label column + bar column; the axis sits over the bar column only. */
+.cooldown-axis,
+.cooldown-grid {
+  position: relative;
+  margin-left: 248px;
+  margin-right: 72px;
+}
+.cooldown-axis {
+  height: 14px;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cooldown-axis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+.cooldown-axis span:first-child {
+  transform: none;
+}
+.cooldown-rows {
+  position: relative;
+  display: grid;
+}
+.cooldown-grid {
+  position: absolute;
+  inset: 0 0 0 0;
+  pointer-events: none;
+}
+.cooldown-grid i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--chart-grid);
+}
+.cooldown-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 188px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 72px 6px 0;
+  border-radius: 6px;
+  outline: none;
+}
+.cooldown-row:hover,
+.cooldown-row:focus-visible {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.cooldown-row:focus-visible {
+  box-shadow: 0 0 0 2px var(--line);
+}
+.cooldown-icon {
+  border-radius: 6px;
+}
+.cooldown-label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.cooldown-label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cooldown-key {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  border-radius: 4px;
+  background: var(--line);
+}
+.cooldown-label small {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cooldown-label small .current {
+  color: var(--ink);
+  font-weight: 700;
+}
+.cooldown-track {
+  position: relative;
+  height: 14px;
+}
+.cooldown-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  min-width: 2px;
+  background: var(--cd);
+  border-radius: 0 4px 4px 0;
+  transition: width 0.2s ease;
+}
+.cooldown-value {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: calc(var(--at, 0%) + 8px);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cooldown-value em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+}
+.cooldown-tooltip {
+  position: absolute;
+  z-index: 10;
+  left: 48px;
+  top: calc(100% + 4px);
+  display: grid;
+  gap: 6px;
+  width: min(380px, calc(100vw - 48px));
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  pointer-events: none;
+}
+.cooldown-tooltip strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.cooldown-passive {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+}
+.cooldown-passive img {
+  border-radius: 4px;
+}
+.cooldown-passive small {
+  margin-left: auto;
+}
+@media (max-width: 760px) {
+  .cooldown-axis,
+  .cooldown-grid {
+    margin-left: 48px;
+    margin-right: 64px;
+  }
+  .cooldown-row {
+    grid-template-columns: 36px 1fr;
+    padding-right: 0;
+    row-gap: 6px;
+  }
+  .cooldown-track {
+    grid-column: 2;
+    margin-right: 64px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cooldown-bar {
+    transition: none;
+  }
+}

@@ -43,6 +43,15 @@ frontend only; no edge function change.
   fills it from a synced match's `perks`. `save_matchup` keeps the stored page
   when an older tab sends no `runes` key. The browser test uses trimmed real
   data in `web/e2e/fixtures/perk*.json`.
+- **Cooldowns** (`Cooldowns.tsx`, `lib/abilities.ts`): on the Matchup tab
+  (read view and empty state), the lane opponent's Q/W/E/R cooldowns by rank
+  from Data Dragon's per-champion file (checked against Community Dragon's game
+  files for Zed), with a toggle to your champion. Basic abilities share one
+  axis and the ultimate has its own; ability rank, ultimate rank and an ability
+  haste slider (base × 100 / (100 + haste)) update the bars. Ammo abilities show
+  their charges and label the number as time between casts, because Data Dragon
+  doesn't publish recharge times. Champion files are named by Riot's internal
+  key, carried as `alias` from champion.json (or the match's `championName`).
 - **Live game**: the page checks every saved account with the `riot` function's
   `live-game` action (spectator-v5) on opening, every minute while visible and
   on returning to the tab. It returns only champions, teams, spells, queue and

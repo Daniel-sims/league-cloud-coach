@@ -18,3 +18,10 @@ ffmpeg -f lavfi -i 'testsrc2=size=640x360:rate=10' -t 3 \
 public client game data (`plugins/rcp-be-lol-game-data/global/default/v1/`,
 patch 16.23), keeping only the fields and runes the rune page uses, so the
 matchups browser test doesn't depend on Community Dragon being reachable.
+
+# Champion abilities
+
+`champion-Ahri.json`, `champion-Zed.json` and `champion-Corki.json` are trimmed
+copies of Data Dragon's per-champion files (patch 16.23), keeping only the
+ability names, descriptions, cooldowns, ranks, ammo and icon names used by the
+cooldowns chart and its tests.

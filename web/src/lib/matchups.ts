@@ -96,7 +96,8 @@ export const matchupPath = (championId: number, opponentId: number, stats = fals
 
 // Every champion, from Data Dragon (cached by the service worker). Falls back to
 // the champions seen in synced games if Data Dragon can't be reached.
-export type ChampionOption = { id: number; name: string }
+/** `alias` is Riot's internal key ("TwistedFate"), which names Data Dragon's files. */
+export type ChampionOption = { id: number; name: string; alias?: string }
 let catalogue: Promise<ChampionOption[]> | undefined
 export function championCatalogue(): Promise<ChampionOption[]> {
   catalogue ??= fetch('https://ddragon.leagueoflegends.com/api/versions.json', {
@@ -109,8 +110,12 @@ export function championCatalogue(): Promise<ChampionOption[]> {
       }),
     )
     .then((r) => r.json())
-    .then((json: { data: Record<string, { key: string; name: string }> }) =>
-      Object.values(json.data).map((c) => ({ id: Number(c.key), name: c.name })),
+    .then((json: { data: Record<string, { id?: string; key: string; name: string }> }) =>
+      Object.entries(json.data).map(([alias, c]) => ({
+        id: Number(c.key),
+        name: c.name,
+        alias: c.id ?? alias,
+      })),
     )
     .catch(() => {
       catalogue = undefined
@@ -121,12 +126,16 @@ export function championCatalogue(): Promise<ChampionOption[]> {
 
 /** Catalogue plus anything only seen in games (a champion newer than the cached catalogue). */
 export function championOptions(catalogue: ChampionOption[], games: Game[]): ChampionOption[] {
-  const byId = new Map(catalogue.map((c) => [c.id, c.name]))
+  const byId = new Map(catalogue.map((c) => [c.id, c]))
   for (const g of games)
     for (const p of g.participants)
       if (p.championId > 0 && !byId.has(p.championId))
-        byId.set(p.championId, championLabel(p.championName))
-  return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+        byId.set(p.championId, {
+          id: p.championId,
+          name: championLabel(p.championName),
+          alias: p.championName,
+        })
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function searchChampions(options: ChampionOption[], query: string, limit = 8) {

@@ -1,0 +1,48 @@
+{
+  "data": {
+    "Corki": {
+      "id": "Corki",
+      "key": "42",
+      "name": "Corki",
+      "passive": {
+        "name": "Hextech Munitions",
+        "description": "A percentage of Corki's basic attack damage is dealt as bonus <trueDamage>true damage</trueDamage>.",
+        "image": { "full": "Corki_RapidReload.png" }
+      },
+      "spells": [
+        {
+          "name": "Phosphorus Bomb",
+          "description": "Corki fires a flash bomb at a target location, dealing magic damage to enemies in the area. This attack additionally reveals units in the area for a duration.",
+          "cooldown": [9, 8.5, 8, 7.5, 7],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "PhosphorusBomb.png" }
+        },
+        {
+          "name": "Valkyrie",
+          "description": "Corki flies a short distance, dropping bombs that create a trail of fire that damages opponents who remain in it.",
+          "cooldown": [20, 18, 16, 14, 12],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "CarpetBomb.png" }
+        },
+        {
+          "name": "Gatling Gun",
+          "description": "Corki's gatling gun rapidly fires in a cone in front of him, dealing damage and reducing enemy Armor and Magic Resist.",
+          "cooldown": [12, 12, 12, 12, 12],
+          "maxrank": 5,
+          "maxammo": "-1",
+          "image": { "full": "GGun.png" }
+        },
+        {
+          "name": "Missile Barrage",
+          "description": "Corki fires a missile toward his target location that explodes on impact, dealing damage to enemies in an area. Corki stores missiles over time, up to a maximum. Every 3rd missile fired will be a Big One, dealing extra damage.",
+          "cooldown": [2, 2, 2],
+          "maxrank": 3,
+          "maxammo": "4",
+          "image": { "full": "MissileBarrage.png" }
+        }
+      ]
+    }
+  }
+}
