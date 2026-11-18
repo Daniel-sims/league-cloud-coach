@@ -10,10 +10,14 @@ frontend only; no edge function change.
 - **Finder**: type-ahead champion pickers (Data Dragon catalogue, falling back
   to champions seen in synced games). "You" starts on the champion you played
   last, and opponents you've faced on it are one click away.
-- **Matchup tab**: notes only (history lives on the Stats tab): difficulty,
-  game plan, "Watch out for", "How to win", runes and free notes. The
+- **Matchup tab**: notes only (history lives on the Stats tab), read-only by
+  default like a briefing: difficulty, game plan, "Watch out for", "How to win",
+  a read-only rune page (tooltips still work) and free notes; empty sections are
+  hidden. **Edit notes** opens a form with explicit Save/Cancel (Cancel asks
+  before discarding changes; leaving the site warns while unsaved); Delete
+  notes lives there. Saves are revision-checked as before. The
   separate build box was removed; older `build` text opens merged into the
-  notes (unless that would pass the 20,000-character limit) and is saved there. Autosaves with optimistic revisions like Blocks; your
+  notes (unless that would pass the 20,000-character limit) and is saved there. Revision-checked saves; your
   notes for other champions against the same opponent are listed below.
 - **Stats tab**: filters (as this champion / any champion, queue); tiles for
   win rate (with the last five results), gold at 15, CS at 10 and KDA; gold/CS/XP difference by minute

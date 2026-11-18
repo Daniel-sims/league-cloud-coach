@@ -74,11 +74,14 @@ export function RunePageEditor({
   value,
   onChange,
   games = [],
+  readOnly = false,
 }: {
   value: RunePage | null
-  onChange: (page: RunePage | null) => void
+  onChange?: (page: RunePage | null) => void
   /** Games to copy a page from, newest first. */
   games?: Game[]
+  /** Shows the page without editing; tooltips still work. */
+  readOnly?: boolean
 }) {
   const [data, setData] = useState<RuneData | null>(null)
   const [failed, setFailed] = useState(false)
@@ -121,7 +124,7 @@ export function RunePageEditor({
   const primary = data.trees.find((t) => t.id === page.primaryStyleId)
   const secondary = data.trees.find((t) => t.id === page.subStyleId)
   const perk = (id: number) => data.perks.get(id)
-  const set = (next: RunePage) => onChange(isEmpty(next) ? null : next)
+  const set = (next: RunePage) => onChange?.(isEmpty(next) ? null : next)
   const showDetail = always || shift
 
   const show = (target: HTMLElement, title: string, icon: string, body: string, detail: string) => {
@@ -149,6 +152,19 @@ export function RunePageEditor({
   ) => {
     const p = perk(id)
     if (!p) return null
+    if (readOnly)
+      return (
+        <span
+          key={id}
+          role="img"
+          tabIndex={0}
+          className={`rune-option ${kind} ${selected ? 'selected' : ''} readonly`}
+          aria-label={selected ? `${p.name}, chosen` : p.name}
+          {...tipHandlers(p.name, p.icon, p.shortDesc, p.longDesc)}
+        >
+          <img src={p.icon} alt="" width={64} height={64} loading="lazy" />
+        </span>
+      )
     return (
       <button
         key={id}
@@ -188,21 +204,35 @@ export function RunePageEditor({
         {current && <img src={current.icon} alt="" />}
       </span>
       <div className="rune-tree-choices">
-        {choices.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={`rune-tree-choice ${t.id === current?.id ? 'selected' : ''}`}
-            style={{ '--choice': t.color } as CSSProperties}
-            aria-pressed={t.id === current?.id}
-            aria-label={`${label}: ${t.name}`}
-            disabled={disabled}
-            onClick={() => pick(t)}
-            {...tipHandlers(t.name, t.icon, t.tooltip)}
-          >
-            <img src={t.icon} alt="" />
-          </button>
-        ))}
+        {choices.map((t) =>
+          readOnly ? (
+            <span
+              key={t.id}
+              role="img"
+              tabIndex={0}
+              className={`rune-tree-choice ${t.id === current?.id ? 'selected' : ''} readonly`}
+              style={{ '--choice': t.color } as CSSProperties}
+              aria-label={t.id === current?.id ? `${label}: ${t.name}` : t.name}
+              {...tipHandlers(t.name, t.icon, t.tooltip)}
+            >
+              <img src={t.icon} alt="" />
+            </span>
+          ) : (
+            <button
+              key={t.id}
+              type="button"
+              className={`rune-tree-choice ${t.id === current?.id ? 'selected' : ''}`}
+              style={{ '--choice': t.color } as CSSProperties}
+              aria-pressed={t.id === current?.id}
+              aria-label={`${label}: ${t.name}`}
+              disabled={disabled}
+              onClick={() => pick(t)}
+              {...tipHandlers(t.name, t.icon, t.tooltip)}
+            >
+              <img src={t.icon} alt="" />
+            </button>
+          ),
+        )}
       </div>
     </div>
   )
@@ -245,7 +275,7 @@ export function RunePageEditor({
             <List size={14} />
           </button>
         </div>
-        {copyable.length > 0 && (
+        {!readOnly && copyable.length > 0 && (
           <select
             className="rune-copy"
             aria-label="Copy runes from a game"
@@ -265,8 +295,8 @@ export function RunePageEditor({
             ))}
           </select>
         )}
-        {!isEmpty(page) && (
-          <button type="button" className="rune-reset" onClick={() => onChange(null)}>
+        {!readOnly && !isEmpty(page) && (
+          <button type="button" className="rune-reset" onClick={() => onChange?.(null)}>
             <RotateCcw size={13} /> Clear
           </button>
         )}
@@ -298,7 +328,7 @@ export function RunePageEditor({
               ))}
             </div>
           ) : (
-            <p className="rune-hint">Choose a primary path.</p>
+            !readOnly && <p className="rune-hint">Choose a primary path.</p>
           )}
         </section>
 
@@ -335,9 +365,11 @@ export function RunePageEditor({
               })}
             </div>
           ) : (
-            <p className="rune-hint">
-              {primary ? 'Choose a secondary path: two runes from different rows.' : ''}
-            </p>
+            !readOnly && (
+              <p className="rune-hint">
+                {primary ? 'Choose a secondary path: two runes from different rows.' : ''}
+              </p>
+            )
           )}
           <div className="rune-rows shards">
             {data.shards.map((slot, row) => (

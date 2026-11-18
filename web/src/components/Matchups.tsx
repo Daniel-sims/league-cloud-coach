@@ -14,6 +14,8 @@ import {
   ArrowLeftRight,
   ArrowRight,
   Check,
+  NotebookPen,
+  Pencil,
   Radio,
   RefreshCw,
   LoaderCircle,
@@ -25,6 +27,7 @@ import { Champion } from './LeagueParts'
 import '../matchups.css'
 import { Dialog } from './Dialog'
 import { RunePageEditor } from './RunePageEditor'
+import { isEmpty } from '../lib/runes'
 import { leagueRepository, type LeagueRepository, type LiveGame } from '../lib/league-repository'
 import {
   gamesFor,
@@ -564,10 +567,11 @@ export function MatchupView({
           )
         ) : (
           <>
-            <MatchupEditor
+            <MatchupNotes
               key={`${championId}:${opponentId}`}
               note={note ?? { ...emptyDraft, championId, opponentId, revision: 0 }}
               repository={repository}
+              championName={name(championId)}
               opponentName={name(opponentId)}
               onSaved={remember}
               games={history}
@@ -618,9 +622,6 @@ export function MatchupView({
   )
 }
 
-const saveDelayMs = 800
-type SaveState = 'saved' | 'saving' | 'unsaved' | 'error'
-
 function PointList({
   title,
   hint,
@@ -634,7 +635,7 @@ function PointList({
   points: string[]
   tone: 'threat' | 'tip'
   onChange: (points: string[]) => void
-  onBlur: () => void
+  onBlur?: () => void
 }) {
   const refs = useRef<(HTMLInputElement | null)[]>([])
   const focusAt = useRef<number | null>(null)
@@ -678,6 +679,7 @@ function PointList({
               }}
             />
             <button
+              type="button"
               className="icon-button"
               aria-label={`Remove ${title.toLowerCase()} ${index + 1}`}
               title="Remove"
@@ -689,6 +691,7 @@ function PointList({
         ))}
       </ul>
       <button
+        type="button"
         className="button secondary button-small"
         onClick={() => add()}
         disabled={points.length >= 20}
@@ -700,129 +703,210 @@ function PointList({
   )
 }
 
+// Text from the removed build box shows at the top of the notes, unless that
+// would pass the notes limit (then it stays where it was, so saving still works).
+function foldBuild(note: MatchupDraft) {
+  const merged = [note.build.trim(), note.notes].filter(Boolean).join('\n\n')
+  return merged.length <= 20000
+    ? { build: '', notes: merged }
+    : { build: note.build, notes: note.notes }
+}
+
+type NotesProps = {
+  note: MatchupNote
+  repository: MatchupRepository
+  championName: string
+  opponentName: string
+  games: Game[]
+  onSaved: (note: MatchupNote) => void
+  onCleared: () => void
+}
+
+// Notes read like a briefing; Edit opens the form, Save brings you back.
+function MatchupNotes(props: NotesProps) {
+  const [editing, setEditing] = useState(false)
+  return editing ? (
+    <MatchupEditor {...props} onClose={() => setEditing(false)} />
+  ) : (
+    <MatchupReader
+      note={props.note}
+      championName={props.championName}
+      opponentName={props.opponentName}
+      onEdit={() => setEditing(true)}
+    />
+  )
+}
+
+function ReadList({ title, tone, points }: { title: string; tone: string; points: string[] }) {
+  return (
+    <section className={`matchup-section matchup-points ${tone}`} aria-label={title}>
+      <h2>{title}</h2>
+      <ul className="matchup-read-list">
+        {points.map((point, i) => (
+          <li key={i}>
+            <span className="matchup-bullet" aria-hidden />
+            {point}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function MatchupReader({
+  note,
+  championName,
+  opponentName,
+  onEdit,
+}: {
+  note: MatchupNote
+  championName: string
+  opponentName: string
+  onEdit: () => void
+}) {
+  if (!hasContent(note))
+    return (
+      <div className="matchup-empty">
+        <NotebookPen size={26} />
+        <h2>
+          No notes for {championName} vs {opponentName} yet
+        </h2>
+        <p>Write the plan, the threats and the runes you want in front of you next game.</p>
+        <button className="button" onClick={onEdit}>
+          <Pencil size={14} /> Write notes
+        </button>
+      </div>
+    )
+  const text = [note.build.trim(), note.notes.trim()].filter(Boolean).join('\n\n')
+  const lists = [note.threats.length > 0, note.tips.length > 0].filter(Boolean).length
+  return (
+    <div className="matchup-reader">
+      <div className="matchup-reader-bar">
+        {note.difficulty ? (
+          <span className={`difficulty-chip ${note.difficulty}`}>
+            {difficultyLabel(note.difficulty)} matchup
+          </span>
+        ) : (
+          <span />
+        )}
+        <button className="button secondary button-small" onClick={onEdit}>
+          <Pencil size={14} /> Edit notes
+        </button>
+      </div>
+      {note.plan && (
+        <section className="matchup-plan-read" aria-label="Game plan">
+          <span>Game plan</span>
+          <p>{note.plan}</p>
+        </section>
+      )}
+      {lists > 0 && (
+        <div className={`matchup-columns ${lists === 1 ? 'single' : ''}`}>
+          {note.threats.length > 0 && (
+            <ReadList title="Watch out for" tone="threat" points={note.threats} />
+          )}
+          {note.tips.length > 0 && <ReadList title="How to win" tone="tip" points={note.tips} />}
+        </div>
+      )}
+      {note.runes && !isEmpty(note.runes) && (
+        <section className="matchup-runes" aria-label="Runes">
+          <h2>Runes</h2>
+          <RunePageEditor value={note.runes} readOnly />
+        </section>
+      )}
+      {text && (
+        <section className="matchup-section matchup-notes-read" aria-label="Notes">
+          <h2>Notes</h2>
+          <p>{text}</p>
+        </section>
+      )}
+      {note.updatedAt && (
+        <small className="muted matchup-updated">
+          Updated {timeAgo(Date.parse(note.updatedAt))}
+        </small>
+      )}
+    </div>
+  )
+}
+
 function MatchupEditor({
   note,
   repository,
   opponentName,
+  games,
   onSaved,
   onCleared,
-  games,
-}: {
-  games: Game[]
-  note: MatchupNote
-  repository: MatchupRepository
-  opponentName: string
-  onSaved: (note: MatchupNote) => void
-  onCleared: () => void
-}) {
-  // The separate build box is gone: older build text joins the notes so it
-  // stays visible, and is saved there on the next edit. If that would pass the
-  // notes limit it stays where it was rather than break saving.
-  const merged = [note.build.trim(), note.notes].filter(Boolean).join('\n\n')
-  const fold = merged.length <= 20000
-  const [draft, setDraft] = useState<MatchupDraft>(() => ({
+  onClose,
+}: NotesProps & { onClose: () => void }) {
+  const [initial] = useState<MatchupDraft>(() => ({
     difficulty: note.difficulty,
     plan: note.plan,
     threats: note.threats,
     tips: note.tips,
-    build: fold ? '' : note.build,
-    notes: fold ? merged : note.notes,
+    ...foldBuild(note),
     runes: note.runes ?? null,
   }))
-  const [state, setState] = useState<SaveState>('saved')
+  const [draft, setDraft] = useState(initial)
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-  const [confirmClear, setConfirmClear] = useState(false)
-  const latest = useRef(draft)
-  const revision = useRef(note.revision)
-  const dirty = useRef(false)
-  const saving = useRef<Promise<void>>(Promise.resolve())
-  const timer = useRef<number | undefined>(undefined)
-  const stopped = useRef(false)
-  const alive = useRef(true)
+  const [confirm, setConfirm] = useState<'discard' | 'delete' | null>(null)
+  const dirty = JSON.stringify(cleanDraft(draft)) !== JSON.stringify(cleanDraft(initial))
+  const edit = (patch: Partial<MatchupDraft>) => setDraft((d) => ({ ...d, ...patch }))
 
-  const flush = useCallback(() => {
-    window.clearTimeout(timer.current)
-    saving.current = saving.current.then(async () => {
-      if (!dirty.current || stopped.current) return
-      const sent = latest.current
-      dirty.current = false
-      if (alive.current) setState('saving')
-      try {
-        const saved = await repository.save(
-          note.championId,
-          note.opponentId,
-          revision.current,
-          sent,
-        )
-        revision.current = saved.revision
-        onSaved(saved)
-        if (alive.current) setState(dirty.current ? 'unsaved' : 'saved')
-        setMessage('')
-      } catch (e) {
-        // Keep the text on screen; stop saving so a stale tab can't overwrite newer notes.
-        dirty.current = true
-        stopped.current =
-          (e as { code?: string }).code === '40001' || /another tab/.test((e as Error).message)
-        if (alive.current) {
-          setState('error')
-          setMessage(
-            stopped.current
-              ? 'These notes changed in another tab. Copy anything you need, then reload to see the latest.'
-              : `Couldn’t save: ${(e as Error).message}. Your text is still here; keep editing to retry.`,
-          )
-        }
-      }
-    })
-    return saving.current
-  }, [repository, note.championId, note.opponentId, onSaved])
-
-  const edit = (patch: Partial<MatchupDraft>) => {
-    const next = { ...latest.current, ...patch }
-    latest.current = next
-    dirty.current = true
-    setDraft(next)
-    if (!stopped.current) setState('unsaved')
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => void flush(), saveDelayMs)
-  }
-
+  // Leaving the site with unsaved changes asks first.
   useEffect(() => {
-    alive.current = true
-    return () => {
-      alive.current = false
-      void flush()
-    }
-  }, [flush])
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
-  const clear = async () => {
-    stopped.current = true
-    window.clearTimeout(timer.current)
-    await saving.current
+  const save = async () => {
+    if (!dirty) return onClose()
+    setSaving(true)
+    setMessage('')
     try {
-      if (revision.current > 0) await repository.remove(note.championId, note.opponentId)
-      revision.current = 0
+      onSaved(await repository.save(note.championId, note.opponentId, note.revision, draft))
+      onClose()
+    } catch (e) {
+      const conflict =
+        (e as { code?: string }).code === '40001' || /another tab/.test((e as Error).message)
+      setMessage(
+        conflict
+          ? 'These notes changed in another tab. Copy anything you need, then reload to see the latest.'
+          : `Couldn’t save: ${(e as Error).message}. Your changes are still here.`,
+      )
+      setSaving(false)
+    }
+  }
+  const remove = async () => {
+    setSaving(true)
+    try {
+      if (note.revision > 0) await repository.remove(note.championId, note.opponentId)
       onCleared()
-      dirty.current = false
-      latest.current = emptyDraft
-      setDraft(emptyDraft)
-      setState('saved')
-      setMessage('')
+      onClose()
     } catch (e) {
       setMessage((e as Error).message)
-    } finally {
-      stopped.current = false
-      setConfirmClear(false)
+      setSaving(false)
+      setConfirm(null)
     }
   }
 
   return (
-    <div className="matchup-editor">
+    <form
+      className="matchup-editor"
+      aria-label="Edit matchup notes"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void save()
+      }}
+    >
       <div className="matchup-editor-bar">
         <div className="matchup-difficulty" role="radiogroup" aria-label="Matchup difficulty">
           <span className="muted">Difficulty</span>
           {difficulties.map((d) => (
             <button
               key={d.value}
+              type="button"
               role="radio"
               aria-checked={draft.difficulty === d.value}
               className={`difficulty-chip ${d.value} ${draft.difficulty === d.value ? 'selected' : ''}`}
@@ -832,25 +916,6 @@ function MatchupEditor({
             </button>
           ))}
         </div>
-        <span className={`save-state ${state}`} role="status">
-          {state === 'saving' ? (
-            <>
-              <LoaderCircle size={13} className="spin" /> Saving…
-            </>
-          ) : state === 'saved' ? (
-            revision.current > 0 ? (
-              <>
-                <Check size={13} /> Saved
-              </>
-            ) : (
-              ''
-            )
-          ) : state === 'error' ? (
-            'Not saved'
-          ) : (
-            'Unsaved changes'
-          )}
-        </span>
       </div>
       {message && <div className="notice error">{message}</div>}
 
@@ -861,7 +926,6 @@ function MatchupEditor({
           maxLength={300}
           placeholder={`The one thing to do vs ${opponentName}`}
           onChange={(e) => edit({ plan: e.target.value })}
-          onBlur={() => void flush()}
         />
       </label>
 
@@ -872,7 +936,6 @@ function MatchupEditor({
           tone="threat"
           points={draft.threats}
           onChange={(threats) => edit({ threats })}
-          onBlur={() => void flush()}
         />
         <PointList
           title="How to win"
@@ -880,7 +943,6 @@ function MatchupEditor({
           tone="tip"
           points={draft.tips}
           onChange={(tips) => edit({ tips })}
-          onBlur={() => void flush()}
         />
       </div>
 
@@ -896,30 +958,85 @@ function MatchupEditor({
           rows={5}
           placeholder="Anything else: jungle pathing, what went wrong last time, VOD timestamps"
           onChange={(e) => edit({ notes: e.target.value })}
-          onBlur={() => void flush()}
         />
       </label>
-      {hasContent(cleanDraft(draft)) && (
-        <div className="block-footer">
-          <button className="text-link danger-link" onClick={() => setConfirmClear(true)}>
-            <Trash2 size={14} /> Clear notes
+
+      <div className="matchup-editor-footer">
+        {note.revision > 0 ? (
+          <button
+            type="button"
+            className="text-link danger-link"
+            onClick={() => setConfirm('delete')}
+            disabled={saving}
+          >
+            <Trash2 size={14} /> Delete notes
+          </button>
+        ) : (
+          <span />
+        )}
+        <div className="matchup-editor-actions">
+          <span className="muted" role="status">
+            {dirty ? 'Unsaved changes' : ''}
+          </span>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => (dirty ? setConfirm('discard') : onClose())}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="button" disabled={saving}>
+            {saving ? (
+              <>
+                <LoaderCircle size={14} className="spin" /> Saving…
+              </>
+            ) : (
+              <>
+                <Check size={14} /> Save
+              </>
+            )}
           </button>
         </div>
-      )}
-      {confirmClear && (
-        <Dialog title="Clear these notes?" onClose={() => setConfirmClear(false)}>
-          <p className="dialog-intro">Everything written for this matchup will be removed.</p>
+      </div>
+
+      {confirm === 'discard' && (
+        <Dialog title="Discard your changes?" onClose={() => setConfirm(null)}>
+          <p className="dialog-intro">The notes go back to how they were before you edited them.</p>
           <div className="dialog-actions">
-            <button className="button secondary" onClick={() => setConfirmClear(false)}>
-              Cancel
+            <button type="button" className="button secondary" onClick={() => setConfirm(null)}>
+              Keep editing
             </button>
-            <button className="button danger" onClick={() => void clear()}>
-              Clear notes
+            <button type="button" className="button danger" onClick={onClose}>
+              Discard changes
             </button>
           </div>
         </Dialog>
       )}
-    </div>
+      {confirm === 'delete' && (
+        <Dialog title="Delete these notes?" onClose={() => !saving && setConfirm(null)}>
+          <p className="dialog-intro">Everything written for this matchup will be removed.</p>
+          <div className="dialog-actions">
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setConfirm(null)}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button danger"
+              onClick={() => void remove()}
+              disabled={saving}
+            >
+              {saving ? 'Deleting…' : 'Delete notes'}
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </form>
   )
 }
 

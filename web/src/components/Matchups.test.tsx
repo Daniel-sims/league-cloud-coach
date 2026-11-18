@@ -60,7 +60,7 @@ afterEach(() => {
   window.location.hash = ''
 })
 
-it('autosaves new notes, creating then updating the revision', async () => {
+it('writes notes in an edit form and shows them read-only after saving', async () => {
   const repository = notes()
   const user = userEvent.setup()
   render(
@@ -72,24 +72,71 @@ it('autosaves new notes, creating then updating the revision', async () => {
       repository={repository}
     />,
   )
-  const plan = await screen.findByRole('textbox', { name: 'Game plan' })
-  await user.type(plan, 'Dodge his W shadow')
+  // Nothing written yet: a prompt, not a form.
+  expect(await screen.findByText('No notes for Ahri vs Zed yet')).toBeInTheDocument()
+  expect(screen.queryByRole('textbox', { name: 'Game plan' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Write notes' }))
+  await user.type(screen.getByRole('textbox', { name: 'Game plan' }), 'Dodge his W shadow')
   await user.click(screen.getByRole('radio', { name: 'Hard' }))
-  await user.tab()
-  await waitFor(() => expect(repository.save).toHaveBeenCalled())
-  expect(vi.mocked(repository.save).mock.calls[0].slice(0, 3)).toEqual([103, 238, 0])
   await user.click(screen.getAllByRole('button', { name: 'Add point' })[0])
   await user.keyboard('Death mark at 6{Enter}Ignite all-in')
-  await user.tab()
-  await waitFor(() =>
-    expect(vi.mocked(repository.save).mock.lastCall?.[3]).toMatchObject({
-      plan: 'Dodge his W shadow',
-      difficulty: 'hard',
-      threats: ['Death mark at 6', 'Ignite all-in'],
-    }),
+  expect(repository.save).not.toHaveBeenCalled() // nothing saves until Save
+  expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(repository.save).toHaveBeenCalledTimes(1))
+  expect(vi.mocked(repository.save).mock.calls[0].slice(0, 3)).toEqual([103, 238, 0])
+  expect(vi.mocked(repository.save).mock.calls[0][3]).toMatchObject({
+    plan: 'Dodge his W shadow',
+    difficulty: 'hard',
+    threats: ['Death mark at 6', 'Ignite all-in'],
+  })
+  // Back to reading: text, not inputs.
+  expect(await screen.findByText('Dodge his W shadow')).toBeInTheDocument()
+  expect(screen.getByText('Hard matchup')).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Watch out for' })).toHaveTextContent('Ignite all-in')
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  // Editing again uses the saved revision.
+  await user.click(screen.getByRole('button', { name: 'Edit notes' }))
+  await user.type(screen.getByRole('textbox', { name: 'Game plan' }), '!')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(vi.mocked(repository.save).mock.lastCall?.[2]).toBe(1))
+})
+
+it('asks before discarding edits, and Cancel without edits just closes', async () => {
+  const repository = notes([
+    {
+      championId: 103,
+      opponentId: 238,
+      revision: 2,
+      difficulty: null,
+      plan: 'Push and roam',
+      threats: [],
+      tips: [],
+      build: '',
+      notes: '',
+      runes: null,
+    },
+  ])
+  const user = userEvent.setup()
+  render(
+    <MatchupView
+      championId={103}
+      opponentId={238}
+      tab="notes"
+      league={league()}
+      repository={repository}
+    />,
   )
-  expect(vi.mocked(repository.save).mock.lastCall?.[2]).toBeGreaterThan(0)
-  expect(await screen.findByText('Saved')).toBeInTheDocument()
+  await user.click(await screen.findByRole('button', { name: 'Edit notes' }))
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('form')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Edit notes' }))
+  await user.type(screen.getByRole('textbox', { name: 'Game plan' }), ' fast')
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  const dialog = screen.getByRole('dialog', { name: 'Discard your changes?' })
+  await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }))
+  expect(screen.getByText('Push and roam')).toBeInTheDocument()
+  expect(repository.save).not.toHaveBeenCalled()
 })
 
 it('keeps the notes tab to notes; history lives on the stats tab', async () => {
@@ -115,7 +162,7 @@ it('keeps the notes tab to notes; history lives on the stats tab', async () => {
       ])}
     />,
   )
-  expect(await screen.findByDisplayValue('Push and roam')).toBeInTheDocument()
+  expect(await screen.findByText('Push and roam')).toBeInTheDocument()
   expect(screen.queryByText('2W 1L')).not.toBeInTheDocument()
   expect(screen.queryByText(/gold at 15/)).not.toBeInTheDocument()
 })
@@ -244,11 +291,15 @@ it('moves text from the old build box into the notes', async () => {
       repository={repository}
     />,
   )
-  const box = await screen.findByRole('textbox', { name: 'Notes' })
+  expect(await screen.findByRole('region', { name: 'Notes' })).toHaveTextContent(
+    'Dorans Ring, Zhonya rush Ward his side',
+  )
+  await user.click(screen.getByRole('button', { name: 'Edit notes' }))
+  const box = screen.getByRole('textbox', { name: 'Notes' })
   expect(box).toHaveValue('Dorans Ring, Zhonya rush\n\nWard his side')
   expect(screen.queryByRole('textbox', { name: /Items/ })).not.toBeInTheDocument()
   await user.type(box, '.')
-  await user.tab()
+  await user.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
     expect(vi.mocked(repository.save).mock.lastCall?.[3]).toMatchObject({
       build: '',

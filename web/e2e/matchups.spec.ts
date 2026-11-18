@@ -176,7 +176,8 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
   await page.keyboard.press('Enter')
   await page.getByRole('button', { name: /Open matchup/ }).click()
   await expect(page).toHaveURL(/#\/matchups\/103\/238$/)
-  await expect(page.getByRole('textbox', { name: 'Game plan' })).toBeVisible()
+  await expect(page.getByText('No notes for Ahri vs Zed yet')).toBeVisible()
+  await page.getByRole('button', { name: 'Write notes' }).click()
 
   await page
     .getByRole('textbox', { name: 'Game plan' })
@@ -243,7 +244,17 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
     'aria-pressed',
     'true',
   )
-  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+  if (shots) await page.screenshot({ path: `${shots}/matchup-edit.png`, fullPage: true })
+  await page.getByRole('button', { name: 'Save' }).click()
+  // Saved notes read as a briefing: text and a read-only rune page.
+  await expect(page.getByRole('region', { name: 'Game plan' })).toHaveText(
+    /Respect level 6: hold Charm for his W shadow/,
+  )
+  await expect(page.getByRole('textbox')).toHaveCount(0)
+  await expect(page.getByRole('img', { name: 'Electrocute, chosen' })).toBeVisible()
+  await page.getByRole('img', { name: 'Electrocute, chosen' }).hover()
+  await expect(page.getByRole('tooltip')).toContainText('Electrocute')
+  await page.mouse.move(0, 0)
   if (shots) await page.screenshot({ path: `${shots}/matchup-notes.png`, fullPage: true })
 
   await page
@@ -277,9 +288,19 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
     .getByRole('navigation', { name: 'Matchup sections' })
     .getByRole('link', { name: 'Matchup' })
     .click()
-  await expect(page.getByRole('textbox', { name: 'Game plan' })).toHaveValue(
-    'Respect level 6: hold Charm for his W shadow',
+  await expect(page.getByRole('region', { name: 'Game plan' })).toHaveText(
+    /Respect level 6: hold Charm for his W shadow/,
   )
-  if (shots) await page.screenshot({ path: `${shots}/matchup-notes-mobile.png`, fullPage: true })
+  if (shots) {
+    await page.locator('.rune-page').scrollIntoViewIfNeeded()
+    await page.waitForLoadState('networkidle')
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.rune-page img')].every(
+        (i) => (i as HTMLImageElement).complete,
+      ),
+    )
+    await page.locator('.rune-page').screenshot({ path: `${shots}/rune-read-mobile.png` })
+    await page.screenshot({ path: `${shots}/matchup-notes-mobile.png`, fullPage: true })
+  }
   testInfo.annotations.push({ type: 'matchups', description: 'ok' })
 })

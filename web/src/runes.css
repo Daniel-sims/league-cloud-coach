@@ -514,3 +514,23 @@
 .keystones .rune-options {
   grid-row: 2;
 }
+.rune-option.readonly,
+.rune-tree-choice.readonly {
+  display: inline-grid;
+  cursor: default;
+}
+.rune-option.readonly:hover img {
+  filter: grayscale(1) brightness(0.55);
+}
+.rune-option.readonly.selected:hover img,
+.rune-option.readonly.keystone.selected img {
+  filter: none;
+}
+.rune-option.readonly.keystone.selected img {
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--tree) 75%, transparent));
+}
+.rune-option.readonly:focus-visible,
+.rune-tree-choice.readonly:focus-visible {
+  outline: 2px solid var(--rune-light);
+  outline-offset: 3px;
+}
