@@ -715,13 +715,18 @@ function MatchupEditor({
   onSaved: (note: MatchupNote) => void
   onCleared: () => void
 }) {
+  // The separate build box is gone: older build text joins the notes so it
+  // stays visible, and is saved there on the next edit. If that would pass the
+  // notes limit it stays where it was rather than break saving.
+  const merged = [note.build.trim(), note.notes].filter(Boolean).join('\n\n')
+  const fold = merged.length <= 20000
   const [draft, setDraft] = useState<MatchupDraft>(() => ({
     difficulty: note.difficulty,
     plan: note.plan,
     threats: note.threats,
     tips: note.tips,
-    build: note.build,
-    notes: note.notes,
+    build: fold ? '' : note.build,
+    notes: fold ? merged : note.notes,
     runes: note.runes ?? null,
   }))
   const [state, setState] = useState<SaveState>('saved')
@@ -883,17 +888,6 @@ function MatchupEditor({
         <h2>Runes</h2>
         <RunePageEditor value={draft.runes} onChange={(runes) => edit({ runes })} games={games} />
       </div>
-      <label className="matchup-section matchup-text">
-        <h2>Items &amp; spells</h2>
-        <textarea
-          value={draft.build}
-          maxLength={1000}
-          rows={2}
-          placeholder="Starting items, core build, summoner spells, first back"
-          onChange={(e) => edit({ build: e.target.value })}
-          onBlur={() => void flush()}
-        />
-      </label>
       <label className="matchup-section matchup-text">
         <h2>Notes</h2>
         <textarea

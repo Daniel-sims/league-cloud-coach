@@ -243,9 +243,6 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
     'aria-pressed',
     'true',
   )
-  await page
-    .getByRole('textbox', { name: 'Items & spells' })
-    .fill('Doran’s Ring · Zhonya rush · Flash/Barrier')
   await expect(page.getByText('Saved', { exact: true })).toBeVisible()
   if (shots) await page.screenshot({ path: `${shots}/matchup-notes.png`, fullPage: true })
 

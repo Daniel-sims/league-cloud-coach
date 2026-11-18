@@ -218,3 +218,41 @@ it('says when you are not in a game', async () => {
   expect(await screen.findByText(/Not in a game/)).toBeInTheDocument()
   expect(leagueRepo.liveGame).toHaveBeenCalledWith('p1')
 })
+
+it('moves text from the old build box into the notes', async () => {
+  const repository = notes([
+    {
+      championId: 103,
+      opponentId: 238,
+      revision: 2,
+      difficulty: null,
+      plan: '',
+      threats: [],
+      tips: [],
+      build: 'Dorans Ring, Zhonya rush',
+      notes: 'Ward his side',
+      runes: null,
+    },
+  ])
+  const user = userEvent.setup()
+  render(
+    <MatchupView
+      championId={103}
+      opponentId={238}
+      tab="notes"
+      league={league()}
+      repository={repository}
+    />,
+  )
+  const box = await screen.findByRole('textbox', { name: 'Notes' })
+  expect(box).toHaveValue('Dorans Ring, Zhonya rush\n\nWard his side')
+  expect(screen.queryByRole('textbox', { name: /Items/ })).not.toBeInTheDocument()
+  await user.type(box, '.')
+  await user.tab()
+  await waitFor(() =>
+    expect(vi.mocked(repository.save).mock.lastCall?.[3]).toMatchObject({
+      build: '',
+      notes: 'Dorans Ring, Zhonya rush\n\nWard his side.',
+    }),
+  )
+})
