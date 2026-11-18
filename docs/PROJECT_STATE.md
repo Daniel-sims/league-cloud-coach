@@ -24,9 +24,14 @@ frontend only; no edge function change.
 - Tests: `supabase/tests/matchups-security.sql`, `lib/matchups.test.ts`,
   `components/Matchups.test.tsx`, `e2e/matchups.spec.ts`.
 
-Possible next step: detect the live game (Riot spectator API) and open the
-matchup automatically; spectator data has no positions, so it would offer the
-five enemy champions to choose from.
+- **Live game**: the page checks every saved account with the `riot` function's
+  `live-game` action (spectator-v5) on opening, every minute while visible and
+  on returning to the tab. It returns only champions, teams, spells, queue and
+  start time (no puuids or Riot IDs) and skips the sync lock. Riot gives no
+  positions, so `guessLaneOpponent` picks the likely opponent from synced
+  history (your usual lane on that champion; the enemy whose champion most
+  often plays it; Smite marks the jungler), and you can pick another of the five.
+  Needs a Riot token with spectator access (personal/dev keys have it).
 
 ## Site review fixes: caching, polling, library games, names
 

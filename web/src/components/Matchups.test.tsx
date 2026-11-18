@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { MatchupsHome, MatchupView } from './Matchups'
@@ -152,4 +152,65 @@ it('picks a matchup by typing champion names', async () => {
   await user.type(opponent, 'ze{Enter}')
   await user.click(screen.getByRole('button', { name: /Open matchup/ }))
   expect(window.location.hash).toBe('#/matchups/103/238')
+})
+
+it('shows a live game with the likely lane opponent picked', async () => {
+  const leagueRepo = league()
+  leagueRepo.liveGame = vi.fn(async () => ({
+    inGame: true as const,
+    queueId: 420,
+    gameStartTime: Date.now() - 5 * 60000,
+    championId: 103,
+    allies: [{ championId: 103, spells: [4, 14] }],
+    enemies: [
+      { championId: 64, spells: [4, 11] },
+      { championId: 238, spells: [4, 14] },
+      { championId: 222, spells: [4, 7] },
+    ],
+  }))
+  const user = userEvent.setup()
+  render(
+    <MatchupsHome
+      league={leagueRepo}
+      repository={notes([
+        {
+          championId: 103,
+          opponentId: 238,
+          revision: 1,
+          difficulty: 'hard',
+          plan: 'Hold Charm for his shadow',
+          threats: [],
+          tips: [],
+          build: '',
+          notes: '',
+        },
+      ])}
+    />,
+  )
+  expect(await screen.findByText('In game')).toBeInTheDocument()
+  expect(screen.getByText(/5 min/)).toBeInTheDocument()
+  expect(screen.getByRole('radio', { name: /Zed/ })).toHaveAttribute('aria-checked', 'true')
+  expect(screen.getByText('Likely')).toBeInTheDocument()
+  expect(
+    within(screen.getByRole('region', { name: 'Live game' })).getByText(
+      'Hold Charm for his shadow',
+    ),
+  ).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Read your notes: Ahri vs Zed/ })).toHaveAttribute(
+    'href',
+    '#/matchups/103/238',
+  )
+  await user.click(screen.getByRole('radio', { name: /Jinx/ }))
+  expect(screen.getByRole('link', { name: /Open matchup: Ahri vs Jinx/ })).toHaveAttribute(
+    'href',
+    '#/matchups/103/222',
+  )
+})
+
+it('says when you are not in a game', async () => {
+  const leagueRepo = league()
+  leagueRepo.liveGame = vi.fn(async () => ({ inGame: false as const }))
+  render(<MatchupsHome league={leagueRepo} repository={notes()} />)
+  expect(await screen.findByText(/Not in a game/)).toBeInTheDocument()
+  expect(leagueRepo.liveGame).toHaveBeenCalledWith('p1')
 })

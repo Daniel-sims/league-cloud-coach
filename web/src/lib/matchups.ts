@@ -1,6 +1,7 @@
 import { rpc } from './supabase'
 import { championLabel } from './champions'
 import { cs, remake, type Game } from './league'
+import type { LiveSeat } from './league-repository'
 
 // Matchups: notes for one champion into one lane opponent, plus history stats.
 
@@ -261,4 +262,49 @@ export function headToHead(games: Game[]) {
       them: avg((g) => stat.value(g.opponent!, g)),
     }
   })
+}
+
+const smite = 11
+const mostCommon = (positions: string[]) => {
+  const counts = new Map<string, number>()
+  for (const p of positions) if (p) counts.set(p, (counts.get(p) ?? 0) + 1)
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+}
+
+/**
+ * Riot's live game has no positions, so guess your lane and your lane opponent
+ * from your synced games: the lane you usually play this champion in, and the
+ * enemy whose champion most often plays that lane in games you've seen.
+ * Smite marks the jungler. Returns null opponent when there's nothing to go on.
+ */
+export function guessLaneOpponent(
+  championId: number,
+  enemies: LiveSeat[],
+  games: Game[],
+): { role: string | null; opponentId: number | null } {
+  const role =
+    mostCommon(
+      games.filter((g) => g.player.championId === championId).map((g) => g.player.teamPosition),
+    ) ?? mostCommon(games.map((g) => g.player.teamPosition))
+  if (!role || !enemies.length) return { role, opponentId: null }
+  const junglers = enemies.filter((e) => e.spells.includes(smite))
+  if (role === 'JUNGLE')
+    return { role, opponentId: junglers.length === 1 ? junglers[0].championId : null }
+  const laners = enemies.filter((e) => !e.spells.includes(smite))
+  const candidates = laners.length ? laners : enemies
+  const seen = new Map<number, { total: number; inRole: number }>()
+  for (const g of games)
+    for (const p of g.participants) {
+      const entry = seen.get(p.championId) ?? { total: 0, inRole: 0 }
+      entry.total++
+      if (p.teamPosition === role) entry.inRole++
+      seen.set(p.championId, entry)
+    }
+  const scored = candidates
+    .map((e) => {
+      const s = seen.get(e.championId) ?? { total: 0, inRole: 0 }
+      return { id: e.championId, inRole: s.inRole, share: s.inRole / (s.total || 1) }
+    })
+    .sort((a, b) => b.share - a.share || b.inRole - a.inRole)
+  return { role, opponentId: scored[0]?.inRole ? scored[0].id : null }
 }

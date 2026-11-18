@@ -14,6 +14,8 @@ import {
   ArrowLeftRight,
   ArrowRight,
   Check,
+  Radio,
+  RefreshCw,
   LoaderCircle,
   Plus,
   Swords,
@@ -23,14 +25,23 @@ import {
 import { Champion } from './LeagueParts'
 import '../matchups.css'
 import { Dialog } from './Dialog'
-import { leagueRepository, type LeagueRepository } from '../lib/league-repository'
-import { gamesFor, percent, remake, timeAgo, type Game, type LeagueProfile } from '../lib/league'
+import { leagueRepository, type LeagueRepository, type LiveGame } from '../lib/league-repository'
+import {
+  gamesFor,
+  percent,
+  queues,
+  remake,
+  timeAgo,
+  type Game,
+  type LeagueProfile,
+} from '../lib/league'
 import { championLabel } from '../lib/champions'
 import {
   championCatalogue,
   championOptions,
   cleanDraft,
   emptyDraft,
+  guessLaneOpponent,
   hasContent,
   laneAt,
   matchupGames,
@@ -227,8 +238,8 @@ export function ChampionPicker({
           autoFocus={autoFocus}
           placeholder="Type a champion"
           value={query}
-          onFocus={(e) => {
-            e.currentTarget.select()
+          onFocus={(e) => e.currentTarget.select()}
+          onClick={() => {
             setOpen(true)
             setActive(0)
           }}
@@ -277,9 +288,10 @@ export function MatchupsHome({
   league?: LeagueRepository
   repository?: MatchupRepository
 }) {
-  const { games, loading, error: gamesError } = useOwnGames(league)
+  const { games, profiles, loading, error: gamesError } = useOwnGames(league)
   const { notes, error } = useMatchups(repository)
   const { options, name } = useChampions(games)
+  const live = useLiveGame(league, profiles)
   const [mine, setMine] = useState<number | null>(null)
   const [theirs, setTheirs] = useState<number | null>(null)
   // Start from the champion you played last.
@@ -314,6 +326,34 @@ export function MatchupsHome({
         </div>
       </div>
       {(error || gamesError) && <div className="notice error">{error || gamesError}</div>}
+      {live.game ? (
+        <LiveGameCard
+          key={`${live.game.profileId}:${live.game.gameStartTime}:${live.game.championId}`}
+          game={live.game}
+          games={games}
+          notes={notes ?? []}
+          name={name}
+          checking={live.checking}
+          onCheck={live.check}
+        />
+      ) : (
+        league.liveGame &&
+        profiles.length > 0 && (
+          <p className="live-idle muted" role="status">
+            <Radio size={14} />
+            {live.checking
+              ? 'Checking for a live game…'
+              : live.error
+                ? `Couldn’t check for a live game: ${live.error}`
+                : 'Not in a game. Once you’re in one, your matchup shows up here.'}
+            {!live.checking && (
+              <button className="text-link" onClick={() => void live.check()}>
+                Check now
+              </button>
+            )}
+          </p>
+        )
+      )}
       <form
         className="league-card matchup-finder"
         onSubmit={(e) => {
@@ -339,7 +379,7 @@ export function MatchupsHome({
           value={theirs}
           options={options}
           onChange={setTheirs}
-          autoFocus
+          autoFocus={!live.game}
         />
         <button className="button" disabled={!mine || !theirs}>
           Open matchup
@@ -953,5 +993,151 @@ function MatchupEditor({
         </Dialog>
       )}
     </div>
+  )
+}
+
+type Live = Extract<LiveGame, { inGame: true }> & { profileId: string }
+
+// Checks every saved account for a game in progress: on opening the page, every
+// minute while it's visible, and when you come back to the tab.
+function useLiveGame(league: LeagueRepository, profiles: LeagueProfile[]) {
+  const [game, setGame] = useState<Live | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [error, setError] = useState('')
+  const alive = useRef(true)
+  const ids = profiles.map((p) => p.id).join(',')
+  const check = useCallback(async () => {
+    if (!league.liveGame || !ids) return
+    setChecking(true)
+    const results = await Promise.allSettled(
+      ids.split(',').map(async (id) => ({ id, game: await league.liveGame!(id) })),
+    )
+    if (!alive.current) return
+    const found = results.flatMap((r) =>
+      r.status === 'fulfilled' && r.value.game.inGame
+        ? [{ ...r.value.game, profileId: r.value.id }]
+        : [],
+    )[0]
+    const failed = results.find((r) => r.status === 'rejected')
+    setGame(found ?? null)
+    setError(
+      !found && failed?.status === 'rejected'
+        ? ((failed.reason as Error)?.message ?? 'Riot didn’t answer.')
+        : '',
+    )
+    setChecking(false)
+  }, [league, ids])
+  useEffect(() => {
+    alive.current = true
+    void check()
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void check()
+    }, 60000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void check()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      alive.current = false
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [check])
+  return { game, checking, error, check }
+}
+
+function LiveGameCard({
+  game,
+  games,
+  notes,
+  name,
+  checking,
+  onCheck,
+}: {
+  game: Live
+  games: Game[]
+  notes: MatchupNote[]
+  name: (id: number) => string
+  checking: boolean
+  onCheck: () => Promise<void>
+}) {
+  const guess = useMemo(
+    () => guessLaneOpponent(game.championId, game.enemies, games),
+    [game, games],
+  )
+  const [picked, setPicked] = useState<number | null>(guess.opponentId)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const noteFor = (id: number) =>
+    notes.find((n) => n.championId === game.championId && n.opponentId === id && hasContent(n))
+  const chosen = picked ?? guess.opponentId
+  const note = chosen ? noteFor(chosen) : undefined
+  const minutes = game.gameStartTime
+    ? Math.max(0, Math.floor((now - game.gameStartTime) / 60000))
+    : null
+  return (
+    <section className="league-card live-card" aria-label="Live game">
+      <div className="live-head">
+        <span className="live-dot" aria-hidden />
+        <strong>In game</strong>
+        <span className="muted">
+          {queues[game.queueId] || 'Custom game'} ·{' '}
+          {minutes === null ? 'loading in' : `${minutes} min`}
+        </span>
+        <button
+          className="icon-button"
+          onClick={() => void onCheck()}
+          disabled={checking}
+          aria-label="Check again"
+          title="Check again"
+        >
+          <RefreshCw size={14} className={checking ? 'spin' : ''} />
+        </button>
+      </div>
+      <div className="live-you">
+        <Champion id={game.championId} name={name(game.championId)} size={44} />
+        <span>
+          <span>
+            You’re playing <strong>{name(game.championId)}</strong>
+          </span>
+          <small className="muted">
+            {guess.opponentId
+              ? 'Your likely lane opponent is picked. Choose another if it’s wrong.'
+              : 'Who are you laning against?'}
+          </small>
+        </span>
+      </div>
+      <div className="live-enemies" role="radiogroup" aria-label="Lane opponent">
+        {game.enemies.map((e) => (
+          <button
+            key={e.championId}
+            role="radio"
+            aria-checked={chosen === e.championId}
+            className={`live-enemy ${chosen === e.championId ? 'selected' : ''}`}
+            onClick={() => setPicked(e.championId)}
+          >
+            <Champion id={e.championId} name={name(e.championId)} size={40} />
+            <span>{name(e.championId)}</span>
+            {guess.opponentId === e.championId && <small>Likely</small>}
+            {noteFor(e.championId) && <i className="live-noted" title="You have notes" />}
+          </button>
+        ))}
+      </div>
+      {note?.plan && (
+        <p className="live-plan">
+          <span>Game plan</span>
+          {note.plan}
+        </p>
+      )}
+      {chosen && (
+        <a className="button live-open" href={matchupPath(game.championId, chosen)}>
+          {note ? 'Read your notes' : 'Open matchup'}: {name(game.championId)} vs {name(chosen)}
+          <ArrowRight size={14} />
+        </a>
+      )}
+    </section>
   )
 }

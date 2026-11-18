@@ -918,3 +918,126 @@ rect.chart-hit:focus-visible {
     margin-left: 0;
   }
 }
+
+/* Live game */
+.live-idle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 12px;
+}
+.live-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border-color: var(--tip);
+}
+.live-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.live-head .icon-button {
+  margin-left: auto;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--threat);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--threat) 25%, transparent);
+}
+.live-you {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+}
+.live-you img {
+  border-radius: 8px;
+}
+.live-you > span {
+  display: grid;
+  gap: 3px;
+}
+.live-you small {
+  font-size: 12px;
+}
+.live-enemies {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.live-enemy {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  padding: 12px 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.live-enemy img {
+  border-radius: 8px;
+}
+.live-enemy span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-enemy small {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.live-enemy:hover {
+  border-color: var(--ink);
+}
+.live-enemy.selected {
+  border-color: var(--tip);
+  box-shadow: 0 0 0 1px var(--tip);
+}
+.live-noted {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tip);
+}
+.live-plan {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.live-plan span {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.live-open {
+  justify-self: start;
+}
+@media (max-width: 760px) {
+  .live-enemies {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

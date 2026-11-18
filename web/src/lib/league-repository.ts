@@ -34,7 +34,21 @@ export interface LeagueRepository {
     id: string,
     window?: { startTime: number; endTime: number },
   ): Promise<{ done: number; remaining: number }>
+  /** The game this account is playing right now, if any. */
+  liveGame?(id: string): Promise<LiveGame>
 }
+export type LiveSeat = { championId: number; spells: number[] }
+export type LiveGame =
+  | { inGame: false }
+  | {
+      inGame: true
+      queueId: number
+      /** Epoch ms; 0 while players are still loading in. */
+      gameStartTime: number
+      championId: number
+      allies: LiveSeat[]
+      enemies: LiveSeat[]
+    }
 export async function riotRequest<T>(body: object): Promise<T> {
   if (!supabase) throw new Error('Sign in to connect your League account.')
   const {
@@ -81,4 +95,5 @@ export const leagueRepository: LeagueRepository = {
   sync: (id, start, window) => riotRequest({ action: 'sync', profileId: id, start, ...window }),
   syncTimelines: (id, window) =>
     riotRequest({ action: 'sync-timelines', profileId: id, ...window }),
+  liveGame: (id) => riotRequest({ action: 'live-game', profileId: id }),
 }

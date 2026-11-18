@@ -3,6 +3,7 @@ import { gamesFor } from './league'
 import {
   cleanDraft,
   emptyDraft,
+  guessLaneOpponent,
   hasContent,
   headToHead,
   laneAt,
@@ -98,4 +99,21 @@ it('drops blank points and treats an empty note as no note', () => {
     tips: ['a'],
     plan: 'go',
   })
+})
+
+it('guesses your lane opponent in a live game from synced history', () => {
+  // Your history: Ahri mid. Zed has played mid in those games; Jinx bot.
+  const seen = gamesFor([match('EUW1_1'), match('EUW1_2'), match('EUW1_3')], 'me')
+  const enemies = [
+    { championId: 222, spells: [4, 7] }, // Jinx
+    { championId: 64, spells: [4, 11] }, // Lee Sin with Smite
+    { championId: 238, spells: [4, 14] }, // Zed
+  ]
+  expect(guessLaneOpponent(103, enemies, seen)).toEqual({ role: 'MIDDLE', opponentId: 238 })
+  // Playing jungle: the Smite holder.
+  const jungle = gamesFor([match('EUW1_4', { teamPosition: 'JUNGLE', championId: 64 })], 'me')
+  expect(guessLaneOpponent(64, enemies, jungle).opponentId).toBe(64)
+  // Nothing to go on: no guess.
+  expect(guessLaneOpponent(103, [{ championId: 1, spells: [4, 14] }], seen).opponentId).toBeNull()
+  expect(guessLaneOpponent(103, enemies, []).opponentId).toBeNull()
 })

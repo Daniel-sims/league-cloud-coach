@@ -164,6 +164,7 @@ export function createRiotHandler(deps: Dependencies) {
           "save-token",
           "remove-token",
           "review-timeline",
+          "live-game",
         ].includes(body.action)
       )
         throw new Failure(400, "Choose a League action.");
@@ -595,6 +596,55 @@ export function createRiotHandler(deps: Dependencies) {
       if (profileError || !loaded)
         throw new Failure(404, "League account unavailable.");
       let profile = loaded;
+      if (body.action === "live-game") {
+        // Is this account in a game right now? Only champions, teams and
+        // spells come back: no other player's puuid or Riot ID.
+        const spectate = () =>
+          riot(
+            profile.platform,
+            `/lol/spectator/v5/active-games/by-summoner/${encodeURIComponent(profile.puuid)}`,
+          );
+        let game;
+        try {
+          try {
+            game = await spectate();
+          } catch (error) {
+            if (!(error instanceof StalePuuid)) throw error;
+            await healProfile();
+            game = await spectate();
+          }
+        } catch (error) {
+          if (error instanceof Failure && error.status === 404)
+            return reply({ inGame: false });
+          throw error;
+        }
+        const people = Array.isArray(game?.participants)
+          ? game.participants
+          : [];
+        const me = people.find(
+          (p: { puuid?: unknown }) => p.puuid === profile.puuid,
+        );
+        const int = (value: unknown) =>
+          typeof value === "number" && Number.isInteger(value) ? value : 0;
+        if (!me || !int(me.championId))
+          throw new Failure(502, "Riot returned an incomplete live game.");
+        const seat = (p: Record<string, unknown>) => ({
+          championId: int(p.championId),
+          spells: [int(p.spell1Id), int(p.spell2Id)],
+        });
+        return reply({
+          inGame: true,
+          queueId: int(game.gameQueueConfigId),
+          gameStartTime: int(game.gameStartTime),
+          championId: int(me.championId),
+          allies: people
+            .filter((p: { teamId?: unknown }) => p.teamId === me.teamId)
+            .map(seat),
+          enemies: people
+            .filter((p: { teamId?: unknown }) => p.teamId !== me.teamId)
+            .map(seat),
+        });
+      }
       if (body.action === "review-timeline") {
         // One owner-initiated fetch per recording; guests then read the stored copy.
         if (

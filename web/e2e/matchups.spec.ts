@@ -85,6 +85,8 @@ async function setup(context: BrowserContext) {
             Zed: { key: '238', name: 'Zed' },
             Syndra: { key: '134', name: 'Syndra' },
             Sylas: { key: '517', name: 'Sylas' },
+            LeeSin: { key: '64', name: 'Lee Sin' },
+            Jinx: { key: '222', name: 'Jinx' },
             TwistedFate: { key: '4', name: 'Twisted Fate' },
           },
         },
@@ -111,7 +113,24 @@ async function setup(context: BrowserContext) {
       saved.splice(0, saved.length, result as Record<string, unknown>)
     }
     if (name === 'list_match_recordings') result = {}
-    if (name === 'riot') result = { ok: true }
+    if (name === 'riot')
+      result =
+        args.action === 'live-game'
+          ? {
+              inGame: true,
+              queueId: 420,
+              gameStartTime: Date.now() - 4 * 60000,
+              championId: 103,
+              allies: [{ championId: 103, spells: [4, 14] }],
+              enemies: [
+                { championId: 64, spells: [4, 11] },
+                { championId: 238, spells: [4, 14] },
+                { championId: 222, spells: [4, 7] },
+                { championId: 134, spells: [4, 12] },
+                { championId: 4, spells: [4, 3] },
+              ],
+            }
+          : { ok: true }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -128,6 +147,8 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
   await expect(page.getByRole('heading', { name: 'Matchups', exact: true })).toBeVisible()
   await expect(page.getByRole('combobox', { name: 'You' })).toHaveValue('Ahri')
   await expect(page.getByTitle('Ahri vs Zed')).toBeVisible()
+  await expect(page.getByText('In game')).toBeVisible()
+  await expect(page.getByRole('radio', { name: /Zed/ })).toHaveAttribute('aria-checked', 'true')
   if (shots) await page.screenshot({ path: `${shots}/matchups-home.png`, fullPage: true })
 
   await page.getByRole('combobox', { name: 'Lane opponent' }).fill('ze')

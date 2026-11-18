@@ -485,7 +485,9 @@ it("verifies a personal token before saving only encrypted data under the verifi
   expect(provider.mock.calls.at(-1)![1].headers["X-Riot-Token"]).toBe(token);
 });
 it("saves a replacement with a propagation warning when Riot hasn't accepted it yet", async () => {
-  provider.mockImplementation(async () => new Response("do-not-echo", { status: 403 }));
+  provider.mockImplementation(
+    async () => new Response("do-not-echo", { status: 403 }),
+  );
   const response = await request({
     action: "save-token",
     token: "RGAPI-" + "b".repeat(36),
@@ -516,7 +518,9 @@ it("removes only the verified owner token and never calls Riot for status or rem
 it("rides out short rate limits, 5xx blips and a new key's first rejections like the desktop client", async () => {
   provider
     .mockResolvedValueOnce(new Response("{}", { status: 403 }))
-    .mockResolvedValueOnce(new Response("{}", { status: 429, headers: { "Retry-After": "3" } }))
+    .mockResolvedValueOnce(
+      new Response("{}", { status: 429, headers: { "Retry-After": "3" } }),
+    )
     .mockResolvedValueOnce(new Response("{}", { status: 503 }));
   const response = await request({ action: "sync", profileId: id, start: 0 });
   expect(response.status).not.toBe(429);
@@ -525,10 +529,88 @@ it("rides out short rate limits, 5xx blips and a new key's first rejections like
 });
 it("hands a long rate-limit wait back with retryAfter instead of holding the worker", async () => {
   provider.mockImplementation(
-    async () => new Response("{}", { status: 429, headers: { "Retry-After": "90" } }),
+    async () =>
+      new Response("{}", { status: 429, headers: { "Retry-After": "90" } }),
   );
   const response = await request({ action: "sync", profileId: id, start: 0 });
   expect(response.status).toBe(429);
   expect(await response.json()).toMatchObject({ retryAfter: 90 });
   expect(provider).toHaveBeenCalledTimes(1);
+});
+it("reports a live game with only champions, teams and spells", async () => {
+  provider.mockImplementation(
+    async () =>
+      new Response(
+        JSON.stringify({
+          gameQueueConfigId: 420,
+          gameStartTime: 1700000000000,
+          participants: [
+            {
+              puuid: "verified-player",
+              teamId: 100,
+              championId: 103,
+              spell1Id: 4,
+              spell2Id: 14,
+              riotId: "Me#EUW",
+            },
+            {
+              puuid: "ally-puuid",
+              teamId: 100,
+              championId: 64,
+              spell1Id: 4,
+              spell2Id: 11,
+              riotId: "Ally#EUW",
+            },
+            {
+              puuid: "enemy-puuid",
+              teamId: 200,
+              championId: 238,
+              spell1Id: 4,
+              spell2Id: 14,
+              riotId: "Enemy#EUW",
+            },
+          ],
+        }),
+      ),
+  );
+  const response = await request({ action: "live-game", profileId: id });
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body).toEqual({
+    inGame: true,
+    queueId: 420,
+    gameStartTime: 1700000000000,
+    championId: 103,
+    allies: [
+      { championId: 103, spells: [4, 14] },
+      { championId: 64, spells: [4, 11] },
+    ],
+    enemies: [{ championId: 238, spells: [4, 14] }],
+  });
+  expect(JSON.stringify(body)).not.toMatch(/puuid|EUW/);
+  expect(provider.mock.calls[0][0]).toBe(
+    "https://euw1.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/verified-player",
+  );
+  // A live check never takes the sync lock.
+  expect(rpc).not.toHaveBeenCalledWith("claim_league_sync", expect.anything());
+});
+it("answers not in game when Riot has no live game, and rejects a game without the player", async () => {
+  provider.mockResolvedValueOnce(new Response("{}", { status: 404 }));
+  const response = await request({ action: "live-game", profileId: id });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ inGame: false });
+  provider.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        participants: [{ puuid: "someone", teamId: 100, championId: 1 }],
+      }),
+    ),
+  );
+  expect((await request({ action: "live-game", profileId: id })).status).toBe(
+    502,
+  );
+  available = false;
+  expect((await request({ action: "live-game", profileId: id })).status).toBe(
+    404,
+  );
 });
