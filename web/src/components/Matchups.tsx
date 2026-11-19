@@ -805,19 +805,21 @@ function MatchupReader({
           <Pencil size={14} /> Edit notes
         </button>
       </div>
-      {note.plan && (
-        <section className="matchup-plan-read" aria-label="Game plan">
-          <span>Game plan</span>
-          <p>{note.plan}</p>
-        </section>
-      )}
-      {lists > 0 && (
-        <div className={`matchup-columns ${lists === 1 ? 'single' : ''}`}>
-          {note.threats.length > 0 && (
-            <ReadList title="Watch out for" tone="threat" points={note.threats} />
+      {(note.plan || lists > 0) && (
+        <section className="matchup-section matchup-brief" aria-label="Game plan">
+          <h2>Game plan</h2>
+          {note.plan && <p className="matchup-brief-plan">{note.plan}</p>}
+          {lists > 0 && (
+            <div className={`matchup-columns ${lists === 1 ? 'single' : ''}`}>
+              {note.threats.length > 0 && (
+                <ReadList title="Watch out for" tone="threat" points={note.threats} />
+              )}
+              {note.tips.length > 0 && (
+                <ReadList title="How to win" tone="tip" points={note.tips} />
+              )}
+            </div>
           )}
-          {note.tips.length > 0 && <ReadList title="How to win" tone="tip" points={note.tips} />}
-        </div>
+        </section>
       )}
       {cooldowns}
       {note.runes && !isEmpty(note.runes) && (

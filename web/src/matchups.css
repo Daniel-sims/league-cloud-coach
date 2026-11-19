@@ -1027,24 +1027,18 @@ rect.chart-hit:focus-visible {
   align-items: center;
   gap: 6px;
 }
-.matchup-plan-read {
-  display: grid;
-  gap: 6px;
-  padding: 4px 0 4px 18px;
-  border-left: 3px solid var(--ink);
+/* Game plan card: the plan, then the two lists as nested cards. */
+.matchup-brief {
+  gap: 12px;
 }
-.matchup-plan-read > span {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.matchup-plan-read p {
-  margin: 0;
-  font-size: 24px;
+.matchup-brief-plan {
+  margin: 0 0 4px;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.3;
+}
+.matchup-brief .matchup-points {
+  background: var(--surface, #f9f8f4);
 }
 .matchup-columns.single {
   grid-template-columns: 1fr;
