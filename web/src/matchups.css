@@ -1037,7 +1037,8 @@ rect.chart-hit:focus-visible {
   font-weight: 600;
   line-height: 1.3;
 }
-.matchup-brief .matchup-points {
+.matchup-brief .matchup-points,
+.matchup-brief .matchup-notes-read {
   background: var(--surface, #f9f8f4);
 }
 .matchup-columns.single {

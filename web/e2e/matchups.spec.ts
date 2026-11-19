@@ -251,6 +251,9 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
     'aria-pressed',
     'true',
   )
+  await page
+    .getByRole('textbox', { name: 'Notes' })
+    .fill('Their jungler ganks mid at 3:15 from raptors.\nPing when he shoves and roams.')
   if (shots) {
     await page.screenshot({ path: `${shots}/matchup-edit.png`, fullPage: true })
     await page.screenshot({ path: `${shots}/matchup-edit-footer.png` })
@@ -264,6 +267,10 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
   await expect(page.getByRole('region', { name: 'Game plan' })).toHaveText(
     /Respect level 6: hold Charm for his W shadow/,
   )
+  // Free notes close the game plan card, under the two lists.
+  await expect(
+    page.getByRole('region', { name: 'Game plan' }).getByRole('region', { name: 'Notes' }),
+  ).toHaveText(/ganks mid at 3:15/)
   await expect(page.getByRole('textbox')).toHaveCount(0)
   await expect(page.getByRole('img', { name: 'Electrocute, chosen' })).toBeVisible()
   await page.getByRole('img', { name: 'Electrocute, chosen' }).hover()

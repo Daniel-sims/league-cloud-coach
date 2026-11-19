@@ -805,7 +805,7 @@ function MatchupReader({
           <Pencil size={14} /> Edit notes
         </button>
       </div>
-      {(note.plan || lists > 0) && (
+      {(note.plan || lists > 0 || text) && (
         <section className="matchup-section matchup-brief" aria-label="Game plan">
           <h2>Game plan</h2>
           {note.plan && <p className="matchup-brief-plan">{note.plan}</p>}
@@ -819,6 +819,12 @@ function MatchupReader({
               )}
             </div>
           )}
+          {text && (
+            <section className="matchup-section matchup-notes-read" aria-label="Notes">
+              <h2>Notes</h2>
+              <p>{text}</p>
+            </section>
+          )}
         </section>
       )}
       {cooldowns}
@@ -826,12 +832,6 @@ function MatchupReader({
         <section className="matchup-runes" aria-label="Runes">
           <h2>Runes</h2>
           <RunePageEditor value={note.runes} readOnly />
-        </section>
-      )}
-      {text && (
-        <section className="matchup-section matchup-notes-read" aria-label="Notes">
-          <h2>Notes</h2>
-          <p>{text}</p>
         </section>
       )}
       {note.updatedAt && (
