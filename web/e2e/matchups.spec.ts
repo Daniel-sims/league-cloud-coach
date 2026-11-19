@@ -251,7 +251,14 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
     'aria-pressed',
     'true',
   )
-  if (shots) await page.screenshot({ path: `${shots}/matchup-edit.png`, fullPage: true })
+  if (shots) {
+    await page.screenshot({ path: `${shots}/matchup-edit.png`, fullPage: true })
+    await page.screenshot({ path: `${shots}/matchup-edit-footer.png` })
+    await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'))
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: `${shots}/matchup-edit-footer-dark.png` })
+    await page.evaluate(() => delete document.documentElement.dataset.theme)
+  }
   await page.getByRole('button', { name: 'Save' }).click()
   // Saved notes read as a briefing: text and a read-only rune page.
   await expect(page.getByRole('region', { name: 'Game plan' })).toHaveText(
