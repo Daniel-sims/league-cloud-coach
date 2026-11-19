@@ -28,6 +28,43 @@ export type BarMarker = {
   icon?: LucideIcon
 }
 
+/** Your team's gold minus the enemy team's at a video time. */
+export type GoldPoint = { ms: number; lead: number }
+
+/** A team gold lead this large (either way) shows the strongest green or red. */
+const fullLead = 6000
+const evenRgb = [0x6e, 0x74, 0x6b]
+const aheadRgb = [0x3c, 0xc0, 0x5a]
+const behindRgb = [0xf0, 0x52, 0x48]
+/** The plain track (the bar's background with the track's tint) outside the game. */
+const outsideGame = '#373a36'
+
+/** Grey when even, greener the further ahead, redder the further behind. */
+export function leadColor(lead: number) {
+  const target = lead >= 0 ? aheadRgb : behindRgb
+  // Eased so a small early lead already shows a tint.
+  const t = Math.min(1, Math.abs(lead) / fullLead) ** 0.7
+  const [r, g, b] = evenRgb.map((c, i) => Math.round(c + (target[i] - c) * t))
+  return `rgb(${r} ${g} ${b})`
+}
+
+/** The lead at `ms`, interpolated between minute frames; null outside the game. */
+export function leadAt(points: GoldPoint[], ms: number): number | null {
+  if (points.length === 0 || ms < points[0].ms || ms > points.at(-1)!.ms) return null
+  const i = points.findIndex((p) => p.ms >= ms)
+  const after = points[i]
+  if (i === 0 || after.ms === ms) return after.lead
+  const before = points[i - 1]
+  return before.lead + ((after.lead - before.lead) * (ms - before.ms)) / (after.ms - before.ms)
+}
+
+export function formatLead(lead: number) {
+  const amount = Math.abs(Math.round(lead))
+  if (amount < 100) return 'Even gold'
+  const text = amount >= 1000 ? `${(amount / 1000).toFixed(1)}k` : String(amount)
+  return `${text} gold ${lead > 0 ? 'ahead' : 'behind'}`
+}
+
 /** The narrowest stretch of video the scrubber can zoom in to, in seconds. */
 const minSpan = 20
 /** Icons closer together than this many pixels hide behind the first one. */
@@ -78,6 +115,7 @@ export function PlayerBar({
   controller,
   timeLabel,
   markers,
+  gold,
   actions,
   expanded,
   onExpand,
@@ -85,6 +123,8 @@ export function PlayerBar({
   controller: PlayerController | null
   timeLabel(videoMs: number): string
   markers: BarMarker[]
+  /** Team gold lead per minute frame; colours the track when present. */
+  gold?: GoldPoint[]
   actions?: ReactNode
   /** Video + timeline filling the window (the review's cinema mode). */
   expanded: boolean
@@ -272,6 +312,22 @@ export function PlayerBar({
   }
   const peek = drag ?? hover
   const peekMarker = peek !== null && state.duration ? nearest(peek, 8) : undefined
+  // The gold lead paints the track: a stop per minute frame, blended between,
+  // with the plain track before and after the game.
+  const goldShown = Boolean(gold && gold.length > 1 && span)
+  let goldTrack: string | undefined
+  if (goldShown) {
+    const at = (ms: number) => `${(((ms / 1000 - viewStart) / span) * 100).toFixed(3)}%`
+    const first = gold![0]
+    const last = gold!.at(-1)!
+    goldTrack = `linear-gradient(to right, ${[
+      `${outsideGame} ${at(first.ms)}`,
+      ...gold!.map((point) => `${leadColor(point.lead)} ${at(point.ms)}`),
+      `${outsideGame} ${at(last.ms)}`,
+    ].join(', ')})`
+  }
+  const leadNow = gold ? leadAt(gold, shown * 1000) : null
+  const peekLead = gold && peek !== null ? leadAt(gold, peek * 1000) : null
 
   function scrubKey(event: KeyboardEvent) {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -315,7 +371,9 @@ export function PlayerBar({
           aria-valuemin={0}
           aria-valuemax={Math.round(state.duration)}
           aria-valuenow={Math.round(shown)}
-          aria-valuetext={`${timeLabel(shown * 1000)} of ${timeLabel(state.duration * 1000)}`}
+          aria-valuetext={`${timeLabel(shown * 1000)} of ${timeLabel(state.duration * 1000)}${
+            leadNow === null ? '' : `, ${formatLead(leadNow).toLowerCase()}`
+          }`}
           aria-keyshortcuts="+ - 0"
           onKeyDown={scrubKey}
           onPointerDown={(event) => {
@@ -347,7 +405,11 @@ export function PlayerBar({
           }}
           onPointerLeave={() => setHover(null)}
         >
-          <div className="bar-track" ref={track}>
+          <div
+            className={goldShown ? 'bar-track gold-lead' : 'bar-track'}
+            ref={track}
+            style={goldTrack ? { backgroundImage: goldTrack } : undefined}
+          >
             {state.buffered
               .filter(([start, end]) => end > viewStart && start < viewEnd)
               .map(([start, end], i) => (
@@ -360,7 +422,15 @@ export function PlayerBar({
                   }}
                 />
               ))}
-            {shown > viewStart && <span className="bar-played" style={{ width: percent(shown) }} />}
+            {/* Over the gold lead, played video is the full colour and the
+                rest is dimmed; otherwise played video fills in gold. */}
+            {goldShown
+              ? shown < viewEnd && (
+                  <span className="bar-unplayed" style={{ left: percent(shown) }} />
+                )
+              : shown > viewStart && (
+                  <span className="bar-played" style={{ width: percent(shown) }} />
+                )}
             {visible.map((marker) => {
               const Icon = iconed.has(marker.id) ? marker.icon : undefined
               return (
@@ -383,6 +453,13 @@ export function PlayerBar({
             <span className="bar-peek" style={{ left: percent(peek) }} aria-hidden="true">
               {timeLabel(peek * 1000)}
               {peekMarker && <small>{peekMarker.label}</small>}
+              {peekLead !== null && (
+                <small
+                  className={`bar-peek-gold ${peekLead >= 100 ? 'ahead' : peekLead <= -100 ? 'behind' : ''}`}
+                >
+                  {formatLead(peekLead)}
+                </small>
+              )}
             </span>
           )}
         </div>

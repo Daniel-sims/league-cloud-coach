@@ -179,6 +179,22 @@ export const gameTime = (a: ClockAnchor, videoSeconds: number) =>
 export const gameTimeMs = (a: ClockAnchor, videoMs: number) =>
   Math.max(0, Math.round(gameTime(a, videoMs / 1000) * 1000))
 
+/// The player's team's total gold minus the enemy team's at each per-minute
+/// frame (game ms). Empty when the player isn't among the participants.
+export function teamGoldLead(payload: ReviewPayload): { t: number; lead: number }[] {
+  const teams = new Map(payload.participants.map((p) => [p.id, p.teamId]))
+  const mine = teams.get(payload.playerId)
+  if (mine === undefined) return []
+  return payload.frames.map((frame) => {
+    let lead = 0
+    for (const [id, snap] of Object.entries(frame.snapshots)) {
+      const team = teams.get(Number(id))
+      if (team !== undefined) lead += team === mine ? snap.gold : -snap.gold
+    }
+    return { t: frame.t, lead }
+  })
+}
+
 /// Reads a game clock as typed from the in-game timer: `12:34`, `1:02:15`,
 /// `12:34.5` or bare seconds. Null for anything else.
 export function parseGameClock(text: string): number | null {

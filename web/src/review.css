@@ -1901,17 +1901,13 @@ body:has(.cinema-mode) .watch-main {
   cursor: default;
   opacity: 0.5;
 }
+/* A fixed height: the track doesn't grow under the pointer. */
 .bar-track {
   position: relative;
   flex: 1;
-  height: 5px;
+  height: 6px;
   border-radius: 3px;
   background: #ffffff26;
-  transition: height 0.1s;
-}
-.bar-scrubber:hover .bar-track,
-.bar-scrubber:focus-visible .bar-track {
-  height: 8px;
 }
 .bar-scrubber:focus-visible .bar-track {
   outline: 2px solid #b99b57;
@@ -1930,6 +1926,19 @@ body:has(.cinema-mode) .watch-main {
 }
 .bar-played {
   background: var(--gold, #c9a45c);
+}
+/* With a synced game the track is the team gold lead (see PlayerBar's
+   leadColor); what's still to play is dimmed, so the playhead still reads. */
+.bar-unplayed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  border-radius: 0 3px 3px 0;
+  background: #121512a6;
+}
+.bar-track.gold-lead .bar-buffered {
+  background: #ffffff1a;
 }
 .bar-marker {
   position: absolute;
@@ -1993,6 +2002,12 @@ body:has(.cinema-mode) .watch-main {
 .bar-peek small {
   color: var(--bar-dim);
   font-size: 11px;
+}
+.bar-peek .bar-peek-gold.ahead {
+  color: #6fdc86;
+}
+.bar-peek .bar-peek-gold.behind {
+  color: #ff8a80;
 }
 /* Transport left, the clock centred under the picture, tools right. */
 .bar-row {
@@ -2089,8 +2104,10 @@ body:has(.cinema-mode) .watch-main {
 .bar-zoom-level:hover {
   background: #ffffff1a;
 }
-/* Speed reads as plain text ("1×") until hovered, like the step buttons. */
-.bar-speed {
+/* Speed reads as plain text ("1×") until hovered, like the step buttons.
+   `.player-bar select` keeps it above the dark theme's `[data-theme='dark'] select`
+   fill, which otherwise gave it a lighter background than its neighbours. */
+.player-bar select.bar-speed {
   appearance: none;
   height: 32px;
   min-width: 34px;
@@ -2105,7 +2122,7 @@ body:has(.cinema-mode) .watch-main {
   text-align: center;
   cursor: pointer;
 }
-.bar-speed:hover:not(:disabled) {
+.player-bar select.bar-speed:hover:not(:disabled) {
   background: #ffffff1a;
 }
 .bar-speed:disabled {

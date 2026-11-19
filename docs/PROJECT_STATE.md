@@ -123,6 +123,19 @@ the visible stretch, by playing or seeking, the bar scrolls to it; panning while
 paused is left alone. A click (not a drag) within 6 px of a marker seeks exactly to
 it. The clock no longer says "game"/"video". Frontend only.
 
+## Gold lead on the scrubber
+
+With a game attached and the clock synced, the scrubber track is coloured by the
+team gold lead (your team's total gold minus the enemy's, `teamGoldLead` in
+`review-timeline.ts`): grey when even, greener ahead, redder behind, full colour at
+±6k (`leadColor` in `PlayerBar.tsx`), blended between minute frames. Before and
+after the game the track is plain. Played video shows the full colour and the rest
+is dimmed instead of the gold fill. Hovering adds the lead ("800 gold ahead") to
+the time tooltip, and the slider's `aria-valuetext` carries it. The track has a
+fixed 6 px height (it no longer grows on hover). The speed menu's selector is
+`.player-bar select.bar-speed` so the dark theme's `select` fill doesn't give it a
+lighter background than the other buttons. Frontend only.
+
 ## Bigger review video, comment-only flags, full screen = cinema
 
 The video column sits on the bottom edge level with the timeline (spare height

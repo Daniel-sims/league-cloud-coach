@@ -1559,7 +1559,21 @@ test('our control bar replaces the browser controls: one action per key, click a
   // Markers carry icons; the clock has no "game"/"video" suffix.
   await expect(bar.locator('.bar-marker .bar-icon svg').first()).toBeVisible()
   await expect(bar.locator('.bar-time')).not.toContainText(/game|video/)
+  // With the game synced, the track is the team gold lead, read out on hover
+  // and to screen readers; hovering doesn't resize it.
+  await expect(bar.locator('.bar-track')).toHaveClass(/gold-lead/)
+  await expect(scrubber).toHaveAttribute('aria-valuetext', /, 9\d\d gold ahead$/)
+  const leadTrack = (await bar.locator('.bar-track').boundingBox())!
+  await page.mouse.move(leadTrack.x + leadTrack.width * 0.3, leadTrack.y + leadTrack.height / 2)
+  await expect(bar.locator('.bar-peek-gold')).toHaveText(/^\d+ gold ahead$/)
+  expect((await bar.locator('.bar-track').boundingBox())!.height).toBe(leadTrack.height)
+  // In the dark theme the speed menu stays as plain as its neighbours.
+  await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'))
+  const fill = (name: string) =>
+    bar.getByLabel(name).evaluate((element) => getComputedStyle(element).backgroundColor)
+  expect(await fill('Playback speed')).toBe(await fill('Back 10 seconds'))
   await page.screenshot({ path: testInfo.outputPath('player-bar.png') })
+  await page.mouse.move(0, 0)
   // Zoom: buttons and wheel zoom the bar around the playhead, which stays in view.
   await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 900))
   await expect(bar.getByRole('button', { name: 'Zoom out' })).toBeDisabled()

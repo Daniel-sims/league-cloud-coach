@@ -53,7 +53,7 @@ import { ObjectivesDialog } from './LearningObjectives'
 import { DrawingCapture, CapturePreview } from './DrawingCapture'
 import { captureTabFrame } from '../lib/drawing'
 import { CaptureRow, CommentRow, EventRow, MomentRow, patchOf } from './TimelineRows'
-import { PlayerBar, type BarMarker } from './PlayerBar'
+import { PlayerBar, type BarMarker, type GoldPoint } from './PlayerBar'
 import { ReviewBoard } from './ReviewBoard'
 import type { PlayerController } from '../lib/player'
 import {
@@ -66,6 +66,7 @@ import {
   entryKinds,
   gameTimeMs,
   parseGameClock,
+  teamGoldLead,
   videoOffset,
   type ClockAnchor,
   type EntryKind,
@@ -506,6 +507,17 @@ export function VideoReview({
                 },
       ),
     [items],
+  )
+  // The scrubber's colour: the team gold lead, placed on the video by the clock sync.
+  const goldLead = useMemo<GoldPoint[] | undefined>(
+    () =>
+      review && anchor
+        ? teamGoldLead(review).map(({ t, lead }) => ({
+            ms: Math.round(videoOffset(anchor, t / 1000) * 1000),
+            lead,
+          }))
+        : undefined,
+    [review, anchor],
   )
   const eventComments = useMemo(() => {
     const grouped = new Map<string, ReviewComment[]>()
@@ -951,6 +963,7 @@ export function VideoReview({
               controller={controller}
               timeLabel={commentTime}
               markers={markers}
+              gold={goldLead}
               expanded={cinema}
               onExpand={() => {
                 if (!cinema) showPanel(true)

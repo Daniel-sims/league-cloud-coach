@@ -9,6 +9,7 @@ import {
   region,
   ultimateEntries,
   simpleEntries,
+  teamGoldLead,
   videoOffset,
   type ReviewPayload,
 } from './review-timeline'
@@ -27,6 +28,15 @@ it('reads the in-game clock as typed and maps it onto the video', () => {
   expect(gameTimeMs(anchor, 701_000)).toBe(601_000)
   expect(clock(3_735_000)).toBe('1:02:15')
   expect(clock(754_900)).toBe('12:34')
+})
+
+it("sums each team's gold per frame into the player's team lead", () => {
+  const payload = reviewPayload()
+  expect(teamGoldLead(payload).map((f) => f.lead)).toEqual([0, 20, 300, 600, 900, 1000])
+  expect(teamGoldLead(payload)[1].t).toBe(60023)
+  // Seen from the other side, the lead flips.
+  expect(teamGoldLead({ ...payload, playerId: 8 })[4].lead).toBe(-900)
+  expect(teamGoldLead({ ...payload, playerId: 99 })).toEqual([])
 })
 
 it('names map regions from Riot coordinates', () => {
