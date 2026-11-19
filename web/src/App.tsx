@@ -1211,9 +1211,7 @@ function Library({
           record={selected.record}
           repository={repository}
           onClose={() => setSelected(null)}
-          onRemoved={() =>
-            changed('Video removed from your library. The hosted original has been kept.')
-          }
+          onRemoved={(message) => changed(message)}
         />
       )}
     </>
@@ -1296,7 +1294,7 @@ function RecordingRow({
               onAction('remove')
             }}
           >
-            Remove from library
+            {record.provider === 'stream' ? 'Delete video' : 'Remove from library'}
           </button>
         </div>
       </details>
@@ -1853,15 +1851,22 @@ function RemoveDialog({
   record: Recording
   repository: LibraryRepository
   onClose(): void
-  onRemoved(): void
+  onRemoved(message: string): void
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const stream = record.provider === 'stream'
   async function remove() {
     setBusy(true)
     try {
-      await repository.remove(record.id)
-      onRemoved()
+      const { kept } = await repository.remove(record)
+      onRemoved(
+        !stream
+          ? 'Video removed from your library. The YouTube original has been kept.'
+          : kept
+            ? 'Video removed from your library. Another library still uses it, so Cloudflare kept it.'
+            : 'Video deleted from your library and Cloudflare.',
+      )
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -1870,18 +1875,15 @@ function RemoveDialog({
   }
   return (
     <Dialog
-      title="Remove from your library?"
+      title={stream ? 'Delete this video?' : 'Remove from your library?'}
       onClose={() => {
         if (!busy) onClose()
       }}
     >
       <p className="dialog-intro">
-        “{record.title}” will be removed and its app share links will stop working. The original
-        video stays on{' '}
-        {record.provider === 'stream'
-          ? 'Cloudflare Stream and continues to use paid storage'
-          : 'YouTube'}
-        .
+        {stream
+          ? `“${record.title}” will be deleted from Cloudflare Stream along with its review, and its share links will stop working. This can’t be undone.`
+          : `“${record.title}” will be removed and its app share links will stop working. The original video stays on YouTube.`}
       </p>
       {error && <ErrorNotice message={error} />}
       <div className="form-footer">
@@ -1889,7 +1891,13 @@ function RemoveDialog({
           Keep video
         </button>
         <button className="button danger" disabled={busy} onClick={remove}>
-          {busy ? 'Removing…' : 'Remove from library'}
+          {stream
+            ? busy
+              ? 'Deleting…'
+              : 'Delete video'
+            : busy
+              ? 'Removing…'
+              : 'Remove from library'}
         </button>
       </div>
     </Dialog>

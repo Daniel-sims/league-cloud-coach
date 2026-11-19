@@ -61,6 +61,11 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
         ...(state.uploadState === 'ready' ? { recordingId } : {}),
       }
     }
+    if (name === 'stream' && args.action === 'delete') {
+      state.rows = state.rows.filter((row) => row.id !== args.recordingId)
+      state.shared = false
+      result = { ok: true, kept: false }
+    }
     if (name === 'stream' && args.action === 'add') {
       state.rows.unshift({
         id: recordingId,

@@ -71,7 +71,8 @@ export interface LibraryRepository {
   list(): Promise<Recording[]>
   add(input: VideoInput): Promise<void>
   rename(id: string, title: string): Promise<void>
-  remove(id: string): Promise<void>
+  /** Stream recordings delete the Cloudflare video too; `kept` means another library still uses it. */
+  remove(record: Pick<Recording, 'id' | 'provider'>): Promise<{ kept: boolean }>
   share(id: string): Promise<string>
   revoke(id: string): Promise<void>
 }

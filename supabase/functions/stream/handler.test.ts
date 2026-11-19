@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createStreamHandler } from './handler'
 
@@ -143,6 +143,65 @@ it('stores verified owner identity, never a caller-supplied owner', async () => 
     p_title: 'Game',
     p_video_id: id,
     p_recorded_on: null,
+  })
+})
+describe('delete', () => {
+  const recording = { id: 'rec-1', provider: 'stream', stream_video_id: id }
+  function setup(options: { shared?: boolean; creator?: string; lookup?: number; remove?: number }) {
+    ownerRpc.mockImplementation(async (name: string) =>
+      name === 'list_recordings'
+        ? { data: [recording], error: null }
+        : name === 'remove_recording'
+          ? { data: null, error: null }
+          : { data: true, error: null },
+    )
+    rpc.mockResolvedValue({ data: options.shared ?? false, error: null })
+    provider.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === 'DELETE'
+        ? new Response(null, { status: options.remove ?? 200 })
+        : new Response(
+            JSON.stringify({ success: true, result: { uid: id, creator: options.creator } }),
+            { status: options.lookup ?? 200 },
+          ),
+    )
+  }
+  const del = () => request({ action: 'delete', recordingId: 'rec-1' }, 'valid-jwt')
+  const deletes = () => provider.mock.calls.filter(([, init]) => init?.method === 'DELETE')
+
+  it('deletes the owner’s Cloudflare video, then the library entry', async () => {
+    setup({ creator: 'owner-id' })
+    const response = await del()
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, kept: false })
+    expect(deletes()[0][0]).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/${'e'.repeat(32)}/stream/${id}`,
+    )
+    expect(rpc).toHaveBeenCalledWith('stream_video_shared', { p_owner: 'owner-id', p_video: id })
+    expect(ownerRpc).toHaveBeenCalledWith('remove_recording', { p_id: 'rec-1' })
+  })
+  it('keeps the library entry when Cloudflare refuses, so a retry can finish', async () => {
+    setup({ remove: 500 })
+    expect((await del()).status).toBe(502)
+    expect(ownerRpc).not.toHaveBeenCalledWith('remove_recording', expect.anything())
+  })
+  it('removes the entry when the video is already gone from Cloudflare', async () => {
+    setup({ lookup: 404 })
+    expect((await del()).status).toBe(200)
+    expect(deletes()).toHaveLength(0)
+    expect(ownerRpc).toHaveBeenCalledWith('remove_recording', { p_id: 'rec-1' })
+  })
+  it('keeps videos another owner uploaded or still uses', async () => {
+    setup({ creator: 'someone-else' })
+    expect(await (await del()).json()).toEqual({ ok: true, kept: true })
+    setup({ shared: true })
+    expect(await (await del()).json()).toEqual({ ok: true, kept: true })
+    expect(deletes()).toHaveLength(0)
+  })
+  it('never deletes for guests or signed-in non-owners', async () => {
+    expect((await request({ action: 'delete', recordingId: 'rec-1' })).status).toBe(401)
+    ownerRpc.mockResolvedValue({ data: false, error: null })
+    expect((await del()).status).toBe(403)
+    expect(provider).not.toHaveBeenCalled()
   })
 })
 it('returns safe provider failures without leaking API responses', async () => {

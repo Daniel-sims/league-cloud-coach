@@ -94,7 +94,9 @@ export function createStreamHandler(deps: Dependencies) {
         id = data[0].stream_video_id
         sessionExpires = data[0].session_expires_at
       } else if (
-        ['owner', 'thumbnail', 'add', 'upload-create', 'upload-status', 'upload-sync'].includes(body.action)
+        ['owner', 'thumbnail', 'add', 'delete', 'upload-create', 'upload-status', 'upload-sync'].includes(
+          body.action,
+        )
       ) {
         const jwt = request.headers.get('Authorization')?.replace(/^Bearer /, '')
         if (!jwt) throw new Failure(401, 'Sign in to manage your library.')
@@ -235,6 +237,46 @@ export function createStreamHandler(deps: Dependencies) {
         if (error || !record || record.provider !== 'stream')
           throw new Failure(404, 'Recording unavailable.')
         id = record.stream_video_id
+        if (body.action === 'delete') {
+          // Cloudflare first: if it fails the library entry stays, so a retry
+          // can finish the job instead of orphaning paid storage.
+          const { data: shared, error: sharedError } = await admin.rpc('stream_video_shared', {
+            p_owner: auth.user.id,
+            p_video: id,
+          })
+          if (sharedError || typeof shared !== 'boolean')
+            throw new Failure(503, 'Could not delete this video. Please try again.')
+          const deleteFailed = new Failure(
+            502,
+            'Cloudflare could not delete this video. It is still in your library; try again.',
+          )
+          const endpoint = `https://api.cloudflare.com/client/v4/accounts/${account}/stream/${id}`
+          const authorization = { Authorization: `Bearer ${apiToken}` }
+          const found = await deps.fetch(endpoint, {
+            headers: authorization,
+            signal: AbortSignal.timeout(15000),
+          })
+          // Another owner's upload, or a video another library still uses, stays.
+          let kept = false
+          if (found.ok) {
+            const video = (await found.json()).result
+            kept = shared || Boolean(video?.creator && video.creator !== auth.user.id)
+            if (!kept) {
+              const gone = await deps.fetch(endpoint, {
+                method: 'DELETE',
+                headers: authorization,
+                signal: AbortSignal.timeout(15000),
+              })
+              if (!gone.ok && gone.status !== 404) throw deleteFailed
+            }
+          } else if (found.status !== 404) throw deleteFailed
+          const { error: removeError } = await owner.rpc('remove_recording', {
+            p_id: body.recordingId,
+          })
+          if (removeError)
+            throw new Failure(503, 'Could not remove the library entry. Please try again.')
+          return reply({ ok: true, kept })
+        }
       } else throw new Failure(400, 'Unknown video action.')
       // Re-check privacy on every lease; a dashboard change must fail closed.
       const video = await cloudflare(id)

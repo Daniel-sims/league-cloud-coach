@@ -16,6 +16,6 @@ it('persists the local scratch library, prevents duplicates, and never pretends 
   await localRepository.rename(rows[0].id, 'Mid lane review')
   expect((await localRepository.list())[0].title).toBe('Mid lane review')
   await expect(localRepository.share(rows[0].id)).rejects.toThrow('Connect Supabase')
-  await localRepository.remove(rows[0].id)
+  await localRepository.remove(rows[0])
   expect(await localRepository.list()).toEqual([])
 })

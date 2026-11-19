@@ -48,7 +48,10 @@ export const cloudRepository: LibraryRepository = {
           p_recorded_on: input.recorded_on,
         }),
   rename: (id, title) => rpc('rename_recording', { p_id: id, p_title: title }),
-  remove: (id) => rpc('remove_recording', { p_id: id }),
+  remove: (record) =>
+    record.provider === 'stream'
+      ? streamRequest<{ kept: boolean }>('delete', { recordingId: record.id })
+      : rpc('remove_recording', { p_id: record.id }).then(() => ({ kept: false })),
   share: (id) => rpc<string>('create_recording_share', { p_id: id }),
   revoke: (id) => rpc('revoke_recording_share', { p_id: id }),
   guests: {

@@ -29,8 +29,9 @@ export const localRepository: LibraryRepository = {
   async rename(id, title) {
     write(read().map((r) => (r.id === id ? { ...r, title } : r)))
   },
-  async remove(id) {
+  async remove({ id }) {
     write(read().filter((r) => r.id !== id))
+    return { kept: false }
   },
   async share() {
     throw new Error(
