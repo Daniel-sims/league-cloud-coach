@@ -20,14 +20,16 @@ export function Cooldowns({ champion }: { champion: CooldownChampion }) {
   const ranks = Math.max(...data.abilities.map((a) => a.cooldowns.length))
   return (
     <section className="matchup-section cooldowns" aria-label="Cooldowns">
-      <h2>{champion.name}’s cooldowns</h2>
+      <h2>
+        {champion.name}’s cooldowns <small>seconds</small>
+      </h2>
       <table className="cooldown-table">
         <thead>
           <tr>
-            <th scope="col">Ability</th>
+            <th scope="col">Rank</th>
             {Array.from({ length: ranks }, (_, i) => (
-              <th key={i} scope="col">
-                Rank {i + 1}
+              <th key={i} scope="col" aria-label={`Rank ${i + 1}`}>
+                {i + 1}
               </th>
             ))}
           </tr>
@@ -36,7 +38,7 @@ export function Cooldowns({ champion }: { champion: CooldownChampion }) {
           {data.abilities.map((a) => (
             <tr key={a.key}>
               <th scope="row">
-                <img src={a.icon} alt="" width={24} height={24} loading="lazy" />
+                <img src={a.icon} alt="" width={20} height={20} loading="lazy" />
                 <b>{a.key}</b>
                 <span>
                   {a.name}
@@ -51,7 +53,7 @@ export function Cooldowns({ champion }: { champion: CooldownChampion }) {
               ) : (
                 Array.from({ length: ranks }, (_, i) => (
                   <td key={i}>
-                    {a.cooldowns[i] === undefined ? '' : `${formatSeconds(a.cooldowns[i])}s`}
+                    {a.cooldowns[i] === undefined ? '' : formatSeconds(a.cooldowns[i])}
                   </td>
                 ))
               )}

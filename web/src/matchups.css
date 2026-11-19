@@ -1136,18 +1136,28 @@ rect.chart-hit:focus-visible {
 }
 
 /* Cooldowns: a plain table of the lane opponent's cooldowns per rank. */
+.cooldowns h2 small {
+  margin-left: 4px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
 .cooldown-table {
-  width: 100%;
+  align-self: flex-start;
   border-collapse: collapse;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 .cooldown-table th,
 .cooldown-table td {
-  padding: 7px 10px;
+  min-width: 40px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--line);
   text-align: right;
   white-space: nowrap;
+}
+.cooldown-table td {
+  font-weight: 600;
 }
 .cooldown-table tr:last-child > * {
   border-bottom: 0;
@@ -1160,6 +1170,7 @@ rect.chart-hit:focus-visible {
 .cooldown-table th:first-child {
   text-align: left;
   padding-left: 0;
+  padding-right: 16px;
 }
 .cooldown-table tbody th {
   display: flex;
@@ -1181,11 +1192,13 @@ rect.chart-hit:focus-visible {
 }
 .cooldown-table td.muted {
   text-align: left;
+  font-weight: 400;
 }
-@media (max-width: 760px) {
+@media (max-width: 520px) {
   .cooldown-table th,
   .cooldown-table td {
-    padding: 7px 5px;
+    min-width: 0;
+    padding: 4px 6px;
   }
   .cooldown-table tbody th span {
     display: none;

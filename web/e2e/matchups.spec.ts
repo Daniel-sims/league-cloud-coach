@@ -266,12 +266,12 @@ test('pick a matchup, write notes, then read the lane stats', async ({ page }, t
 
   // Their cooldowns as a table: one row per ability, one column per rank.
   const cooldowns = page.getByRole('region', { name: 'Cooldowns' })
-  await expect(cooldowns.getByRole('heading', { name: 'Zed’s cooldowns' })).toBeVisible()
+  await expect(cooldowns.getByRole('heading', { name: /Zed’s cooldowns/ })).toBeVisible()
   await expect(cooldowns.getByRole('row', { name: /W Living Shadow/ })).toHaveText(
-    /20s\s*19s\s*18s\s*17s\s*16s/,
+    /20\s*19\s*18\s*17\s*16$/,
   )
   await expect(cooldowns.getByRole('row', { name: /R Death Mark/ })).toHaveText(
-    /120s\s*110s\s*100s/,
+    /120\s*110\s*100$/,
   )
   if (shots) {
     await cooldowns.scrollIntoViewIfNeeded()
