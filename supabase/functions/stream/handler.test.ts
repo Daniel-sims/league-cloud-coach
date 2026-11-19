@@ -180,7 +180,7 @@ describe('delete', () => {
     expect(ownerRpc).toHaveBeenCalledWith('remove_recording', { p_id: 'rec-1' })
   })
   it('keeps the library entry when Cloudflare refuses, so a retry can finish', async () => {
-    setup({ remove: 500 })
+    setup({ creator: 'owner-id', remove: 500 })
     expect((await del()).status).toBe(502)
     expect(ownerRpc).not.toHaveBeenCalledWith('remove_recording', expect.anything())
   })
@@ -190,10 +190,12 @@ describe('delete', () => {
     expect(deletes()).toHaveLength(0)
     expect(ownerRpc).toHaveBeenCalledWith('remove_recording', { p_id: 'rec-1' })
   })
-  it('keeps videos another owner uploaded or still uses', async () => {
+  it('keeps videos added by ID, uploaded by another owner, or still used elsewhere', async () => {
+    setup({})
+    expect(await (await del()).json()).toEqual({ ok: true, kept: true })
     setup({ creator: 'someone-else' })
     expect(await (await del()).json()).toEqual({ ok: true, kept: true })
-    setup({ shared: true })
+    setup({ creator: 'owner-id', shared: true })
     expect(await (await del()).json()).toEqual({ ok: true, kept: true })
     expect(deletes()).toHaveLength(0)
   })

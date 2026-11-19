@@ -1864,7 +1864,7 @@ function RemoveDialog({
         !stream
           ? 'Video removed from your library. The YouTube original has been kept.'
           : kept
-            ? 'Video removed from your library. Another library still uses it, so Cloudflare kept it.'
+            ? 'Video removed from your library. Cloudflare kept it because it wasn’t uploaded from this account or another library still uses it.'
             : 'Video deleted from your library and Cloudflare.',
       )
     } catch (e) {

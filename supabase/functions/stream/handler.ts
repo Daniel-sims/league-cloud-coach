@@ -256,11 +256,13 @@ export function createStreamHandler(deps: Dependencies) {
             headers: authorization,
             signal: AbortSignal.timeout(15000),
           })
-          // Another owner's upload, or a video another library still uses, stays.
+          // Fail closed: only this owner's own uploads are deleted. Videos added
+          // by ID (no creator), other owners' uploads, or ones another library
+          // still uses stay on Cloudflare.
           let kept = false
           if (found.ok) {
             const video = (await found.json()).result
-            kept = shared || Boolean(video?.creator && video.creator !== auth.user.id)
+            kept = shared || video?.creator !== auth.user.id
             if (!kept) {
               const gone = await deps.fetch(endpoint, {
                 method: 'DELETE',
