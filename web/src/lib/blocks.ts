@@ -1,5 +1,5 @@
 import { rpc } from './supabase'
-import { remake, type Game } from './league'
+import { cs, remake, type Game, type Participant } from './league'
 
 // A compact copy of the game as played, so the block still reads right if the match cache changes.
 export interface BlockMatch {
@@ -16,6 +16,26 @@ export interface BlockMatch {
   queueId: number
   gameCreation: number
   gameDuration: number
+  // Richer detail, added for the game cards. Older snapshots lack it and are filled in live.
+  gameVersion?: string
+  role?: string
+  champLevel?: number
+  cs?: number
+  gold?: number
+  damage?: number
+  vision?: number
+  teamKills?: number
+  items?: number[]
+  allies?: BlockPlayer[]
+  enemies?: BlockPlayer[]
+}
+
+export interface BlockPlayer {
+  championId: number
+  championName: string
+  role: string
+  you?: boolean
+  lane?: boolean
 }
 
 export interface BlockGame {
@@ -24,6 +44,13 @@ export interface BlockGame {
   notes: string
   match?: BlockMatch
 }
+
+const teamPlayer = (p: Participant, extra: Partial<BlockPlayer> = {}): BlockPlayer => ({
+  championId: p.championId,
+  championName: p.championName,
+  role: p.teamPosition,
+  ...extra,
+})
 
 export const matchSnapshot = (game: Game, profileId: string): BlockMatch => ({
   matchId: game.id,
@@ -39,6 +66,27 @@ export const matchSnapshot = (game: Game, profileId: string): BlockMatch => ({
   queueId: game.queueId,
   gameCreation: game.gameCreation,
   gameDuration: game.gameDuration,
+  gameVersion: game.gameVersion,
+  role: game.player.teamPosition,
+  champLevel: game.player.champLevel,
+  cs: cs(game.player),
+  gold: game.player.goldEarned,
+  damage: game.player.totalDamageDealtToChampions,
+  vision: game.player.visionScore,
+  teamKills: game.allies.reduce((n, p) => n + p.kills, 0),
+  items: [
+    game.player.item0,
+    game.player.item1,
+    game.player.item2,
+    game.player.item3,
+    game.player.item4,
+    game.player.item5,
+    game.player.item6,
+  ],
+  allies: game.allies.map((p) => teamPlayer(p, p === game.player ? { you: true } : {})),
+  enemies: game.participants
+    .filter((p) => p.teamId !== game.player.teamId)
+    .map((p) => teamPlayer(p, p === game.opponent ? { lane: true } : {})),
 })
 
 export interface Block {

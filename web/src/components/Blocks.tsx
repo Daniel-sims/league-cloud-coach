@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, LoaderCircle, Plus, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, LoaderCircle, Play, Plus, Trash2, X } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { AddGameDialog } from './AddGameDialog'
 import { Champion } from './LeagueParts'
+import { ItemBuild } from './Loadout'
 import { leagueRepository, type LeagueRepository } from '../lib/league-repository'
-import { duration, queues, timeAgo } from '../lib/league'
+import { duration, gamesFor, kda, number, queues, roleNames, timeAgo } from '../lib/league'
 import {
   blockRepository,
   cleanDraft,
   matchSnapshot,
+  type BlockGame,
   type BlockMatch,
   type Block,
   type BlockDraft,
+  type BlockPlayer,
   type BlockRepository,
 } from '../lib/blocks'
 import { championLabel } from '../lib/champions'
@@ -40,6 +43,45 @@ function useBlocks(repository: BlockRepository) {
     }
   }, [repository])
   return { blocks, error }
+}
+
+// Games added before the cards showed detail only stored a summary; fill the rest in from the
+// match cache for display. Nothing here is saved back.
+function useGameDetails(games: BlockGame[], league: LeagueRepository) {
+  const [details, setDetails] = useState<Record<string, BlockMatch>>({})
+  const [recordings, setRecordings] = useState<Record<string, string>>({})
+  const needed = [
+    ...new Set(games.flatMap((g) => (g.match && !g.match.allies ? [g.match.profileId] : []))),
+  ].join(',')
+  useEffect(() => {
+    let active = true
+    league
+      .matchRecordings?.()
+      .then((map) => active && setRecordings(map ?? {}))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [league])
+  useEffect(() => {
+    if (!needed) return
+    let active = true
+    ;(async () => {
+      const profiles = await league.profiles()
+      const found: Record<string, BlockMatch> = {}
+      for (const id of needed.split(',')) {
+        const profile = profiles.find((p) => p.id === id)
+        if (!profile) continue
+        for (const game of gamesFor(await league.matches(id), profile.puuid))
+          found[game.id] = matchSnapshot(game, id)
+      }
+      if (active) setDetails((old) => ({ ...old, ...found }))
+    })().catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [league, needed])
+  return { details, recordings }
 }
 
 export function BlockList({ repository = blockRepository }: { repository?: BlockRepository }) {
@@ -92,6 +134,27 @@ export function BlockList({ repository = blockRepository }: { repository?: Block
                   {block.carryForward.length} {block.carryForward.length === 1 ? 'point' : 'points'}{' '}
                   to carry forward · {dateLabel(block.createdAt)}
                 </span>
+                {block.games.some((g) => g.match) && (
+                  <span className="block-card-games">
+                    {block.games.flatMap((g) =>
+                      g.match
+                        ? [
+                            <span
+                              key={g.id}
+                              className={g.match.remake ? 'remake' : g.match.win ? 'win' : 'loss'}
+                              title={`${championLabel(g.match.championName)} · ${g.match.remake ? 'Remake' : g.match.win ? 'Victory' : 'Defeat'}`}
+                            >
+                              <Champion
+                                id={g.match.championId}
+                                name={championLabel(g.match.championName)}
+                                size={26}
+                              />
+                            </span>,
+                          ]
+                        : [],
+                    )}
+                  </span>
+                )}
                 <ArrowRight size={16} />
               </a>
             </li>
@@ -209,6 +272,7 @@ function BlockEditor({
     }
   }, [flush])
 
+  const { details, recordings } = useGameDetails(draft.games, league)
   const setGame = (gameId: string, patch: Partial<{ title: string; notes: string }>) =>
     edit({
       ...draft,
@@ -288,10 +352,25 @@ function BlockEditor({
 
       {draft.games.map((game, index) => (
         <div className="block-section block-game" key={game.id}>
-          <div className="block-game-head">
-            {game.match ? (
-              <MatchSummary match={game.match} />
-            ) : (
+          {game.match ? (
+            <MatchSummary
+              match={details[game.match.matchId] ?? game.match}
+              recordingId={recordings[game.match.matchId]}
+              remove={
+                <button
+                  className="icon-button"
+                  aria-label={`Remove game ${index + 1}`}
+                  title="Remove game"
+                  onClick={() =>
+                    edit({ ...draft, games: draft.games.filter((g) => g.id !== game.id) })
+                  }
+                >
+                  <X size={16} />
+                </button>
+              }
+            />
+          ) : (
+            <div className="block-game-head">
               <input
                 value={game.title}
                 maxLength={80}
@@ -300,20 +379,22 @@ function BlockEditor({
                 onChange={(e) => setGame(game.id, { title: e.target.value })}
                 onBlur={() => void flush()}
               />
-            )}
-            <button
-              className="icon-button"
-              aria-label={`Remove game ${index + 1}`}
-              title="Remove game"
-              onClick={() => edit({ ...draft, games: draft.games.filter((g) => g.id !== game.id) })}
-            >
-              <X size={16} />
-            </button>
-          </div>
+              <button
+                className="icon-button"
+                aria-label={`Remove game ${index + 1}`}
+                title="Remove game"
+                onClick={() =>
+                  edit({ ...draft, games: draft.games.filter((g) => g.id !== game.id) })
+                }
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           <textarea
             value={game.notes}
             maxLength={20000}
-            rows={6}
+            rows={5}
             placeholder="How did it go? What did you notice, and what would you do differently?"
             aria-label={`Game ${index + 1} notes`}
             onChange={(e) => setGame(game.id, { notes: e.target.value })}
@@ -409,24 +490,138 @@ function BlockEditor({
   )
 }
 
-function MatchSummary({ match: m }: { match: BlockMatch }) {
+const compact = (n: number) => (n >= 1000 ? `${number(n / 1000, 1)}k` : String(n))
+
+function Roster({ players, side }: { players: BlockPlayer[]; side: 'ally' | 'enemy' }) {
+  return (
+    <ul
+      className={`block-roster ${side}`}
+      aria-label={side === 'ally' ? 'Your team' : 'Enemy team'}
+    >
+      {players.map((p, i) => (
+        <li
+          key={i}
+          className={p.you ? 'you' : p.lane ? 'lane' : undefined}
+          title={`${championLabel(p.championName)}${roleNames[p.role] ? ` · ${roleNames[p.role]}` : ''}`}
+        >
+          <Champion id={p.championId} name={championLabel(p.championName)} size={26} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function MatchSummary({
+  match: m,
+  recordingId,
+  remove,
+}: {
+  match: BlockMatch
+  recordingId?: string
+  remove: React.ReactNode
+}) {
   const outcome = m.remake ? 'Remake' : m.win ? 'Victory' : 'Defeat'
+  const minutes = Math.max(m.gameDuration / 60, 1)
+  const me = championLabel(m.championName)
+  const stats: [string, string][] = [
+    ['KDA', kda(m)],
+    ...(m.cs !== undefined
+      ? ([['CS', `${m.cs} · ${number(m.cs / minutes)}/m`]] as [string, string][])
+      : []),
+    ...(m.gold !== undefined ? ([['Gold', compact(m.gold)]] as [string, string][]) : []),
+    ...(m.damage !== undefined ? ([['Damage', compact(m.damage)]] as [string, string][]) : []),
+    ...(m.vision !== undefined ? ([['Vision', String(m.vision)]] as [string, string][]) : []),
+    ...(m.teamKills
+      ? ([['Kill part.', `${Math.round(((m.kills + m.assists) / m.teamKills) * 100)}%`]] as [
+          string,
+          string,
+        ][])
+      : []),
+  ]
   return (
     <div className={`block-match ${m.remake ? 'remake' : m.win ? 'win' : 'loss'}`}>
-      <Champion id={m.championId} name={championLabel(m.championName)} size={40} />
-      <span className="pick-main">
-        <strong>
-          {championLabel(m.championName)}
-          {m.opponentName ? ` vs ${championLabel(m.opponentName)}` : ''}
-        </strong>
-        <small>
-          {outcome} · {queues[m.queueId] || `Queue ${m.queueId}`} · {duration(m.gameDuration)} ·{' '}
+      <div className="block-match-top">
+        <span className="block-result">{outcome}</span>
+        <span className="block-match-meta">
+          {queues[m.queueId] || `Queue ${m.queueId}`} · {duration(m.gameDuration)} ·{' '}
           {timeAgo(m.gameCreation)}
-        </small>
-      </span>
-      <span className="pick-kda">
-        {m.kills} / {m.deaths} / {m.assists}
-      </span>
+        </span>
+        <span className="block-match-actions">
+          {recordingId ? (
+            <a className="block-vod" href={`#/video/${recordingId}`}>
+              <Play size={12} /> Watch VOD
+            </a>
+          ) : (
+            <span className="block-no-vod">No VOD</span>
+          )}
+          {remove}
+        </span>
+      </div>
+      <div className="block-matchup">
+        <div className="block-side">
+          <span className="block-portrait">
+            <Champion id={m.championId} name={me} size={52} />
+            {m.champLevel ? <b>{m.champLevel}</b> : null}
+          </span>
+          <span className="pick-main">
+            <strong>{me}</strong>
+            <small>{roleNames[m.role ?? ''] ?? 'You'}</small>
+          </span>
+        </div>
+        {m.opponentName && (
+          <>
+            <span className="block-vs">vs</span>
+            <div className="block-side">
+              {m.enemies?.some((p) => p.lane) && (
+                <span className="block-portrait">
+                  <Champion
+                    id={m.enemies.find((p) => p.lane)?.championId ?? 0}
+                    name={championLabel(m.opponentName)}
+                    size={52}
+                  />
+                </span>
+              )}
+              <span className="pick-main">
+                <strong>{championLabel(m.opponentName)}</strong>
+                <small>Lane opponent</small>
+              </span>
+            </div>
+          </>
+        )}
+        <span className="block-kda">
+          {m.kills} / <b>{m.deaths}</b> / {m.assists}
+        </span>
+      </div>
+      {m.allies && m.enemies && (
+        <div className="block-teams">
+          <Roster players={m.allies} side="ally" />
+          <span className="block-vs">vs</span>
+          <Roster players={m.enemies} side="enemy" />
+        </div>
+      )}
+      <dl className="block-stats">
+        {stats.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {m.items?.some(Boolean) && m.gameVersion && (
+        <ItemBuild
+          player={{
+            item0: m.items[0],
+            item1: m.items[1],
+            item2: m.items[2],
+            item3: m.items[3],
+            item4: m.items[4],
+            item5: m.items[5],
+            item6: m.items[6],
+          }}
+          version={m.gameVersion}
+          size={26}
+        />
+      )}
     </div>
   )
 }

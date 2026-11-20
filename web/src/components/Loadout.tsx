@@ -119,7 +119,7 @@ export function ItemBuild({
   version,
   size = 22,
 }: {
-  player: Participant
+  player: Pick<Participant, 'item0' | 'item1' | 'item2' | 'item3' | 'item4' | 'item5' | 'item6'>
   version: string
   size?: number
 }) {
