@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react'
 import { playbackSpeeds, type PlayerController } from '../lib/player'
-import { jumpSeconds } from './SeekControls'
+import { jumpSeconds, rapidStep } from './SeekControls'
 
 export type BarMarker = {
   id: string
@@ -332,7 +332,7 @@ export function PlayerBar({
   function scrubKey(event: KeyboardEvent) {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault()
-      seekTo(state.time + (event.key === 'ArrowLeft' ? -1 : 1) * jumpSeconds(event))
+      seekTo(state.time + rapidStep((event.key === 'ArrowLeft' ? -1 : 1) * jumpSeconds(event)))
     } else if (event.key === 'Home') {
       event.preventDefault()
       seekTo(0)

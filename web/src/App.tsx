@@ -1508,6 +1508,19 @@ function ShareDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  // Cloud recordings can only be shared once the game clock is synced.
+  const [synced, setSynced] = useState<boolean | null>(local ? true : null)
+  useEffect(() => {
+    if (local) return
+    let alive = true
+    ownerReview(record.id)
+      .load()
+      .then((data) => alive && setSynced(Boolean(data?.anchor)))
+      .catch(() => alive && setSynced(false))
+    return () => {
+      alive = false
+    }
+  }, [local, record.id])
   async function create() {
     setBusy(true)
     setError('')
@@ -1554,75 +1567,99 @@ function ShareDialog({
         Share “{record.title}”. Give each person their own link and their comments and notes arrive
         under their name.
       </p>
-      <div className="share-illustration">
-        <span>
-          <Film size={23} />
-        </span>
-        <i />
-        <Link2 size={20} />
-        <i />
-        <span>
-          <Play size={23} />
-        </span>
-      </div>
-      {local ? (
-        <>
-          <div className="notice">
-            This is a local preview. Cloud watch pages need Supabase. You can share the original
-            YouTube video now.
+      {synced !== true ? (
+        synced === null ? (
+          <div className="loading-state" role="status">
+            <LoaderCircle className="spin" size={18} />
+            Checking the game clock…
           </div>
-          <label className="form-label" htmlFor="share-link">
-            YouTube link
-          </label>
-          <input
-            id="share-link"
-            readOnly
-            value={youtubeURL(record.youtube_video_id ?? '')}
-            onFocus={(e) => e.target.select()}
-          />
-          <button className="button share-primary" onClick={copy}>
-            {copied ? <Check size={16} /> : <Copy size={16} />}
-            {copied ? 'Copied YouTube link' : 'Copy YouTube link'}
-          </button>
-        </>
+        ) : (
+          <div className="notice" role="alert">
+            Sync the game clock before sharing this video, so your coach’s events jump to the right
+            moment.{' '}
+            <a className="text-link" href={`#/video/${record.id}`} onClick={onClose}>
+              Open the recording to sync
+            </a>
+          </div>
+        )
       ) : (
         <>
-          {repository.guests && <GuestLinks record={record} repository={repository} />}
-          <details className="anyone-link" open={!repository.guests}>
-            <summary>Link without a name</summary>
-            {link ? (
-              <>
-                <label className="form-label" htmlFor="share-link">
-                  Your watch link
-                </label>
-                <div className="copy-field">
-                  <input id="share-link" readOnly value={link} onFocus={(e) => e.target.select()} />
-                  <button className="button" onClick={copy}>
-                    {copied ? <Check size={16} /> : <Copy size={16} />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <p className="field-hint">
-                  Save this link now. For privacy, it’s shown only when created.
-                </p>
-                <a className="text-link" href={link} target="_blank" rel="noopener noreferrer">
-                  Open watch page <ExternalLink size={13} />
-                </a>
-              </>
-            ) : (
-              <>
-                <p>
-                  {active
-                    ? 'This video already has a shared watch page. Creating a replacement disables the previous app link.'
-                    : 'Create a watch page that anyone with the link can open.'}
-                </p>
-                <button className="button share-primary" onClick={create} disabled={busy}>
-                  {busy ? <LoaderCircle className="spin" size={16} /> : <Link2 size={16} />}
-                  {active ? 'Replace existing share link' : 'Create share link'}
-                </button>
-              </>
-            )}
-          </details>
+          <div className="share-illustration">
+            <span>
+              <Film size={23} />
+            </span>
+            <i />
+            <Link2 size={20} />
+            <i />
+            <span>
+              <Play size={23} />
+            </span>
+          </div>
+          {local ? (
+            <>
+              <div className="notice">
+                This is a local preview. Cloud watch pages need Supabase. You can share the original
+                YouTube video now.
+              </div>
+              <label className="form-label" htmlFor="share-link">
+                YouTube link
+              </label>
+              <input
+                id="share-link"
+                readOnly
+                value={youtubeURL(record.youtube_video_id ?? '')}
+                onFocus={(e) => e.target.select()}
+              />
+              <button className="button share-primary" onClick={copy}>
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+                {copied ? 'Copied YouTube link' : 'Copy YouTube link'}
+              </button>
+            </>
+          ) : (
+            <>
+              {repository.guests && <GuestLinks record={record} repository={repository} />}
+              <details className="anyone-link" open={!repository.guests}>
+                <summary>Link without a name</summary>
+                {link ? (
+                  <>
+                    <label className="form-label" htmlFor="share-link">
+                      Your watch link
+                    </label>
+                    <div className="copy-field">
+                      <input
+                        id="share-link"
+                        readOnly
+                        value={link}
+                        onFocus={(e) => e.target.select()}
+                      />
+                      <button className="button" onClick={copy}>
+                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                        {copied ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="field-hint">
+                      Save this link now. For privacy, it’s shown only when created.
+                    </p>
+                    <a className="text-link" href={link} target="_blank" rel="noopener noreferrer">
+                      Open watch page <ExternalLink size={13} />
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      {active
+                        ? 'This video already has a shared watch page. Creating a replacement disables the previous app link.'
+                        : 'Create a watch page that anyone with the link can open.'}
+                    </p>
+                    <button className="button share-primary" onClick={create} disabled={busy}>
+                      {busy ? <LoaderCircle className="spin" size={16} /> : <Link2 size={16} />}
+                      {active ? 'Replace existing share link' : 'Create share link'}
+                    </button>
+                  </>
+                )}
+              </details>
+            </>
+          )}
         </>
       )}
       {error && <ErrorNotice message={error} />}
@@ -1917,6 +1954,16 @@ function OwnVideo({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [share, setShare] = useState(false)
+  // Sharing needs the game clock synced so the coach's events jump to the right frame.
+  const [synced, setSynced] = useState<boolean | null>(null)
+  const [syncRequest, setSyncRequest] = useState(0)
+  const [wantsShare, setWantsShare] = useState(false)
+  useEffect(() => {
+    if (wantsShare && synced) {
+      setWantsShare(false)
+      setShare(true)
+    }
+  }, [wantsShare, synced])
   const review = useMemo(() => (local ? null : ownerReview(id)), [id, local])
   const notebook = useReviewNotebook(review)
   useEffect(() => {
@@ -1963,12 +2010,31 @@ function OwnVideo({
             {back}
             <h1 className="sr-only">{record.title}</h1>
             <div className="video-actions">
-              <button className="button button-small" onClick={() => setShare(true)}>
+              <button
+                className="button button-small"
+                onClick={() => {
+                  if (local || synced) setShare(true)
+                  else {
+                    setWantsShare(true)
+                    setSyncRequest((n) => n + 1)
+                  }
+                }}
+              >
                 <Link2 size={15} />
                 Share video
               </button>
             </div>
           </div>
+          {wantsShare && !synced && (
+            <div className="notice" role="status">
+              Sync the game clock before sharing, so your coach’s events jump to the right moment.
+              Pause on a frame where the in-game timer is readable, type it, then save. Sharing
+              opens right after.
+              <button className="text-link" onClick={() => setWantsShare(false)}>
+                Cancel
+              </button>
+            </div>
+          )}
           {local ? (
             <Player videoId={record.youtube_video_id!} title={record.title} />
           ) : (
@@ -1977,6 +2043,8 @@ function OwnVideo({
               notebook={notebook}
               league={leagueRepository}
               recordedOn={record.recorded_on}
+              syncRequest={syncRequest}
+              onSyncState={setSynced}
               renderPlayer={(onController) =>
                 record.provider === 'stream' ? (
                   <StreamPlayer

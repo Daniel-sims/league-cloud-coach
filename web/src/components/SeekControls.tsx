@@ -6,6 +6,25 @@ export const jumpSeconds = ({ ctrlKey, shiftKey }: Modifiers) => (ctrlKey ? 30 :
 export const seekPosition = (position: number, delta: number, duration: number) =>
   Math.max(0, Math.min(duration, position + delta))
 
+// Quick repeat presses of an arrow key step 2s instead of 1s: the first press
+// is 1s, each follow-up within this window (same direction) is 2s.
+const rapidWindowMs = 600
+let lastArrow = { at: -Infinity, sign: 0 }
+export const resetRapidStep = () => {
+  lastArrow = { at: -Infinity, sign: 0 }
+}
+/** A plain arrow press's seek, widened to 2s when it follows another quickly. */
+export function rapidStep(delta: number, now = performance.now()): number {
+  if (Math.abs(delta) !== 1) {
+    lastArrow = { at: -Infinity, sign: 0 }
+    return delta
+  }
+  const sign = Math.sign(delta)
+  const rapid = lastArrow.sign === sign && now - lastArrow.at <= rapidWindowMs
+  lastArrow = { at: now, sign }
+  return rapid ? sign * 2 : delta
+}
+
 // Typing targets keep every key.
 const editing = 'input, textarea, select, [contenteditable], [role="textbox"], [role="combobox"]'
 // Widgets that use the arrow keys themselves.
@@ -72,7 +91,7 @@ export function useSeekKeys(
         if (latest.current.changeSpeed?.(action === 'faster' ? 1 : -1)) claim(event)
         return
       }
-      if (latest.current.seek(action)) claim(event)
+      if (latest.current.seek(rapidStep(action))) claim(event)
     }
     const onKeyUp = (event: KeyboardEvent) => {
       // A focused button would otherwise click on Space's key-up.

@@ -159,11 +159,17 @@ export function VideoReview({
   recordedOn,
   notebook,
   renderPlayer,
+  syncRequest = 0,
+  onSyncState,
 }: {
   repository: ReviewRepository
   league?: LeagueRepository
   recordedOn?: string | null
   notebook?: ReviewNotebookModel
+  /** Bumped by the page to ask the owner to sync (or attach a game first). */
+  syncRequest?: number
+  /** Whether the game clock is synced; null until the review has loaded. */
+  onSyncState?(synced: boolean | null): void
   renderPlayer(onController: (controller: PlayerController | null) => void): ReactNode
 }) {
   const [cinema, setCinema] = useState(false)
@@ -233,6 +239,9 @@ export function VideoReview({
   const [editing, setEditing] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<number | null>(null)
   const [pendingSeek, setPendingSeek] = useState<{ ms: number; leadMs: number } | null>(null)
+  useEffect(() => {
+    onSyncState?.(data ? Boolean(data.anchor) : null)
+  }, [data, onSyncState])
   const [attaching, setAttaching] = useState(false)
   const [drawingFrame, setDrawingFrame] = useState<{ image: string; videoMs: number } | null>(null)
   const [boardOpen, setBoardOpen] = useState(false)
@@ -406,6 +415,26 @@ export function VideoReview({
 
   const review = data?.review ?? null
   const anchor = data?.anchor ?? null
+  // The page asked for a sync (sharing needs one): attach a game first when
+  // there isn't one, then open the clock panel on the current frame.
+  const handledSync = useRef(0)
+  useEffect(() => {
+    if (syncRequest <= handledSync.current || !owner || !data || !repository.setAnchor) return
+    if (data.anchor) {
+      handledSync.current = syncRequest
+      return
+    }
+    if (!data.review) {
+      if (!repository.attachMatch) return
+      handledSync.current = syncRequest
+      setAttaching(true)
+      return
+    }
+    if (!controller) return
+    handledSync.current = syncRequest
+    showPanel(true)
+    setSyncing(Math.max(0, controller.currentTime()))
+  }, [syncRequest, owner, data, controller, repository])
   const [simple, setSimple] = useState(() => stored(detailStorage) === 'simple')
   const chooseDetail = (value: 'detailed' | 'simple') => {
     setSimple(value === 'simple')

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
 import { StreamPlayer } from './StreamPlayer'
+import { rapidStep, resetRapidStep } from './SeekControls'
 import { streamRequest, StreamAccessError } from '../lib/supabase'
 vi.mock('../lib/supabase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/supabase')>()
@@ -32,6 +33,7 @@ vi.mock('hls.js', () => ({
   },
 }))
 beforeEach(() => {
+  resetRapidStep()
   vi.useFakeTimers()
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
@@ -337,4 +339,15 @@ it('resyncs sound and picture with one seek in place once a speed change settles
   expect(seeks).toHaveBeenCalledExactlyOnceWith(42)
   fireEvent.playing(media)
   expect(seeks).toHaveBeenCalledOnce()
+})
+
+it('steps 2s on quick repeat arrow presses, 1s for the first or after a pause', () => {
+  resetRapidStep()
+  expect(rapidStep(1, 0)).toBe(1)
+  expect(rapidStep(1, 200)).toBe(2)
+  expect(rapidStep(1, 400)).toBe(2)
+  expect(rapidStep(-1, 600)).toBe(-1)
+  expect(rapidStep(-1, 800)).toBe(-2)
+  expect(rapidStep(-1, 2000)).toBe(-1)
+  expect(rapidStep(10, 2100)).toBe(10)
 })
