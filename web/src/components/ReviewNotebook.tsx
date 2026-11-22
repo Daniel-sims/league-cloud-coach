@@ -245,7 +245,6 @@ export function NotebookActions({ notebook }: { notebook: ReviewNotebookModel })
   if (!notebook.supported) return null
   // Icon buttons for the timeline card's header: open the notes, and complete
   // the review (which opens the notes and its confirm dialog).
-  const empty = !notebook.body.trim()
   return (
     <>
       <button
@@ -259,9 +258,9 @@ export function NotebookActions({ notebook }: { notebook: ReviewNotebookModel })
       <button
         className="icon-button"
         onClick={notebook.finish}
-        disabled={!notebook.ready || empty || notebook.completing}
+        disabled={!notebook.ready || notebook.completing}
         aria-label="Complete review"
-        title={empty ? 'Write some notes to complete your review' : 'Complete review'}
+        title="Complete review"
       >
         <CheckCircle2 size={15} />
       </button>
@@ -398,7 +397,7 @@ export function ReviewNotebook({
         <button
           className="button notebook-complete"
           onClick={notebook.finish}
-          disabled={!notebook.ready || !notebook.body.trim() || notebook.completing}
+          disabled={!notebook.ready || notebook.completing}
         >
           <CheckCircle2 size={15} />
           Complete review
@@ -466,6 +465,7 @@ export function CompleteReview({
     if (!notebook.finishing) setStep('notes')
   }, [notebook.finishing])
   if (!notebook.finishing) return null
+  const noNotes = !notebook.body.trim()
   if (step === 'objectives' && objectives)
     return (
       <ObjectivesDialog
@@ -488,11 +488,12 @@ export function CompleteReview({
       }}
     >
       <p className="dialog-intro">
-        Polish your running notes below. Completing shares this finished review with the player and
-        anyone with a watch link to this video.
+        {noNotes
+          ? 'You haven’t written any notes for this review. Add some below, or continue without them.'
+          : 'Polish your running notes below. Completing shares this finished review with the player and anyone with a watch link to this video.'}
         {objectives && ' Next, you’ll update the learning objectives.'}
       </p>
-      {notebook.role === 'coach' && !notebook.named && (
+      {notebook.role === 'coach' && !notebook.named && !noNotes && (
         <label className="notebook-field">
           Your name
           <input
@@ -525,18 +526,22 @@ export function CompleteReview({
         <button
           className="button"
           onClick={async () => {
-            if (!(await notebook.complete())) return
+            // Nothing to publish without notes: go straight on.
+            if (!noNotes && !(await notebook.complete())) return
             if (objectives) setStep('objectives')
             else notebook.setFinishing(false)
           }}
           disabled={
             !notebook.ready ||
-            !notebook.body.trim() ||
-            (notebook.role === 'coach' && !notebook.author.trim()) ||
+            (!noNotes && notebook.role === 'coach' && !notebook.author.trim()) ||
             notebook.completing
           }
         >
-          {notebook.completing ? 'Completing…' : 'Complete review'}
+          {notebook.completing
+            ? 'Completing…'
+            : noNotes
+              ? 'Continue without notes'
+              : 'Complete review'}
         </button>
       </div>
     </Dialog>

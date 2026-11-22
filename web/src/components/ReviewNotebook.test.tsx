@@ -152,3 +152,18 @@ it('keeps a coach name typed while the notes are reloading', async () => {
   await new Promise((r) => setTimeout(r, 0))
   expect(screen.getByLabelText('Your name')).toHaveValue('Coach Sam')
 })
+
+it('lets a review be completed without notes: it prompts, publishes nothing and moves on', async () => {
+  const save = vi.fn(async (input: NotesInput) => saved(input))
+  harness(save)
+  const input = await screen.findByLabelText('Running notes')
+  await waitFor(() => expect(input).toBeEnabled())
+  const complete = screen.getAllByRole('button', { name: 'Complete review' })[0]
+  expect(complete).toBeEnabled()
+  await userEvent.click(complete)
+  const dialog = screen.getByRole('dialog', { name: 'Complete review' })
+  expect(dialog).toHaveTextContent('You haven’t written any notes')
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Continue without notes' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(save).not.toHaveBeenCalled()
+})
