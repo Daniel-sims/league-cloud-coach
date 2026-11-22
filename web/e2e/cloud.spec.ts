@@ -27,6 +27,8 @@ type Fixture = {
   }[]
   member: boolean
   shared: boolean
+  /** The recording's game clock isn't synced, so sharing is blocked. */
+  unsynced?: boolean
   uploadState?: 'uploading' | 'processing' | 'ready'
   thumbnailRequests?: number
 }
@@ -146,6 +148,14 @@ async function mockBackend(context: BrowserContext, state: Fixture) {
               },
             ]
           : []
+    if (name === 'get_recording_review' || name === 'get_recording_review_since')
+      result = {
+        matchId: null,
+        review: null,
+        syncedAt: null,
+        anchor: state.unsynced ? null : { gameTimeSeconds: 60, videoOffsetSeconds: 30 },
+        comments: [],
+      }
     if (name === 'rename_recording') state.rows[0].title = args.p_title
     if (name === 'remove_recording') {
       state.rows = []
@@ -644,4 +654,18 @@ test('library restores metadata and image bytes before a slow refresh and clears
       }),
     )
     .toBe(0)
+})
+
+test('sharing is blocked until the game clock is synced', async ({ page }) => {
+  const state: Fixture = { rows: [], member: true, shared: false, unsynced: true }
+  await mockBackend(page.context(), state)
+  await setOwnerSession(page.context())
+  await page.goto('/#/library')
+  await page.getByRole('button', { name: 'Add existing video' }).click()
+  await page.getByLabel('YouTube link', { exact: true }).fill('https://youtu.be/aqz-KE-bpKQ')
+  await page.getByLabel('Title', { exact: true }).fill('Unsynced game')
+  await page.getByRole('dialog').getByRole('button', { name: 'Add video', exact: true }).click()
+  await page.getByRole('button', { name: 'Share', exact: true }).click()
+  await expect(page.getByText(/Sync the game clock before sharing/)).toBeVisible()
+  await expect(page.getByLabel('Who is this link for?')).toHaveCount(0)
 })
